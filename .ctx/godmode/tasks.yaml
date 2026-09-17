@@ -40,21 +40,25 @@ tasks:
     completed_at: 2026-09-17T00:00:00Z
   - id: t6
     title: Reproduce canonical hash and integrity vectors
-    status: running
+    status: done
     depends_on:
       - t5
-    notes: ""
+    notes: Added strict ContentHash parsing, domain-separated framing, EvaluationId, and all four fixed BLAKE3 vectors.
     crate_name: rulery-contracts
+    commit: d22938b
+    completed: 2026-09-17
     run: cargo nextest run -p rulery-contracts canonical_hash_vectors_match_specification
     started_at: 2026-09-17T11:07:48.154638Z
+    completed_at: 2026-09-17T11:13:06.365595Z
   - id: t7
     title: Define lock contracts
-    status: pending
+    status: running
     depends_on:
       - t6
     notes: ""
     crate_name: rulery-contracts
     run: cargo nextest run -p rulery-contracts lock_envelope_requires_sorted_complete_payload
+    started_at: 2026-09-17T11:14:19.236377Z
   - id: t8
     title: Implement diagnostic codes and the 40-code registry
     status: pending

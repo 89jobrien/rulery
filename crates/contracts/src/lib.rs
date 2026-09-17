@@ -4,6 +4,7 @@
 
 mod hash;
 mod ids;
+mod lock;
 mod outcome;
 mod scalar;
 mod source;
@@ -15,6 +16,9 @@ pub use ids::{
     ActionId, DecisionId, EscalationId, FactRootId, FactSegment, FactSegmentError, PackageId,
     PredicateId, QualifiedRuleId, QualifiedRuleIdError, ReasonCode, RuleId, ScenarioId, SourceId,
     StableId, StableIdError, TypeId,
+};
+pub use lock::{
+    LockError, LockedImport, LockedRoot, RulebookLock, RulebookLockEnvelope, RulebookLockV1,
 };
 pub use outcome::{
     Action, ActionInvocation, ActionParameter, Outcome, OutcomeError, OutcomeKind, OutcomeTemplate,
