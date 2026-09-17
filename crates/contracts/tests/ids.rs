@@ -3,8 +3,10 @@
 use std::str::FromStr;
 
 use rulery_contracts::{
-    ActionId, DecisionId, EscalationId, FactRootId, PackageId, PredicateId, QualifiedRuleId,
-    ReasonCode, RuleId, ScenarioId, SourceId, StableId, TypeId,
+    ActionId, DecisionId, EscalationId, FactPath, FactRootId, LanguageVersion,
+    NormalizedSourceLocation, PackageId, PackagePath, PredicateId, QualifiedRuleId, ReasonCode,
+    RuleId, ScenarioId, SourceId, SourcePath, StableId, TypeId, UnresolvedFactPath, Version,
+    VersionRequirement,
 };
 
 #[test]
@@ -66,4 +68,31 @@ fn stable_ids_enforce_wire_grammar() {
         serde_json::to_string(&qualified).expect("serialize qualified ID"),
         "\"community::rule\""
     );
+}
+
+#[test]
+fn fact_paths_and_locations_reject_invalid_segments() {
+    let path = FactPath::from_str("member.training.valid-until").expect("valid fact path");
+    assert_eq!(path.len(), 3);
+    assert_eq!(path.to_string(), "member.training.valid-until");
+    for invalid in ["", ".member", "member.", "member..status"] {
+        assert!(FactPath::from_str(invalid).is_err());
+        assert!(UnresolvedFactPath::from_str(invalid).is_err());
+    }
+
+    assert!(SourcePath::new("rules/checkout.yaml").is_ok());
+    for invalid in ["", "/absolute", ".", "..", "rules/../secret", "rules\\file"] {
+        assert!(SourcePath::new(invalid).is_err(), "accepted {invalid}");
+        assert!(NormalizedSourceLocation::new(invalid).is_err());
+    }
+
+    assert!(PackagePath::new("").is_err());
+    assert!(PackagePath::new("examples/tool-library").is_ok());
+    assert!(Version::new("0.1.0").is_ok());
+    assert!(Version::new("v0.1.0").is_err());
+    assert!(VersionRequirement::new("^0.1").is_ok());
+    assert!(VersionRequirement::new("not a version").is_err());
+    assert!(LanguageVersion::new(1).is_ok());
+    assert!(LanguageVersion::new(0).is_err());
+    assert!(LanguageVersion::new(2).is_err());
 }

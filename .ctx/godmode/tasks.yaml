@@ -480,19 +480,23 @@ tasks:
     run: cargo nextest run -p xtask verify_runs_exact_fail_fast_gate_order
   - id: t61
     title: Validate stable and typed IDs
-    status: running
+    status: done
     depends_on:
       - t5
-    notes: ""
+    notes: Validated stable IDs, typed wrappers, fact segments, and qualified rule wire format.
     crate_name: rulery-contracts
+    commit: 69764bf
+    completed: 2026-09-17
     started_at: 2026-09-17T10:28:40.245379Z
+    completed_at: 2026-09-17T10:38:41.270938Z
   - id: t62
     title: Validate fact paths and boundary strings
-    status: pending
+    status: running
     depends_on:
       - t61
     notes: ""
     crate_name: rulery-contracts
+    started_at: 2026-09-17T10:39:42.146159Z
   - id: t63
     title: Implement exact decimal and temporal scalars
     status: pending

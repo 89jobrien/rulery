@@ -9,6 +9,7 @@ description = "Stable shared contracts for Rulery."
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+semver = "1.0"
 thiserror = "2.0"
 
 [dev-dependencies]
