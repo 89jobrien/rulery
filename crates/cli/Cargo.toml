@@ -1,0 +1,18 @@
+[package]
+name = "rulery-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Command-line interface for Rulery."
+
+[[bin]]
+name = "rulery"
+path = "src/main.rs"
+
+[dependencies]
+rulery = { version = "0.1.0", path = "../.." }
+
+[lints]
+workspace = true

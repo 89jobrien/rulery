@@ -1,6 +1,62 @@
-[package]
-name = "rulery"
+[workspace]
+members = ["crates/*", "xtask"]
+resolver = "3"
+
+[workspace.package]
 version = "0.1.0"
 edition = "2024"
+rust-version = "1.85"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/89jobrien/rulery"
+
+[workspace.dependencies]
+rulery-contracts = { version = "0.1.0", path = "crates/contracts" }
+rulery-diagnostics = { version = "0.1.0", path = "crates/diagnostics" }
+rulery-syntax = { version = "0.1.0", path = "crates/syntax" }
+rulery-vocabulary = { version = "0.1.0", path = "crates/vocabulary" }
+rulery-ir = { version = "0.1.0", path = "crates/ir" }
+rulery-compiler = { version = "0.1.0", path = "crates/compiler" }
+rulery-engine = { version = "0.1.0", path = "crates/engine" }
+rulery-analysis = { version = "0.1.0", path = "crates/analysis" }
+rulery-scenarios = { version = "0.1.0", path = "crates/scenarios" }
+rulery-emit = { version = "0.1.0", path = "crates/emit" }
+rulery-store = { version = "0.1.0", path = "crates/store" }
+rulery-macros = { version = "0.1.0", path = "crates/macros" }
+
+[workspace.lints.rust]
+missing_docs = "warn"
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+
+[package]
+name = "rulery"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Local-first compiler and evaluator for operational rules."
+
+[features]
+default = []
+macros = ["dep:rulery-macros"]
 
 [dependencies]
+rulery-analysis.workspace = true
+rulery-compiler.workspace = true
+rulery-contracts.workspace = true
+rulery-diagnostics.workspace = true
+rulery-emit.workspace = true
+rulery-engine.workspace = true
+rulery-ir.workspace = true
+rulery-macros = { workspace = true, optional = true }
+rulery-scenarios.workspace = true
+rulery-store.workspace = true
+rulery-syntax.workspace = true
+rulery-vocabulary.workspace = true
+
+[lints]
+workspace = true

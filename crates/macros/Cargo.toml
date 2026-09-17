@@ -1,0 +1,16 @@
+[package]
+name = "rulery-macros"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Procedural macros for Rulery."
+
+[lib]
+proc-macro = true
+
+[dependencies]
+
+[lints]
+workspace = true
