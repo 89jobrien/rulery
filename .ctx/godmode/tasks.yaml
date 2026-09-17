@@ -502,19 +502,23 @@ tasks:
     completed_at: 2026-09-17T10:44:20.779517Z
   - id: t63
     title: Implement exact decimal and temporal scalars
-    status: running
+    status: done
     depends_on:
       - t62
-    notes: ""
+    notes: Added canonical decimal, date, instant, duration, timezone identity, and temporal ports.
     crate_name: rulery-contracts
+    commit: 81b0453
+    completed: 2026-09-17
     started_at: 2026-09-17T10:47:07.091034Z
+    completed_at: 2026-09-17T10:52:42.740721Z
   - id: t64
     title: Enforce source map and span invariants
-    status: pending
+    status: running
     depends_on:
       - t63
     notes: ""
     crate_name: rulery-contracts
+    started_at: 2026-09-17T10:53:09.873723Z
   - id: t65
     title: Model values facts actions and outcomes
     status: pending

@@ -1,11 +1,281 @@
 //! Validated source and package boundary values.
 
-use std::{fmt, path::Path, path::PathBuf, str::FromStr};
+use std::{
+    collections::{BTreeMap, btree_map::Entry},
+    fmt,
+    path::Path,
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+};
 
 use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as _};
 use thiserror::Error;
 
-use crate::{FactSegment, FactSegmentError};
+use crate::{FactSegment, FactSegmentError, SourceId};
+
+/// Compact identity of a source file inside a source map.
+#[derive(Clone, Copy, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+pub struct SourceKey(u32);
+
+impl SourceKey {
+    /// Creates a source key.
+    #[must_use]
+    pub const fn new(value: u32) -> Self {
+        Self(value)
+    }
+
+    /// Returns the numeric source key.
+    #[must_use]
+    pub const fn get(self) -> u32 {
+        self.0
+    }
+}
+
+/// Half-open UTF-8 byte span in a source file.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct Span {
+    source: SourceKey,
+    start: u32,
+    end: u32,
+}
+
+impl Span {
+    /// Returns the source key.
+    #[must_use]
+    pub const fn source(self) -> SourceKey {
+        self.source
+    }
+
+    /// Returns the inclusive start byte.
+    #[must_use]
+    pub const fn start(self) -> u32 {
+        self.start
+    }
+
+    /// Returns the exclusive end byte.
+    #[must_use]
+    pub const fn end(self) -> u32 {
+        self.end
+    }
+}
+
+/// Source file content and stable identity.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceFile {
+    id: SourceId,
+    path: SourcePath,
+    content: Arc<str>,
+}
+
+impl SourceFile {
+    /// Creates a source file from validated identity and path values.
+    #[must_use]
+    pub fn new(id: SourceId, path: SourcePath, content: Arc<str>) -> Self {
+        Self { id, path, content }
+    }
+
+    /// Returns the source path.
+    #[must_use]
+    pub fn path(&self) -> &SourcePath {
+        &self.path
+    }
+
+    /// Returns the source text.
+    #[must_use]
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+}
+
+/// Collection of source files keyed for compact spans.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct SourceMap {
+    entries: BTreeMap<SourceKey, SourceFile>,
+}
+
+impl SourceMap {
+    /// Creates an empty source map.
+    #[must_use]
+    pub const fn new() -> Self {
+        Self {
+            entries: BTreeMap::new(),
+        }
+    }
+
+    /// Inserts a source file under a unique key.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BoundaryError`] when the key already exists.
+    pub fn insert(&mut self, key: SourceKey, file: SourceFile) -> Result<(), BoundaryError> {
+        match self.entries.entry(key) {
+            Entry::Vacant(entry) => {
+                entry.insert(file);
+                Ok(())
+            }
+            Entry::Occupied(_) => Err(BoundaryError::new("source key", key.get().to_string())),
+        }
+    }
+
+    /// Creates a validated half-open span.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BoundaryError`] for unknown keys, reversed bounds, out-of-range offsets, or
+    /// offsets that split a UTF-8 code point.
+    pub fn span(&self, source: SourceKey, start: u32, end: u32) -> Result<Span, BoundaryError> {
+        let file = self
+            .entries
+            .get(&source)
+            .ok_or_else(|| BoundaryError::new("source key", source.get().to_string()))?;
+        let start_index = usize::try_from(start)
+            .map_err(|_| BoundaryError::new("span start", start.to_string()))?;
+        let end_index =
+            usize::try_from(end).map_err(|_| BoundaryError::new("span end", end.to_string()))?;
+        if start > end
+            || end_index > file.content.len()
+            || !file.content.is_char_boundary(start_index)
+            || !file.content.is_char_boundary(end_index)
+        {
+            return Err(BoundaryError::new("source span", format!("{start}..{end}")));
+        }
+        Ok(Span { source, start, end })
+    }
+
+    /// Resolves a byte offset to a one-based line and Unicode-scalar column.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BoundaryError`] for an unknown source or invalid UTF-8 boundary.
+    pub fn line_column(&self, source: SourceKey, offset: u32) -> Result<(u32, u32), BoundaryError> {
+        let file = self
+            .entries
+            .get(&source)
+            .ok_or_else(|| BoundaryError::new("source key", source.get().to_string()))?;
+        let offset = usize::try_from(offset)
+            .map_err(|_| BoundaryError::new("source offset", offset.to_string()))?;
+        if offset > file.content.len() || !file.content.is_char_boundary(offset) {
+            return Err(BoundaryError::new("source offset", offset.to_string()));
+        }
+        let prefix = &file.content[..offset];
+        let line = u32::try_from(prefix.bytes().filter(|byte| *byte == b'\n').count() + 1)
+            .map_err(|_| BoundaryError::new("line", offset.to_string()))?;
+        let column = u32::try_from(
+            prefix
+                .rsplit('\n')
+                .next()
+                .map_or(0, |line| line.chars().count())
+                + 1,
+        )
+        .map_err(|_| BoundaryError::new("column", offset.to_string()))?;
+        Ok((line, column))
+    }
+}
+
+/// Raw source document before source-key assignment.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceDocument {
+    path: SourcePath,
+    content: Arc<str>,
+}
+
+impl SourceDocument {
+    /// Creates a raw source document.
+    #[must_use]
+    pub fn new(path: SourcePath, content: Arc<str>) -> Self {
+        Self { path, content }
+    }
+
+    /// Returns the normalized source path.
+    #[must_use]
+    pub fn path(&self) -> &SourcePath {
+        &self.path
+    }
+
+    /// Returns the raw source text.
+    #[must_use]
+    pub fn content(&self) -> &str {
+        &self.content
+    }
+}
+
+/// Deterministically ordered package source documents.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct SourceBundle {
+    documents: Vec<SourceDocument>,
+}
+
+impl SourceBundle {
+    /// Creates a bundle sorted by normalized source path.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`BoundaryError`] when two documents have the same path.
+    pub fn new(mut documents: Vec<SourceDocument>) -> Result<Self, BoundaryError> {
+        documents.sort_by(|left, right| left.path.cmp(&right.path));
+        if documents
+            .windows(2)
+            .any(|pair| pair[0].path == pair[1].path)
+        {
+            return Err(BoundaryError::new("source bundle", "duplicate path"));
+        }
+        Ok(Self { documents })
+    }
+
+    /// Returns source documents in deterministic path order.
+    #[must_use]
+    pub fn documents(&self) -> &[SourceDocument] {
+        &self.documents
+    }
+}
+
+/// Integrity bytes associated with a loaded source bundle.
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+pub struct SourceIntegrity {
+    digest: [u8; 32],
+}
+
+impl SourceIntegrity {
+    /// Creates source integrity from a raw digest.
+    #[must_use]
+    pub const fn new(digest: [u8; 32]) -> Self {
+        Self { digest }
+    }
+
+    /// Returns the raw digest bytes.
+    #[must_use]
+    pub const fn as_bytes(&self) -> &[u8; 32] {
+        &self.digest
+    }
+}
+
+/// Loaded source bundle and its integrity metadata.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct LoadedSourceBundle {
+    bundle: SourceBundle,
+    integrity: SourceIntegrity,
+}
+
+impl LoadedSourceBundle {
+    /// Creates a loaded bundle with its verified integrity.
+    #[must_use]
+    pub fn new(bundle: SourceBundle, integrity: SourceIntegrity) -> Self {
+        Self { bundle, integrity }
+    }
+
+    /// Returns the source bundle.
+    #[must_use]
+    pub fn bundle(&self) -> &SourceBundle {
+        &self.bundle
+    }
+
+    /// Returns the source integrity.
+    #[must_use]
+    pub const fn integrity(&self) -> &SourceIntegrity {
+        &self.integrity
+    }
+}
 
 /// Error returned when a source or package boundary value is invalid.
 #[derive(Clone, Debug, Eq, Error, PartialEq)]

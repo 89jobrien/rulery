@@ -14,8 +14,9 @@ pub use ids::{
 };
 pub use scalar::{DecimalValue, DecimalValueError};
 pub use source::{
-    BoundaryError, FactPath, LanguageVersion, NormalizedSourceLocation, PackagePath, SourcePath,
-    UnresolvedFactPath, Version, VersionRequirement,
+    BoundaryError, FactPath, LanguageVersion, LoadedSourceBundle, NormalizedSourceLocation,
+    PackagePath, SourceBundle, SourceDocument, SourceFile, SourceIntegrity, SourceKey, SourceMap,
+    SourcePath, Span, UnresolvedFactPath, Version, VersionRequirement,
 };
 pub use time::{
     Clock, DateExpiryPolicy, DurationValue, PolicyDate, PolicyTimeZone, TimeSemantics,
