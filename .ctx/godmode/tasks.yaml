@@ -40,12 +40,13 @@ tasks:
     completed_at: 2026-09-17T00:00:00Z
   - id: t6
     title: Reproduce canonical hash and integrity vectors
-    status: blocked
+    status: running
     depends_on:
       - t5
-    notes: Waiting for recovered contract prerequisites t61 through t65
+    notes: ""
     crate_name: rulery-contracts
     run: cargo nextest run -p rulery-contracts canonical_hash_vectors_match_specification
+    started_at: 2026-09-17T11:07:48.154638Z
   - id: t7
     title: Define lock contracts
     status: pending
@@ -524,9 +525,12 @@ tasks:
     completed_at: 2026-09-17T11:01:11.877768Z
   - id: t65
     title: Model values facts actions and outcomes
-    status: running
+    status: done
     depends_on:
       - t64
-    notes: ""
+    notes: Added typed values, fact states, declarative actions, non-empty reasons and requested facts, and sum-typed outcomes.
     crate_name: rulery-contracts
+    commit: 499bb15
+    completed: 2026-09-17
     started_at: 2026-09-17T11:01:29.874842Z
+    completed_at: 2026-09-17T11:06:52.721577Z

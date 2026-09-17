@@ -780,6 +780,8 @@ dependencies = [
 name = "rulery-contracts"
 version = "0.1.0"
 dependencies = [
+ "blake3",
+ "hex",
  "jiff",
  "rust_decimal",
  "semver",

@@ -2,6 +2,7 @@
 
 #![forbid(unsafe_code)]
 
+mod hash;
 mod ids;
 mod outcome;
 mod scalar;
@@ -9,6 +10,7 @@ mod source;
 mod time;
 mod value;
 
+pub use hash::{ContentHash, ContentHashError, EvaluationId, HashDomain, hash_parts};
 pub use ids::{
     ActionId, DecisionId, EscalationId, FactRootId, FactSegment, FactSegmentError, PackageId,
     PredicateId, QualifiedRuleId, QualifiedRuleIdError, ReasonCode, RuleId, ScenarioId, SourceId,

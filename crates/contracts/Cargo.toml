@@ -8,6 +8,8 @@ repository.workspace = true
 description = "Stable shared contracts for Rulery."
 
 [dependencies]
+blake3 = "1.8"
+hex = "0.4"
 jiff = "0.2"
 rust_decimal = "1.39"
 serde = { version = "1.0", features = ["derive"] }
