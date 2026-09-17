@@ -513,16 +513,20 @@ tasks:
     completed_at: 2026-09-17T10:52:42.740721Z
   - id: t64
     title: Enforce source map and span invariants
-    status: running
+    status: done
     depends_on:
       - t63
-    notes: ""
+    notes: Added source keys, UTF-8 spans, source maps, deterministic bundles, and integrity wrappers.
     crate_name: rulery-contracts
+    commit: 3e7b9f5
+    completed: 2026-09-17
     started_at: 2026-09-17T10:53:09.873723Z
+    completed_at: 2026-09-17T11:01:11.877768Z
   - id: t65
     title: Model values facts actions and outcomes
-    status: pending
+    status: running
     depends_on:
       - t64
     notes: ""
     crate_name: rulery-contracts
+    started_at: 2026-09-17T11:01:29.874842Z
