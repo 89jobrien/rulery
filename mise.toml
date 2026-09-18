@@ -83,3 +83,13 @@ arg "[bump]" help="Shared version bump" default="patch" {
 }
 '''
 run = 'cargo rail release run --all --bump "${usage_bump?}"'
+
+[tasks."release:resume"]
+description = "Resume an interrupted cargo-rail release"
+usage = 'arg "<state>" help="Cargo-rail durable state file"'
+run = 'cargo rail release resume "${usage_state?}"'
+
+[tasks."release:abort"]
+description = "Abort a cargo-rail release before remote effects"
+usage = 'arg "<state>" help="Cargo-rail durable state file"'
+run = 'cargo rail release abort "${usage_state?}"'
