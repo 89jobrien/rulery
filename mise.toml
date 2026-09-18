@@ -1,0 +1,39 @@
+[tasks."release:gate"]
+description = "Run release Cargo quality gates"
+run = [
+  "cargo fmt --all",
+  "cargo clippy --workspace -- -D warnings",
+  "cargo nextest run --workspace",
+]
+
+[tasks."release:check"]
+description = "Run post-bootstrap extended checks for all publishable crates"
+run = [
+  "cargo rail config validate --strict",
+  "cargo rail release check --all --extended",
+]
+
+[tasks."release:plan"]
+description = "Preview the lockstep workspace release"
+usage = '''
+arg "[bump]" help="Shared version bump" default="patch" {
+  choices "patch" "minor" "major"
+}
+'''
+run = '''
+#!/usr/bin/env nu
+let result = do {
+  cargo rail release run --all --bump $env.usage_bump --check
+} | complete
+
+if not ($result.stdout | is-empty) {
+  print $result.stdout
+}
+if not ($result.stderr | is-empty) {
+  print --stderr $result.stderr
+}
+
+if $result.exit_code > 1 {
+  exit $result.exit_code
+}
+'''
