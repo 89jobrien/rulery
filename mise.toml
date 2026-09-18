@@ -37,3 +37,49 @@ if $result.exit_code > 1 {
   exit $result.exit_code
 }
 '''
+
+[tasks."release:require-main"]
+description = "Require the default branch for cargo-rail mutations"
+hide = true
+run = '''
+#!/usr/bin/env nu
+let branch = (git branch --show-current | str trim)
+print $branch
+if $branch != "main" {
+  error make { msg: $"release task requires main; current branch: ($branch)" }
+}
+'''
+
+[tasks."release:preflight"]
+description = "Run release gates and readiness checks"
+hide = true
+run = [
+  "mise run release:gate",
+  "cargo rail config validate --strict",
+  "cargo rail release check --all",
+]
+
+[tasks."release:prepare"]
+description = "Prepare and open the lockstep release PR"
+depends = ["release:require-main", "release:preflight"]
+usage = '''
+arg "[bump]" help="Shared version bump" default="patch" {
+  choices "patch" "minor" "major"
+}
+'''
+run = 'cargo rail release run --all --bump "${usage_bump?}" --pr'
+
+[tasks."release:finalize"]
+description = "Finalize the merged release PR"
+depends = ["release:require-main", "release:preflight"]
+run = "cargo rail release finalize --all"
+
+[tasks."release:now"]
+description = "Immediately release the lockstep workspace"
+depends = ["release:require-main", "release:preflight"]
+usage = '''
+arg "[bump]" help="Shared version bump" default="patch" {
+  choices "patch" "minor" "major"
+}
+'''
+run = 'cargo rail release run --all --bump "${usage_bump?}"'
