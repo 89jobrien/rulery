@@ -1,0 +1,24 @@
+Decision: DENY
+Rulebook: community-tool-library@0.1.0
+Decision ID: checkout
+Evaluated at: 2026-09-16T16:00:00.000000000Z
+Policy date: 2026-09-16 (America/New_York)
+
+Reason:
+  [expired-training] Power-tool training has expired.
+
+Determining rule:
+  community-tool-library::deny-expired-training
+
+Conditions:
+  true  tool.category equal power-tool
+  true  member.training.valid-until is expired
+  true  inclusive expiry: 2026-09-15 is earlier than 2026-09-16
+
+Required facts: none
+Invalid facts: none
+Superseded rules: none
+
+Evidence:
+  canonical package, facts, and trace hashes are present in JSON output
+  timezone database identity is present in JSON output

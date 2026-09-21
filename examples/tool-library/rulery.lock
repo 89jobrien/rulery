@@ -1,0 +1,13 @@
+{
+  "schema": "rulery.rulebook-lock/v1",
+  "payload": {
+    "root": {
+      "package": "community-tool-library",
+      "version": "0.1.0",
+      "source": "root",
+      "content_hash": "blake3:f654fea2d1afd41e6b803804e44bafc8e32004b70794391609190500ed4a7c23"
+    },
+    "language_version": 1,
+    "imports": []
+  }
+}

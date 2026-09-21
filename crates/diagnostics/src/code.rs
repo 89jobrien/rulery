@@ -143,7 +143,7 @@ pub enum DiagnosticCodeError {
 }
 
 /// Diagnostic family.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum DiagnosticFamily {
     /// Source syntax diagnostics.
     Syntax,
@@ -171,7 +171,7 @@ pub enum DiagnosticFamily {
     Internal,
 }
 /// Intrinsic diagnostic severity.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Severity {
     /// Evaluation or compilation cannot safely continue.
     Error,
@@ -181,7 +181,7 @@ pub enum Severity {
     Advice,
 }
 /// Required structured evidence.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 pub enum EvidenceRequirement {
     /// Labels and properties are sufficient.
     None,
@@ -205,7 +205,7 @@ pub enum EvidenceRequirement {
     OneOf(Vec<Self>),
 }
 /// Subsystem producing a diagnostic.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum DiagnosticProducer {
     /// Package storage adapter.
     Store,
@@ -227,7 +227,7 @@ pub enum DiagnosticProducer {
     Facade,
 }
 /// Whether and how a diagnostic can be suppressed.
-#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
 pub enum Suppressibility {
     /// Suppression is prohibited.
     Never,

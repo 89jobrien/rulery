@@ -1,106 +1,68 @@
 //! Declarative Rulery workspace model.
 
-pub(crate) const REQUIRED_PACKAGES: &[&str] = &[
-    "rulery",
-    "rulery-analysis",
-    "rulery-cli",
-    "rulery-compiler",
-    "rulery-contracts",
-    "rulery-diagnostics",
-    "rulery-emit",
-    "rulery-engine",
-    "rulery-ir",
-    "rulery-macros",
-    "rulery-scenarios",
-    "rulery-store",
-    "rulery-syntax",
-    "rulery-vocabulary",
-    "xtask",
-];
-
-pub(crate) const SCAFFOLD_CRATES: &[(&str, &str)] = &[
-    ("crates/contracts", "rulery-contracts"),
-    ("crates/diagnostics", "rulery-diagnostics"),
-    ("crates/syntax", "rulery-syntax"),
-    ("crates/vocabulary", "rulery-vocabulary"),
-    ("crates/ir", "rulery-ir"),
-    ("crates/compiler", "rulery-compiler"),
-    ("crates/engine", "rulery-engine"),
-    ("crates/analysis", "rulery-analysis"),
-    ("crates/scenarios", "rulery-scenarios"),
-    ("crates/emit", "rulery-emit"),
-    ("crates/store", "rulery-store"),
-    ("crates/cli", "rulery-cli"),
-    ("crates/macros", "rulery-macros"),
-    ("xtask", "xtask"),
-];
-
-pub(crate) fn manifest_path(package: &str) -> Option<&'static str> {
-    match package {
-        "rulery" => Some("Cargo.toml"),
-        "rulery-contracts" => Some("crates/contracts/Cargo.toml"),
-        "rulery-diagnostics" => Some("crates/diagnostics/Cargo.toml"),
-        "rulery-syntax" => Some("crates/syntax/Cargo.toml"),
-        "rulery-vocabulary" => Some("crates/vocabulary/Cargo.toml"),
-        "rulery-ir" => Some("crates/ir/Cargo.toml"),
-        "rulery-compiler" => Some("crates/compiler/Cargo.toml"),
-        "rulery-engine" => Some("crates/engine/Cargo.toml"),
-        "rulery-analysis" => Some("crates/analysis/Cargo.toml"),
-        "rulery-scenarios" => Some("crates/scenarios/Cargo.toml"),
-        "rulery-emit" => Some("crates/emit/Cargo.toml"),
-        "rulery-store" => Some("crates/store/Cargo.toml"),
-        "rulery-cli" => Some("crates/cli/Cargo.toml"),
-        "rulery-macros" => Some("crates/macros/Cargo.toml"),
-        "xtask" => Some("xtask/Cargo.toml"),
-        _ => None,
-    }
+/// Cargo target kind required by a modeled package.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum TargetKind {
+    /// Rust library.
+    Library,
+    /// Executable binary.
+    Binary,
+    /// Procedural macro library.
+    ProcMacro,
 }
 
-pub(crate) fn target_kind(package: &str) -> &'static str {
-    match package {
-        "rulery-cli" | "xtask" => "bin",
-        "rulery-macros" => "proc-macro",
-        _ => "lib",
-    }
+/// Allowed internal dependency rule.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct DependencyRule {
+    /// Package receiving dependencies.
+    pub package: &'static str,
+    /// Exact allowed internal package names.
+    pub allowed: &'static [&'static str],
 }
 
-pub(crate) fn allowed_dependencies(package: &str) -> &'static [&'static str] {
-    match package {
-        "rulery-diagnostics" | "rulery-syntax" | "rulery-vocabulary" | "rulery-store" => {
-            &["rulery-contracts"]
+/// One modeled workspace package.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct CrateSpec {
+    /// Cargo package name.
+    pub name: &'static str,
+    /// Package directory relative to workspace root.
+    pub path: &'static str,
+    /// Manifest path relative to workspace root.
+    pub manifest: &'static str,
+    /// Required target kind.
+    pub target: TargetKind,
+    /// Dependency allowlist.
+    pub dependencies: DependencyRule,
+}
+
+/// Single declarative workspace architecture authority.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct WorkspaceModel {
+    /// Workspace root marker.
+    pub root: &'static str,
+    /// Every modeled package.
+    pub crates: &'static [CrateSpec],
+}
+
+macro_rules! spec {
+    ($name:literal, $path:literal, $manifest:literal, $target:ident, [$($dependency:literal),* $(,)?]) => {
+        CrateSpec {
+            name: $name,
+            path: $path,
+            manifest: $manifest,
+            target: TargetKind::$target,
+            dependencies: DependencyRule { package: $name, allowed: &[$($dependency),*] },
         }
-        "rulery-ir" => &["rulery-contracts", "rulery-vocabulary"],
-        "rulery-compiler" => &[
-            "rulery-contracts",
-            "rulery-diagnostics",
-            "rulery-ir",
-            "rulery-syntax",
-            "rulery-vocabulary",
-        ],
-        "rulery-engine" => &["rulery-contracts", "rulery-ir"],
-        "rulery-analysis" => &[
-            "rulery-contracts",
-            "rulery-diagnostics",
-            "rulery-engine",
-            "rulery-ir",
-            "rulery-vocabulary",
-        ],
-        "rulery-scenarios" => &[
-            "rulery-contracts",
-            "rulery-diagnostics",
-            "rulery-engine",
-            "rulery-ir",
-            "rulery-syntax",
-        ],
-        "rulery-emit" => &[
-            "rulery-analysis",
-            "rulery-contracts",
-            "rulery-diagnostics",
-            "rulery-engine",
-            "rulery-ir",
-            "rulery-scenarios",
-        ],
-        "rulery" => &[
+    };
+}
+
+const CRATES: &[CrateSpec] = &[
+    spec!(
+        "rulery",
+        ".",
+        "Cargo.toml",
+        Library,
+        [
             "rulery-analysis",
             "rulery-compiler",
             "rulery-contracts",
@@ -112,9 +74,155 @@ pub(crate) fn allowed_dependencies(package: &str) -> &'static [&'static str] {
             "rulery-scenarios",
             "rulery-store",
             "rulery-syntax",
-            "rulery-vocabulary",
-        ],
-        "rulery-cli" => &["rulery"],
-        _ => &[],
+            "rulery-vocabulary"
+        ]
+    ),
+    spec!(
+        "rulery-contracts",
+        "crates/contracts",
+        "crates/contracts/Cargo.toml",
+        Library,
+        []
+    ),
+    spec!(
+        "rulery-diagnostics",
+        "crates/diagnostics",
+        "crates/diagnostics/Cargo.toml",
+        Library,
+        ["rulery-contracts"]
+    ),
+    spec!(
+        "rulery-syntax",
+        "crates/syntax",
+        "crates/syntax/Cargo.toml",
+        Library,
+        ["rulery-contracts"]
+    ),
+    spec!(
+        "rulery-vocabulary",
+        "crates/vocabulary",
+        "crates/vocabulary/Cargo.toml",
+        Library,
+        ["rulery-contracts"]
+    ),
+    spec!(
+        "rulery-ir",
+        "crates/ir",
+        "crates/ir/Cargo.toml",
+        Library,
+        ["rulery-contracts", "rulery-vocabulary"]
+    ),
+    spec!(
+        "rulery-compiler",
+        "crates/compiler",
+        "crates/compiler/Cargo.toml",
+        Library,
+        [
+            "rulery-contracts",
+            "rulery-diagnostics",
+            "rulery-ir",
+            "rulery-syntax",
+            "rulery-vocabulary"
+        ]
+    ),
+    spec!(
+        "rulery-engine",
+        "crates/engine",
+        "crates/engine/Cargo.toml",
+        Library,
+        ["rulery-contracts", "rulery-ir"]
+    ),
+    spec!(
+        "rulery-analysis",
+        "crates/analysis",
+        "crates/analysis/Cargo.toml",
+        Library,
+        [
+            "rulery-contracts",
+            "rulery-diagnostics",
+            "rulery-engine",
+            "rulery-ir",
+            "rulery-vocabulary"
+        ]
+    ),
+    spec!(
+        "rulery-scenarios",
+        "crates/scenarios",
+        "crates/scenarios/Cargo.toml",
+        Library,
+        [
+            "rulery-contracts",
+            "rulery-diagnostics",
+            "rulery-engine",
+            "rulery-ir",
+            "rulery-syntax"
+        ]
+    ),
+    spec!(
+        "rulery-emit",
+        "crates/emit",
+        "crates/emit/Cargo.toml",
+        Library,
+        [
+            "rulery-analysis",
+            "rulery-contracts",
+            "rulery-diagnostics",
+            "rulery-engine",
+            "rulery-ir",
+            "rulery-scenarios"
+        ]
+    ),
+    spec!(
+        "rulery-store",
+        "crates/store",
+        "crates/store/Cargo.toml",
+        Library,
+        ["rulery-contracts"]
+    ),
+    spec!(
+        "rulery-cli",
+        "crates/cli",
+        "crates/cli/Cargo.toml",
+        Binary,
+        ["rulery"]
+    ),
+    spec!(
+        "rulery-macros",
+        "crates/macros",
+        "crates/macros/Cargo.toml",
+        ProcMacro,
+        []
+    ),
+    spec!("xtask", "xtask", "xtask/Cargo.toml", Binary, []),
+];
+
+/// Returns the declarative workspace model.
+#[must_use]
+pub const fn workspace_model() -> WorkspaceModel {
+    WorkspaceModel {
+        root: ".",
+        crates: CRATES,
     }
+}
+
+fn crate_spec(package: &str) -> Option<&'static CrateSpec> {
+    CRATES.iter().find(|spec| spec.name == package)
+}
+
+/// Returns a modeled manifest path by package name.
+#[must_use]
+pub fn model_manifest(package: &str) -> Option<&'static str> {
+    crate_spec(package).map(|spec| spec.manifest)
+}
+
+/// Returns a modeled target kind by package name.
+#[must_use]
+pub fn model_target(package: &str) -> Option<TargetKind> {
+    crate_spec(package).map(|spec| spec.target)
+}
+
+/// Returns modeled internal dependencies by package name.
+#[must_use]
+pub fn model_dependencies(package: &str) -> Option<&'static [&'static str]> {
+    crate_spec(package).map(|spec| spec.dependencies.allowed)
 }

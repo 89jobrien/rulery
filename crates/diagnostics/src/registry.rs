@@ -35,6 +35,21 @@ impl DiagnosticDefinition {
     pub const fn evidence(&self) -> &EvidenceRequirement {
         &self.evidence
     }
+    /// Returns the canonical registry title.
+    #[must_use]
+    pub(crate) const fn title_value(&self) -> &'static str {
+        self.title
+    }
+    /// Returns the canonical producing subsystem.
+    #[must_use]
+    pub(crate) const fn producer_value(&self) -> DiagnosticProducer {
+        self.producer
+    }
+    /// Returns the canonical suppression policy.
+    #[must_use]
+    pub(crate) const fn suppressibility_value(&self) -> Suppressibility {
+        self.suppressibility
+    }
     pub(crate) const fn family_value(&self) -> DiagnosticFamily {
         self.family
     }

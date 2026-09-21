@@ -13,6 +13,7 @@ rulery-diagnostics.workspace = true
 rulery-ir.workspace = true
 rulery-syntax.workspace = true
 rulery-vocabulary.workspace = true
+serde_json = "1.0"
 
 [lints]
 workspace = true

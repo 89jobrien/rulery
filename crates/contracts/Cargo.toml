@@ -12,7 +12,7 @@ blake3 = "1.8"
 hex = "0.4"
 jiff = "0.2"
 rust_decimal = "1.39"
-serde = { version = "1.0", features = ["derive"] }
+serde = { version = "1.0", features = ["derive", "rc"] }
 semver = "1.0"
 thiserror = "2.0"
 

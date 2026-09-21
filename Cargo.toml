@@ -57,6 +57,12 @@ rulery-scenarios.workspace = true
 rulery-store.workspace = true
 rulery-syntax.workspace = true
 rulery-vocabulary.workspace = true
+thiserror = "2.0"
+
+[dev-dependencies]
+serde = "1.0"
+serde_json = "1.0"
+serde_yaml = "0.9"
 
 [lints]
 workspace = true

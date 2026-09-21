@@ -1,0 +1,8 @@
+member:
+  account-status: active
+  training:
+    completed-at: "2025-01-10"
+    valid-until: "2026-09-15"
+  unresolved-damage-reports: 0
+tool:
+  category: power-tool

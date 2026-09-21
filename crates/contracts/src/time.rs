@@ -129,7 +129,8 @@ impl fmt::Display for DurationValue {
 }
 
 /// Validated IANA timezone name.
-#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, Eq, Hash, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(transparent)]
 pub struct PolicyTimeZone(String);
 
 impl PolicyTimeZone {
@@ -159,7 +160,8 @@ impl PolicyTimeZone {
 }
 
 /// Identity of the timezone database used for evaluation.
-#[derive(Clone, Debug, Eq, Hash, PartialEq)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct TimeZoneDatabaseIdentity {
     implementation: String,
     version: String,
@@ -185,6 +187,18 @@ impl TimeZoneDatabaseIdentity {
                 version,
             })
         }
+    }
+
+    /// Returns the timezone database implementation name.
+    #[must_use]
+    pub fn implementation(&self) -> &str {
+        &self.implementation
+    }
+
+    /// Returns the timezone database version identity.
+    #[must_use]
+    pub fn version(&self) -> &str {
+        &self.version
     }
 }
 

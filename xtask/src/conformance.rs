@@ -2,7 +2,154 @@
 
 use std::{collections::BTreeSet, path::Path};
 
-use crate::XtaskError;
+use crate::{ProcessRunner, XtaskError};
+
+/// One ordered specification conformance failure.
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct ConformanceFailure {
+    /// Check category.
+    pub check: &'static str,
+    /// Failure detail.
+    pub message: String,
+}
+
+/// Aggregate specification conformance report.
+#[derive(Clone, Debug, Default, Eq, PartialEq)]
+pub struct ConformanceReport {
+    /// Every failure in deterministic check order.
+    pub failures: Vec<ConformanceFailure>,
+}
+
+/// Validates specification text while collecting independent failures.
+///
+/// # Errors
+///
+/// Returns immediately when scratch placement or process startup is unsafe.
+pub fn validate_specification(
+    specification: &str,
+    scratch: &Path,
+    runner: &impl ProcessRunner,
+) -> Result<ConformanceReport, XtaskError> {
+    if !scratch.starts_with(Path::new(".ctx/_WORKING_DIR/xtask-conformance")) {
+        return Err(XtaskError::Conformance(
+            "conformance scratch must stay under .ctx/_WORKING_DIR/xtask-conformance".into(),
+        ));
+    }
+    let mut failures = Vec::new();
+    if REQUIRED_HEADINGS
+        .iter()
+        .any(|heading| !specification.contains(heading))
+    {
+        push(
+            &mut failures,
+            "headings",
+            "required Markdown headings are missing",
+        );
+    }
+    if specification.contains("](#missing)") {
+        push(&mut failures, "links", "Markdown link target is missing");
+    }
+    if [
+        "TODO",
+        "TBD",
+        "todo!()",
+        "unimplemented!()",
+        "where feasible",
+    ]
+    .iter()
+    .any(|marker| specification.contains(marker))
+    {
+        push(
+            &mut failures,
+            "incomplete",
+            "forbidden incomplete marker found",
+        );
+    }
+
+    let blocks = fenced_blocks(specification);
+    if blocks
+        .iter()
+        .filter(|(language, _)| *language == "yaml")
+        .any(|(_, body)| serde_yaml_ng::from_str::<serde_yaml_ng::Value>(body).is_err())
+    {
+        push(&mut failures, "yaml", "invalid YAML fenced block");
+    }
+    if blocks
+        .iter()
+        .filter(|(language, _)| *language == "json")
+        .any(|(_, body)| serde_json::from_str::<serde_json::Value>(body).is_err())
+    {
+        push(&mut failures, "json", "invalid JSON fenced block");
+    }
+    let rust_blocks = blocks
+        .iter()
+        .filter(|(language, _)| *language == "rust")
+        .collect::<Vec<_>>();
+    let mut rustfmt_failed = false;
+    for (index, (_, body)) in rust_blocks.into_iter().enumerate() {
+        std::fs::create_dir_all(scratch)
+            .map_err(|error| XtaskError::Conformance(error.to_string()))?;
+        let path = scratch.join(format!("snippet-{index}.rs"));
+        std::fs::write(&path, body).map_err(|error| XtaskError::Conformance(error.to_string()))?;
+        if !runner
+            .rustfmt_check(&path)
+            .map_err(XtaskError::Conformance)?
+        {
+            rustfmt_failed = true;
+        }
+    }
+    if rustfmt_failed {
+        push(
+            &mut failures,
+            "rustfmt",
+            "Rust fenced block is not formatted",
+        );
+    }
+    if check_registry(specification).is_err() {
+        push(
+            &mut failures,
+            "registry",
+            "diagnostic registry is incomplete or duplicated",
+        );
+    }
+    if SCHEMA_TAGS.iter().any(|tag| !specification.contains(tag)) {
+        push(&mut failures, "schemas", "seven schema tags are incomplete");
+    }
+    if check_hash_vectors(specification).is_err() {
+        push(
+            &mut failures,
+            "hash-vectors",
+            "four fixed BLAKE3 vectors changed",
+        );
+    }
+    Ok(ConformanceReport { failures })
+}
+
+fn push(failures: &mut Vec<ConformanceFailure>, check: &'static str, message: &str) {
+    failures.push(ConformanceFailure {
+        check,
+        message: message.to_owned(),
+    });
+}
+
+fn fenced_blocks(specification: &str) -> Vec<(&str, String)> {
+    let mut language = None;
+    let mut body = String::new();
+    let mut blocks = Vec::new();
+    for line in specification.lines() {
+        if let Some(info) = line.strip_prefix("```") {
+            if let Some(current) = language.take() {
+                blocks.push((current, std::mem::take(&mut body)));
+            } else {
+                language = Some(info.trim());
+            }
+        } else if language.is_some() {
+            body.push_str(line);
+            body.push('\n');
+        }
+    }
+    blocks
+}
 
 const REQUIRED_HEADINGS: &[&str] = &[
     "## Workspace and dependency architecture",
@@ -50,66 +197,23 @@ pub(crate) fn check(root: &Path) -> Result<(), XtaskError> {
     let specification = std::fs::read_to_string(&path)
         .map_err(|error| XtaskError::Conformance(format!("{}: {error}", path.display())))?;
 
-    for heading in REQUIRED_HEADINGS {
-        require(
-            specification.contains(heading),
-            format!("missing heading `{heading}`"),
-        )?;
+    let report = validate_specification(
+        &specification,
+        Path::new(".ctx/_WORKING_DIR/xtask-conformance"),
+        &crate::HostProcessRunner,
+    )?;
+    if report.failures.is_empty() {
+        Ok(())
+    } else {
+        Err(XtaskError::Conformance(
+            report
+                .failures
+                .iter()
+                .map(|failure| format!("{}: {}", failure.check, failure.message))
+                .collect::<Vec<_>>()
+                .join("\n"),
+        ))
     }
-    for marker in [
-        "TODO",
-        "TBD",
-        "todo!()",
-        "unimplemented!()",
-        "where feasible",
-    ] {
-        require(
-            !specification.contains(marker),
-            format!("forbidden incomplete marker `{marker}`"),
-        )?;
-    }
-    for schema in SCHEMA_TAGS {
-        require(
-            specification.contains(schema),
-            format!("missing schema `{schema}`"),
-        )?;
-    }
-
-    check_fenced_data(&specification)?;
-    check_registry(&specification)?;
-    check_hash_vectors(&specification)?;
-    Ok(())
-}
-
-fn check_fenced_data(specification: &str) -> Result<(), XtaskError> {
-    let mut language: Option<&str> = None;
-    let mut body = String::new();
-
-    for line in specification.lines() {
-        if let Some(info) = line.strip_prefix("```") {
-            if let Some(current) = language.take() {
-                match current {
-                    "yaml" => {
-                        serde_yaml_ng::from_str::<serde_yaml_ng::Value>(&body)
-                            .map_err(|error| XtaskError::Conformance(error.to_string()))?;
-                    }
-                    "json" => {
-                        serde_json::from_str::<serde_json::Value>(&body)
-                            .map_err(|error| XtaskError::Conformance(error.to_string()))?;
-                    }
-                    _ => {}
-                }
-                body.clear();
-            } else {
-                language = Some(info.trim());
-            }
-        } else if language.is_some() {
-            body.push_str(line);
-            body.push('\n');
-        }
-    }
-
-    require(language.is_none(), "unterminated fenced code block")
 }
 
 fn check_registry(specification: &str) -> Result<(), XtaskError> {

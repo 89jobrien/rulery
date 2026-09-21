@@ -33,6 +33,30 @@ impl LockedRoot {
             content_hash,
         }
     }
+
+    /// Returns the root package identity.
+    #[must_use]
+    pub fn package(&self) -> &PackageId {
+        &self.package
+    }
+
+    /// Returns the root package version.
+    #[must_use]
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
+
+    /// Returns the normalized root source location.
+    #[must_use]
+    pub fn source(&self) -> &NormalizedSourceLocation {
+        &self.source
+    }
+
+    /// Returns the root source content hash.
+    #[must_use]
+    pub const fn content_hash(&self) -> ContentHash {
+        self.content_hash
+    }
 }
 
 /// One locked transitive import.
@@ -61,6 +85,30 @@ impl LockedImport {
             content_hash,
         }
     }
+
+    /// Returns the imported package identity.
+    #[must_use]
+    pub fn package(&self) -> &PackageId {
+        &self.package
+    }
+
+    /// Returns the resolved package version.
+    #[must_use]
+    pub fn version(&self) -> &Version {
+        &self.version
+    }
+
+    /// Returns the normalized source location.
+    #[must_use]
+    pub fn source(&self) -> &NormalizedSourceLocation {
+        &self.source
+    }
+
+    /// Returns the imported source content hash.
+    #[must_use]
+    pub const fn content_hash(&self) -> ContentHash {
+        self.content_hash
+    }
 }
 
 /// Rulebook lock payload schema version 1.
@@ -70,6 +118,26 @@ pub struct RulebookLockV1 {
     root: LockedRoot,
     language_version: LanguageVersion,
     imports: Vec<LockedImport>,
+}
+
+impl RulebookLockV1 {
+    /// Returns locked root metadata.
+    #[must_use]
+    pub const fn root(&self) -> &LockedRoot {
+        &self.root
+    }
+
+    /// Returns the locked language version.
+    #[must_use]
+    pub const fn language_version(&self) -> LanguageVersion {
+        self.language_version
+    }
+
+    /// Returns sorted transitive imports.
+    #[must_use]
+    pub fn imports(&self) -> &[LockedImport] {
+        &self.imports
+    }
 }
 
 /// Validated rulebook lock.
@@ -108,6 +176,12 @@ impl RulebookLock {
     pub fn payload(&self) -> &RulebookLockV1 {
         &self.payload
     }
+
+    /// Reconstructs a validated lock from an owned v1 payload.
+    #[must_use]
+    pub fn from_payload(payload: RulebookLockV1) -> Self {
+        Self { payload }
+    }
 }
 
 /// Versioned rulebook lock envelope.
@@ -122,6 +196,14 @@ pub enum RulebookLockEnvelope {
 impl From<RulebookLock> for RulebookLockEnvelope {
     fn from(lock: RulebookLock) -> Self {
         Self::V1(lock.payload)
+    }
+}
+
+impl From<RulebookLockEnvelope> for RulebookLock {
+    fn from(value: RulebookLockEnvelope) -> Self {
+        match value {
+            RulebookLockEnvelope::V1(payload) => Self::from_payload(payload),
+        }
     }
 }
 

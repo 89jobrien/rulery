@@ -1,0 +1,43 @@
+types:
+  account-status:
+    kind: enum
+    variants:
+      active: { display_name: Active, deprecated: false }
+      suspended: { display_name: Suspended, deprecated: false }
+  training:
+    kind: record
+    closed: true
+    fields:
+      completed-at: { type: date, presence: required }
+      valid-until: { type: date, presence: required }
+  member:
+    kind: record
+    closed: true
+    fields:
+      account-status: { type: account-status, presence: required }
+      training: { type: training, presence: optional }
+      unresolved-damage-reports: { type: integer, presence: required }
+  tool-category:
+    kind: enum
+    variants:
+      hand-tool: { display_name: Hand tool, deprecated: false }
+      power-tool: { display_name: Power tool, deprecated: false }
+      hazardous-equipment:
+        { display_name: Hazardous equipment, deprecated: false }
+  tool:
+    kind: record
+    closed: true
+    fields:
+      category: { type: tool-category, presence: required }
+      reserved-for-member-id: { type: text, presence: optional }
+roots:
+  member: { type: member }
+  tool: { type: tool }
+terms:
+  current-training:
+    display_name: Current training
+    definition: Training is current through its valid-until date.
+    applies_to: [member.training.valid-until]
+    examples: [A record valid through 2026-09-16 is current on 2026-09-16.]
+    counterexamples:
+      [A record valid through 2026-09-15 is expired on 2026-09-16.]

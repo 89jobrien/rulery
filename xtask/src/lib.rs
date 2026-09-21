@@ -8,8 +8,21 @@ use thiserror::Error;
 mod architecture;
 mod bootstrap;
 mod conformance;
+mod fs;
 mod model;
+mod process;
 mod verify;
+
+pub use architecture::{PackageSnapshot, validate_architecture};
+pub use bootstrap::{Change, ChangeSet, ReconcileMode, plan_bootstrap, reconcile};
+pub use conformance::{ConformanceFailure, ConformanceReport, validate_specification};
+pub use fs::{HostFileSystem, WorkspaceFileSystem};
+pub use model::{
+    CrateSpec, DependencyRule, TargetKind, WorkspaceModel, model_dependencies, model_manifest,
+    model_target, workspace_model,
+};
+pub use process::{HostProcessRunner, ProcessRunner};
+pub use verify::{VerifyGate, VerifyRunner, verify_with};
 
 /// Repository automation command line.
 #[derive(Clone, Debug, Eq, PartialEq, Parser)]
@@ -67,6 +80,12 @@ pub enum XtaskError {
         /// Forbidden dependency package name.
         dependency: String,
     },
+    /// Internal dependency graph contains a cycle.
+    #[error("workspace internal dependency cycle: {packages:?}")]
+    DependencyCycle {
+        /// Packages participating in the cycle.
+        packages: Vec<String>,
+    },
     /// The workspace contains a package absent from the model.
     #[error("unexpected workspace package `{package}`")]
     UnexpectedMember {
@@ -106,11 +125,23 @@ pub fn execute(cli: &Cli) -> Result<(), XtaskError> {
     match &cli.command {
         Command::Architecture => architecture::check(workspace_root()?),
         Command::Bootstrap(arguments) => {
-            bootstrap::check(workspace_root()?)?;
-            if arguments.dry_run {
-                println!("workspace bootstrap has no pending changes");
-            } else if !arguments.check {
-                println!("workspace is already synchronized");
+            let mode = if arguments.check {
+                ReconcileMode::Check
+            } else if arguments.dry_run {
+                ReconcileMode::DryRun
+            } else {
+                ReconcileMode::Apply
+            };
+            let changes = reconcile(&HostFileSystem, workspace_root()?, workspace_model(), mode)?;
+            if mode == ReconcileMode::DryRun {
+                for change in changes.changes {
+                    println!("{change:?}");
+                }
+            } else if mode == ReconcileMode::Apply {
+                println!(
+                    "workspace bootstrap applied {} changes",
+                    changes.changes.len()
+                );
             }
             Ok(())
         }

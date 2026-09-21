@@ -1,0 +1,9 @@
+actions:
+  create-checkout-record:
+    display_name: Create checkout record
+    description: Records an approved checkout obligation.
+    parameters: {}
+  show-tool-specific-safety-notice:
+    display_name: Show tool-specific safety notice
+    description: Presents the applicable safety notice.
+    parameters: {}

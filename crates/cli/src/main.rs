@@ -1,3 +1,7 @@
 //! Rulery command-line entry point.
 
-fn main() {}
+use clap::Parser;
+
+fn main() {
+    let _ = rulery_cli::Cli::parse();
+}

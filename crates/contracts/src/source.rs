@@ -32,12 +32,101 @@ impl SourceKey {
     }
 }
 
+impl<'de> Deserialize<'de> for SourceKey {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct SourceKeyVisitor;
+
+        impl serde::de::Visitor<'_> for SourceKeyVisitor {
+            type Value = SourceKey;
+
+            fn expecting(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                formatter.write_str("a u32 source key or its decimal string")
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                u32::try_from(value).map(SourceKey::new).map_err(E::custom)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<Self::Value, E>
+            where
+                E: serde::de::Error,
+            {
+                value.parse::<u32>().map(SourceKey::new).map_err(E::custom)
+            }
+        }
+
+        deserializer.deserialize_str(SourceKeyVisitor)
+    }
+}
+
+impl Serialize for SourceKey {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_str(&self.0.to_string())
+    }
+}
+
 /// Half-open UTF-8 byte span in a source file.
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Span {
     source: SourceKey,
     start: u32,
     end: u32,
+}
+
+impl Serialize for Span {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        #[derive(Serialize)]
+        struct WireSpan {
+            source: String,
+            start: String,
+            end: String,
+        }
+        WireSpan {
+            source: self.source.get().to_string(),
+            start: self.start.to_string(),
+            end: self.end.to_string(),
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for Span {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireSpan {
+            source: String,
+            start: String,
+            end: String,
+        }
+        let wire = WireSpan::deserialize(deserializer)?;
+        let source = wire.source.parse::<u32>().map_err(D::Error::custom)?;
+        let start = wire.start.parse::<u32>().map_err(D::Error::custom)?;
+        let end = wire.end.parse::<u32>().map_err(D::Error::custom)?;
+        if start > end {
+            return Err(D::Error::custom("span start must not exceed end"));
+        }
+        Ok(Self {
+            source: SourceKey::new(source),
+            start,
+            end,
+        })
+    }
 }
 
 impl Span {
@@ -61,7 +150,8 @@ impl Span {
 }
 
 /// Source file content and stable identity.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SourceFile {
     id: SourceId,
     path: SourcePath,
@@ -81,6 +171,12 @@ impl SourceFile {
         &self.path
     }
 
+    /// Returns the stable source identity.
+    #[must_use]
+    pub fn id(&self) -> &SourceId {
+        &self.id
+    }
+
     /// Returns the source text.
     #[must_use]
     pub fn content(&self) -> &str {
@@ -89,7 +185,8 @@ impl SourceFile {
 }
 
 /// Collection of source files keyed for compact spans.
-#[derive(Clone, Debug, Default, Eq, PartialEq)]
+#[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct SourceMap {
     entries: BTreeMap<SourceKey, SourceFile>,
 }
@@ -116,6 +213,29 @@ impl SourceMap {
             }
             Entry::Occupied(_) => Err(BoundaryError::new("source key", key.get().to_string())),
         }
+    }
+
+    /// Returns a source file by key.
+    #[must_use]
+    pub fn get(&self, key: SourceKey) -> Option<&SourceFile> {
+        self.entries.get(&key)
+    }
+
+    /// Iterates source files in source-key order.
+    pub fn iter(&self) -> impl Iterator<Item = (SourceKey, &SourceFile)> {
+        self.entries.iter().map(|(key, file)| (*key, file))
+    }
+
+    /// Returns the number of source files.
+    #[must_use]
+    pub fn len(&self) -> usize {
+        self.entries.len()
+    }
+
+    /// Returns whether this source map has no files.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.entries.is_empty()
     }
 
     /// Creates a validated half-open span.

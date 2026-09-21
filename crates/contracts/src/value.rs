@@ -73,6 +73,26 @@ pub struct EnumValue {
     variant: StableId,
 }
 
+impl EnumValue {
+    /// Creates a typed enumeration value.
+    #[must_use]
+    pub const fn new(type_id: TypeId, variant: StableId) -> Self {
+        Self { type_id, variant }
+    }
+
+    /// Returns the declared enum type.
+    #[must_use]
+    pub const fn type_id(&self) -> &TypeId {
+        &self.type_id
+    }
+
+    /// Returns the selected variant.
+    #[must_use]
+    pub const fn variant(&self) -> &StableId {
+        &self.variant
+    }
+}
+
 /// Supplied root facts.
 #[derive(Clone, Debug, Default, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -112,7 +132,8 @@ pub enum FactState<'a> {
 }
 
 /// Structural fact validation failure.
-#[derive(Clone, Debug, Eq, Error, PartialEq)]
+#[derive(Clone, Debug, Eq, Error, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case")]
 pub enum FactValidationError {
     /// Value kind differs from the declared type.
     #[error("expected `{expected}`, found {actual:?}")]

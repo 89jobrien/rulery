@@ -1,0 +1,76 @@
+decision: checkout
+rules:
+  - id: deny-suspended-member
+    title: Suspended members cannot borrow
+    priority: 1000
+    when:
+      fact: member.account-status
+      operator: equal
+      value: suspended
+    effect:
+      kind: deny
+      reasons:
+        - code: suspended-account
+          message: Suspended accounts cannot borrow shared equipment.
+      actions: []
+  - id: request-training-record
+    title: Training is required for power tools
+    priority: 900
+    when:
+      all:
+        - fact: tool.category
+          operator: equal
+          value: power-tool
+        - fact: member.training
+          operator: is_absent
+    effect:
+      kind: request_information
+      required_facts: [member.training]
+      reasons:
+        - code: missing-training-record
+          message: A current power-tool training record is required.
+      actions: []
+  - id: deny-expired-training
+    title: Expired training blocks power-tool checkout
+    priority: 800
+    when:
+      all:
+        - fact: tool.category
+          operator: equal
+          value: power-tool
+        - fact: member.training.valid-until
+          operator: is_expired
+    effect:
+      kind: deny
+      reasons:
+        - code: expired-training
+          message: Power-tool training has expired.
+      actions: []
+  - id: approve-qualified-checkout
+    title: A qualified member may borrow an available power tool
+    priority: 100
+    when:
+      all:
+        - fact: member.account-status
+          operator: equal
+          value: active
+        - fact: tool.category
+          operator: equal
+          value: power-tool
+        - fact: member.training.valid-until
+          operator: is_unexpired
+        - fact: member.unresolved-damage-reports
+          operator: equal
+          value: 0
+        - fact: tool.reserved-for-member-id
+          operator: is_absent
+    effect:
+      kind: approve
+      reasons:
+        - code: qualified-checkout
+          message: The member meets the eligibility requirements.
+      actions:
+        - action: create-checkout-record
+          arguments: {}
+        - action: show-tool-specific-safety-notice
+          arguments: {}
