@@ -782,6 +782,8 @@ fn overlaps(left: Span, right: Span) -> bool {
 
     let left_is_insert = left.start() == left.end();
     let right_is_insert = right.start() == right.end();
+    // Two insertions conflict only at the same byte position. A zero-length insertion adjacent to
+    // a replacement remains valid because half-open ranges do not consume that boundary byte.
     if left_is_insert && right_is_insert {
         return left.start() == right.start();
     }

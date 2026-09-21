@@ -1,3 +1,5 @@
+//! Cross-pipeline conformance checks for Rulery's normative safety invariants.
+
 use std::collections::{BTreeMap, BTreeSet};
 use std::str::FromStr;
 use std::sync::Arc;

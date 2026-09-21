@@ -46,7 +46,11 @@ pub struct WitnessCase {
     pub synthetic: bool,
 }
 
-/// Deletes facts in ascending path order while the claim still replays.
+/// Deletes facts greedily in ascending path order while the claim still replays.
+///
+/// The algorithm is deterministic and performs one deletion pass. It produces a locally minimal
+/// witness for monotone replay predicates, but does not search all subsets and therefore does not
+/// promise globally minimum cardinality.
 #[must_use]
 pub fn minimize_witness(
     title: impl Into<String>,

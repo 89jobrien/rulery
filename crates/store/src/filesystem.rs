@@ -252,6 +252,9 @@ impl PackageStore for FilesystemPackageStore {
         let envelope = RulebookLockEnvelope::from(lock.clone());
         let encoded = serde_json::to_vec(&envelope).map_err(StoreError::LockSerialization)?;
 
+        // A sibling temporary file keeps rename atomic on one filesystem and prevents readers from
+        // observing partial JSON. The fixed temporary name assumes one writer per package root;
+        // directory fsync is intentionally outside this v0.1 durability guarantee.
         {
             let mut temp = OpenOptions::new()
                 .write(true)
@@ -290,6 +293,9 @@ fn read_document(
     path: &Path,
     relative: SourcePath,
 ) -> Result<SourceDocument, StoreError> {
+    // Reject the final symlink explicitly, then canonicalize and enforce root containment to catch
+    // escaping ancestors. These checks defend package boundaries but are not race-free against a
+    // concurrently mutating hostile filesystem.
     let metadata = fs::symlink_metadata(path).map_err(|source| StoreError::Io {
         path: path.to_path_buf(),
         source,

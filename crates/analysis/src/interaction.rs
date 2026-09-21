@@ -168,6 +168,9 @@ fn classify_pair(
     left: &RuleAnalysisInput,
     right: &RuleAnalysisInput,
 ) -> OverlapClassification {
+    // Classification order is semantic: override evidence outranks redundancy, which outranks
+    // precedence conflict/shadowing. Callers must provide each overlap in one canonical direction
+    // to avoid duplicate pair findings.
     if left.explicit_override
         || right.explicit_override
         || left.undeclared_override

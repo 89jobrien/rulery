@@ -26,9 +26,12 @@ pub enum VerifyGate {
 }
 
 /// Injected gate runner.
-#[allow(clippy::missing_errors_doc)]
 pub trait VerifyRunner {
     /// Runs one gate.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`XtaskError`] when the selected gate fails or cannot start.
     fn run(&self, gate: VerifyGate) -> Result<(), XtaskError>;
 }
 

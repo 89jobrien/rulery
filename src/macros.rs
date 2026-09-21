@@ -117,7 +117,10 @@ pub fn assert_decision_contract(
 }
 
 #[macro_export]
-/// Constructs a validated, unexecuted source scenario.
+/// Constructs a validated, unexecuted source scenario from typed facts and expectations.
+///
+/// The macro preserves the caller-provided [`Span`](rulery_contracts::Span), validates scenario,
+/// decision, and tag identifiers, and returns `Result<ScenarioSource, ScenarioBuildError>`.
 macro_rules! scenario {
     (id: $id:literal, title: $title:expr, decision: $decision:literal, at: $at:expr, given: $given:expr, expect: $expect:expr, span: $span:expr $(, tags: [$($tag:literal),* $(,)?])? $(,)?) => {{
         $crate::__private::build_scenario($id, ($title).to_string(), $decision, $at, $given, $expect, $span, vec![$($($tag),*)?])
@@ -125,7 +128,12 @@ macro_rules! scenario {
 }
 
 #[macro_export]
-/// Asserts all four exact decision expectation fields.
+/// Asserts outcome, determining rules, required facts, and reason codes exactly.
+///
+/// # Panics
+///
+/// Panics while parsing an invalid expected rule, fact path, or reason literal, or once with a
+/// combined mismatch report containing every unequal field.
 macro_rules! assert_decision {
     ($actual:expr, outcome: $outcome:ident, determining: [$($rule:literal),* $(,)?], required_facts: [$($path:literal),* $(,)?], reasons: [$($reason:literal),* $(,)?] $(,)?) => {{
         $crate::__private::assert_decision_contract(
@@ -139,7 +147,11 @@ macro_rules! assert_decision {
 }
 
 #[macro_export]
-/// Builds a registry-derived diagnostic with caller evidence.
+/// Builds a diagnostic whose immutable metadata comes from the v0.1 registry.
+///
+/// The caller supplies only the code, message, source label, and optional evidence. The macro
+/// returns `Result<Diagnostic, DiagnosticBuildError>` and therefore rejects missing mandatory
+/// evidence rather than constructing a partial diagnostic.
 macro_rules! diagnostic {
     { code: $code:expr, message: $message:expr, primary: $primary:expr, evidence: [$($evidence:expr),* $(,)?] $(,)? } => {{
         (|| {
@@ -160,46 +172,82 @@ macro_rules! diagnostic {
 
 #[macro_export]
 /// Constructs a validated [`StableId`](rulery_contracts::StableId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal does not satisfy the stable identifier grammar.
 macro_rules! stable_id {
     ($value:literal) => {{ $crate::__private::StableId::new($value).expect("invalid stable_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`PackageId`](rulery_contracts::PackageId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid package identifier.
 macro_rules! package_id {
     ($value:literal) => {{ $crate::__private::PackageId::new($value).expect("invalid package_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`DecisionId`](rulery_contracts::DecisionId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid decision identifier.
 macro_rules! decision_id {
     ($value:literal) => {{ $crate::__private::DecisionId::new($value).expect("invalid decision_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`RuleId`](rulery_contracts::RuleId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid rule identifier.
 macro_rules! rule_id {
     ($value:literal) => {{ $crate::__private::RuleId::new($value).expect("invalid rule_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`ActionId`](rulery_contracts::ActionId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid action identifier.
 macro_rules! action_id {
     ($value:literal) => {{ $crate::__private::ActionId::new($value).expect("invalid action_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`ScenarioId`](rulery_contracts::ScenarioId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid scenario identifier.
 macro_rules! scenario_id {
     ($value:literal) => {{ $crate::__private::ScenarioId::new($value).expect("invalid scenario_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`EscalationId`](rulery_contracts::EscalationId) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid escalation identifier.
 macro_rules! escalation_id {
     ($value:literal) => {{ $crate::__private::EscalationId::new($value).expect("invalid escalation_id! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`ReasonCode`](rulery_contracts::ReasonCode) literal.
+///
+/// # Panics
+///
+/// Panics when the literal is not a valid reason code.
 macro_rules! reason_code {
     ($value:literal) => {{ $crate::__private::ReasonCode::new($value).expect("invalid reason_code! literal") }};
 }
 #[macro_export]
 /// Constructs a validated [`FactPath`](rulery_contracts::FactPath) literal.
+///
+/// # Panics
+///
+/// Panics when the literal contains an invalid or empty path segment.
 macro_rules! fact_path {
     ($value:literal) => {{
         <$crate::__private::FactPath as ::std::str::FromStr>::from_str($value)
@@ -208,6 +256,11 @@ macro_rules! fact_path {
 }
 #[macro_export]
 /// Constructs typed root facts without vocabulary inference.
+///
+/// Supported values are `null`, Booleans, `i64` literals, decimal/text/date/date-time/duration
+/// constructors, typed enum values, lists, and nested records. The result is
+/// `Result<CaseFacts, FactBuildError>`; invalid scalar text identifies its constructor in the
+/// returned error. `Option`-style omission is intentionally not inferred by this macro.
 macro_rules! facts {
     ({ $($tokens:tt)* }) => {{
         (|| -> ::std::result::Result<$crate::__private::CaseFacts, $crate::FactBuildError> {

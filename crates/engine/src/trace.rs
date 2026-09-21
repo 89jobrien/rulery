@@ -307,6 +307,10 @@ pub struct DecisionTrace {
 impl DecisionTrace {
     /// Builds a validated trace and requested projection from complete logical data.
     ///
+    /// Canonical ordering and hashing always use the complete trace. Compact projection happens
+    /// only after `trace_hash` is computed, so complete and compact responses identify the same
+    /// logical evaluation even though their serialized expression trees differ.
+    ///
     /// # Errors
     ///
     /// Returns [`TraceError`] for invalid success/conflict combinations or serialization failure.

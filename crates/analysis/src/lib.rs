@@ -1,4 +1,9 @@
-//! Static rulebook analysis for Rulery.
+//! Static, finite-domain rulebook analysis for Rulery.
+//!
+//! The crate builds deterministic decision partitions, enforces global state budgets, computes
+//! reachability/interactions/coverage, minimizes replayable witnesses, and compares package
+//! behavior semantically. Analyses report [`AnalysisCompleteness`] explicitly; an inconclusive
+//! result is never promoted to a proof of absence or equivalence.
 
 #![forbid(unsafe_code)]
 

@@ -53,11 +53,18 @@ pub struct ArtifactExecution {
 }
 
 /// Application and stream ports for read-only artifact commands.
-#[allow(clippy::missing_errors_doc)]
 pub trait ArtifactPorts {
     /// Executes and renders one command without writing project files.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when execution fails before an artifact is available.
     fn execute(&self, command: &Command) -> Result<ArtifactExecution, String>;
     /// Writes the complete stdout artifact.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when the output stream rejects the artifact.
     fn write_stdout(&self, bytes: &[u8]) -> Result<(), String>;
 }
 

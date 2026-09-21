@@ -140,6 +140,16 @@ pub struct DecisionPartition {
 }
 
 /// Builds a canonical finite partition from typed path declarations.
+///
+/// Explicit domains take precedence over inferred domains. Boolean and enum declarations are
+/// finite directly; integer declarations use authored boundaries plus adjacent/exterior
+/// representatives. Text intervals, lists, and records remain inconclusive without an explicit
+/// domain. Presence states are added only when allowed, forbidden values are removed before the
+/// Cartesian product, and both paths and cells are canonically ordered.
+///
+/// This function constructs the complete product. It records `options.max_states` in an
+/// inconclusive result but does not enforce that budget; callers performing evaluation must use
+/// [`AnalysisBudget`](crate::AnalysisBudget).
 #[must_use]
 pub fn build_partition(
     decision: DecisionId,
@@ -232,6 +242,9 @@ fn inferred_domain(spec: &PartitionSpec) -> (Vec<FactPartitionValue>, bool) {
 }
 
 fn integer_domain(boundaries: &[i64]) -> Vec<FactPartitionValue> {
+    // Integer comparisons can change only at an authored boundary. A boundary, one representative
+    // from each non-empty open interval, and the two exterior classes therefore preserve every
+    // possible ordering result without enumerating the full integer range.
     let mut boundaries = boundaries.to_vec();
     boundaries.sort_unstable();
     boundaries.dedup();

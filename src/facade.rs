@@ -51,24 +51,51 @@ pub enum FacadeError {
 }
 
 /// Ports consumed by the composition root.
-#[allow(clippy::missing_errors_doc)]
 pub trait FacadePorts: Send + Sync {
     /// Store load stage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when the package root cannot be loaded.
     fn load(&self, root: &PackagePath) -> Result<(), FacadeError>;
     /// Source parse stage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when authored sources are invalid.
     fn parse(&self) -> Result<(), FacadeError>;
     /// Recursive package assembly stage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when imports or lock policy cannot be satisfied.
     fn assemble(&self, lock_mode: LockMode) -> Result<Option<RulebookLock>, FacadeError>;
     /// Global source-key remap stage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when a local source span cannot be remapped.
     fn remap(&self) -> Result<(), FacadeError>;
     /// Policy compilation stage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when checked package construction fails.
     fn compile(&self) -> Result<CompiledPackage, FacadeError>;
     /// Root scenario compilation stage.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when root scenarios reference invalid package symbols.
     fn compile_scenarios(
         &self,
         package: &CompiledPackage,
     ) -> Result<Vec<CompiledScenario>, FacadeError>;
     /// Decision evaluation port.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeEvaluationError`] for runtime conflict or evaluation failure.
     fn evaluate(
         &self,
         package: &CompiledPackage,
@@ -94,15 +121,22 @@ pub trait FacadePorts: Send + Sync {
 }
 
 /// Public facade workflow contract.
-#[allow(clippy::missing_errors_doc)]
 pub trait RuleryFacade: Send + Sync {
     /// Compiles one package workflow.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] from the first failed workflow stage.
     fn compile_package(
         &self,
         root: &PackagePath,
         lock_mode: LockMode,
     ) -> Result<CompileWorkflowOutput, FacadeError>;
     /// Evaluates one decision without reopening source files.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`FacadeError`] when evaluation fails or produces a runtime conflict.
     fn evaluate(
         &self,
         package: &CompiledPackage,

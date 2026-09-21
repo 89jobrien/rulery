@@ -1,3 +1,5 @@
+//! End-to-end reproducibility checks for the tool-library explain workflow.
+
 use std::fs;
 
 use rulery::contracts::UtcInstant;

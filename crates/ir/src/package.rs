@@ -491,6 +491,8 @@ fn build_payload(
 }
 
 fn compute_payload_hash(payload: &CompiledPackageV1) -> Result<ContentHash, PackageBuildError> {
+    // The v1 hash contract is the serde representation of CanonicalPayload. BTreeMap ordering and
+    // field order are therefore deliberate, and package_hash is omitted to avoid self-reference.
     let canonical = CanonicalPayload::from(payload);
     let bytes = serde_json::to_vec(&canonical).map_err(PackageBuildError::HashSerialization)?;
     Ok(hash_parts(

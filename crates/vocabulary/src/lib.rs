@@ -1,4 +1,8 @@
-//! Resolved vocabulary and value validation for Rulery.
+//! Resolved vocabulary and structural fact validation for Rulery.
+//!
+//! Resolution checks type references, alias cycles, roots, and operational terms deterministically.
+//! Fact validation preserves the distinction between absent, explicit null, malformed, and valid
+//! evidence so the engine can apply policy strategies without losing provenance.
 
 #![forbid(unsafe_code)]
 

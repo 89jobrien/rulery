@@ -129,6 +129,8 @@ fn normalize_children(
     children: Vec<Expr>,
     advisories: &mut Vec<String>,
 ) -> Result<Vec<Expr>, NormalizationError> {
+    // Serialized JSON bytes provide one deterministic ordering for commutative all/any children.
+    // Normalization changes child order but retains each child's semantic content.
     let mut keyed = children
         .into_iter()
         .map(|child| {
@@ -143,6 +145,8 @@ fn normalize_children(
 }
 
 fn collect_unique_predicates<'a>(expression: &'a Expr, predicates: &mut Vec<&'a Predicate>) {
+    // Specificity counts structurally unique predicates. Equality includes operands and spans, so
+    // separately authored occurrences remain distinct even when their text is otherwise equal.
     match expression {
         Expr::Predicate(predicate) => {
             if !predicates.contains(&predicate) {

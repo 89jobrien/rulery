@@ -249,6 +249,8 @@ fn candidate(
     required_facts: &BTreeSet<FactPath>,
     reason: StrategyReason,
 ) -> StrategyCandidate {
+    // Compute a realizable lexicographic key: specificity is maximized only inside the greatest
+    // priority subset, then override rank only inside the greatest priority/specificity subset.
     let priority = observations
         .iter()
         .filter(|entry| entry.evidence == evidence)

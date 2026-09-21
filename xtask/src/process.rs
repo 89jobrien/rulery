@@ -3,9 +3,13 @@
 use std::path::Path;
 
 /// Process operations required by conformance checks.
-#[allow(clippy::missing_errors_doc)]
 pub trait ProcessRunner {
     /// Runs rustfmt check for one scratch Rust source.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error when rustfmt cannot be spawned or waited on; a completed process reports
+    /// formatting through the Boolean result.
     fn rustfmt_check(&self, path: &Path) -> Result<bool, String>;
 }
 

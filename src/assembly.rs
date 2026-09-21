@@ -395,6 +395,8 @@ fn remap_nodes(
     ),
     AssemblyError,
 > {
+    // Global source keys intentionally ignore DFS traversal order. Packages are iterated by ID and
+    // files by source path so equivalent import declarations compile to identical provenance keys.
     let mut merged = SourceMap::new();
     let mut key_map = SourceKeyMap::new();
     let mut next = 0_u32;

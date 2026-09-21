@@ -129,6 +129,10 @@ pub enum PrecedenceError {
 
 /// Selects all candidates at the greatest semantic key without identity tie-breaking.
 ///
+/// Semantic keys compare lexicographically and larger components win. Rule identity is used only
+/// to stabilize returned presentation order. Greatest-key candidates with the same complete
+/// outcome merge; unequal outcomes remain an explicit conflict.
+///
 /// # Errors
 ///
 /// Returns [`PrecedenceError`] when explicit rank configuration is invalid.
@@ -219,6 +223,8 @@ pub(crate) fn semantic_key(
     model: &PrecedenceModel,
     candidate: &Candidate,
 ) -> Result<SemanticPrecedenceKey, PrecedenceError> {
+    // The enum variants encode the normative tuple order. Derived Ord is intentional: do not add
+    // rule identity or source order here, because either would silently alter policy semantics.
     let outcome_rank = match model {
         PrecedenceModel::SafetyFirst | PrecedenceModel::PriorityFirst => {
             default_outcome_rank(candidate.outcome.kind())

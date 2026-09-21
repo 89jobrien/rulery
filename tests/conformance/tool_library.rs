@@ -1,3 +1,5 @@
+//! Conformance checks for the tool-library example sources and lock integrity.
+
 use std::fs;
 
 use rulery::contracts::PackagePath;

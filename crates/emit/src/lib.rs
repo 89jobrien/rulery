@@ -1,4 +1,9 @@
-//! Human and machine renderers for Rulery artifacts.
+//! Human and machine renderers for typed Rulery artifacts.
+//!
+//! Renderers consume validated packages, traces, scenarios, diagnostics, and analysis results;
+//! they do not reinterpret policy semantics. JSON preserves strict versioned envelopes, while
+//! human/Markdown and SARIF render typed inputs directly. Before decision-table conversion,
+//! callers can run [`validate_projection`] to report unsupported semantics as [`ProjectionLoss`].
 
 #![forbid(unsafe_code)]
 

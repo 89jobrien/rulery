@@ -93,6 +93,14 @@ pub struct CoverageReport {
 }
 
 /// Computes exact coverage from complete cell evaluations.
+///
+/// The denominator contains only vocabulary-satisfiable cells. A cell is covered only when at
+/// least one non-default rule determines the outcome and no relevant uncertainty or conflict
+/// remains. A complete empty domain reports 100% coverage; an incomplete partition suppresses the
+/// percentage and emits `RUL254`.
+///
+/// Callers must provide at most one evaluation for each intended partition cell. This function
+/// trusts that correspondence and does not cross-validate the evaluation set against `partition`.
 #[must_use]
 pub fn compute_coverage(
     partition: &DecisionPartition,

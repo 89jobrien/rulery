@@ -40,6 +40,10 @@ pub struct ClassifiedObservation {
 
 /// Classifies an unresolved candidate by maximum-completion displacement.
 ///
+/// “Maximum completion” treats the unresolved rule as if its condition completed to true, then
+/// compares that candidate with the best decisive candidate. A greater key can displace the
+/// result; an equal key is relevant only when it would introduce an incompatible outcome.
+///
 /// # Errors
 ///
 /// Returns [`PrecedenceError`] when explicit rank configuration is invalid.

@@ -1,3 +1,5 @@
+//! Strict round-trip and schema-rejection checks for every v0.1 wire envelope.
+
 use std::sync::Arc;
 
 use rulery::analysis::{

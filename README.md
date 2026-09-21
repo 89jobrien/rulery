@@ -80,10 +80,11 @@ cargo run -p rulery-cli -- --help
 
 ## Quickstart
 
-The checked-in tool-library fixture provides a currently executable explanation path. It checks
-source integrity against the frozen lock, reads case and scenario fixtures, constructs a
-deterministic decision trace for the canonical case, and renders JSON and human output. It is a
-focused conformance helper rather than the not-yet-wired general CLI workflow.
+The checked-in `tool_library_explain` helper is a fixture-integrity check and fixed conformance
+artifact. It verifies source integrity against the frozen lock, reads the canonical case and
+scenario fixtures, constructs a predetermined decision trace, and renders JSON and human output.
+It does not parse, compile, or evaluate arbitrary authored rules and is not a general evaluator
+path or a substitute for the not-yet-wired CLI workflow.
 
 ```rust
 use std::path::Path;
@@ -111,6 +112,11 @@ actions, rules, facts, scenarios, and lockfile used by the conformance tests.
 
 The parser defines the following v0.1 commands. They are useful for inspecting the intended
 interface, but the binary does not yet execute them.
+
+**Dispatch warning:** these commands currently parse arguments and exit without performing their
+intended operations.
+
+The table is a summary; use `rulery <COMMAND> --help` for required options and all declared flags.
 
 | Command                | Intended operation                                            |
 | ---------------------- | ------------------------------------------------------------- |
@@ -175,4 +181,5 @@ unsafe code and warns on missing public documentation.
 
 ## License
 
-Workspace package metadata declares dual licensing under MIT or Apache-2.0.
+Cargo package metadata declares dual licensing under MIT or Apache-2.0. This repository does not
+currently include the corresponding license text files.

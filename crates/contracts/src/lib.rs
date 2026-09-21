@@ -1,4 +1,9 @@
-//! Stable shared contracts for Rulery.
+//! Stable boundary contracts shared by every Rulery crate.
+//!
+//! IDs, values, facts, outcomes, source spans, exact time/scalar types, hashes, and lock envelopes
+//! live here so parsing, compilation, evaluation, and rendering agree on one validated model.
+//! Constructors enforce wire grammar and semantic invariants before values cross crate or
+//! serialization boundaries.
 
 #![forbid(unsafe_code)]
 

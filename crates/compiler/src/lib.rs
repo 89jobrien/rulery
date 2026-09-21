@@ -1,4 +1,9 @@
-//! Validation and lowering pipeline for Rulery rulebooks.
+//! Validation and deterministic lowering for Rulery rulebooks.
+//!
+//! Compiler passes resolve symbols, validate references, type-check predicates and actions,
+//! normalize conditions, compute static specificity, and lower checked declarations into
+//! `rulery.compiled-package/v1`. [`CompilationOutput`] deliberately omits the package whenever an
+//! error diagnostic exists; callers must not evaluate partially checked input.
 
 #![forbid(unsafe_code)]
 

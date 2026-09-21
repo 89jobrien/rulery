@@ -15,6 +15,10 @@ impl IntegrityCalculator {
     }
 
     /// Encodes the canonical bundle frame bytes for testing and diagnostics.
+    ///
+    /// Documents must already be in [`SourceBundle`] path order. Paths and source content are
+    /// length-prefixed and source bytes, including line endings, are retained verbatim. Changing
+    /// this frame invalidates existing source-integrity values and lock files.
     #[must_use]
     pub fn bundle_frame_bytes(bundle: &SourceBundle) -> Vec<u8> {
         let mut buffer = Vec::new();

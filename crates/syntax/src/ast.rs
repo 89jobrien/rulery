@@ -149,27 +149,46 @@ pub struct SourcePredicate {
 
 /// Complete v0.1 source operator set.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-#[allow(missing_docs)]
 pub enum SourceOperator {
+    /// Tests whether the left fact is present.
     Exists,
+    /// Tests whether the left fact is absent.
     Missing,
+    /// Tests type-strict equality with the right operand.
     Equals,
+    /// Negates type-strict equality with the right operand.
     NotEquals,
+    /// Tests strict ascending order.
     LessThan,
+    /// Tests ascending order including equality.
     LessOrEqual,
+    /// Tests strict descending order.
     GreaterThan,
+    /// Tests descending order including equality.
     GreaterOrEqual,
+    /// Tests membership using the authored right operand.
     IsOneOf,
+    /// Tests text substring or typed list-element containment.
     Contains,
+    /// Tests a text prefix.
     StartsWith,
+    /// Tests a text suffix.
     EndsWith,
+    /// Tests text against a declared match expression.
     Matches,
+    /// Tests whether a date or instant precedes the right operand.
     Before,
+    /// Tests whether a date or instant follows the right operand.
     After,
+    /// Tests whether a temporal value falls within declared bounds.
     Between,
+    /// Tests temporal ordering before or at the right operand.
     OnOrBefore,
+    /// Tests temporal ordering after or at the right operand.
     OnOrAfter,
+    /// Tests that the left operand is Boolean `true`.
     IsTrue,
+    /// Tests that the left operand is Boolean `false`.
     IsFalse,
 }
 

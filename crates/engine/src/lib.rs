@@ -1,4 +1,9 @@
 //! Deterministic decision evaluation engine for Rulery.
+//!
+//! Evaluation preserves four distinct truth states, applies missing/invalid strategies before
+//! composition, resolves candidates by semantic precedence, computes decision-relevant uncertainty,
+//! and records reproducible traces. Time and timezone data enter through explicit ports; rule IDs
+//! affect presentation but never semantic selection.
 
 #![forbid(unsafe_code)]
 

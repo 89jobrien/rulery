@@ -1,4 +1,8 @@
-//! Procedural macros for Rulery.
+//! Procedural macros for typed Rulery integrations.
+//!
+//! [`RuleFacts`] derives a consuming `TryFrom` conversion into `CaseFacts` while requiring explicit
+//! roots and field paths. Generated code resolves the facade crate hygienically, including when a
+//! downstream package renames its `rulery` dependency.
 
 #![forbid(unsafe_code)]
 
@@ -8,7 +12,15 @@ mod rule_facts;
 
 use proc_macro::TokenStream;
 
-/// Derives conversion from a Rust record to Rulery case facts.
+/// Derives consuming conversion from a Rust record to Rulery case facts.
+///
+/// The struct requires `#[rulery(root = "...")]`; every named field requires an explicit
+/// `#[rulery(path = "...")]`. Supported field types are `bool`, `i64`, `String`, `Value`, and
+/// `Option<T>` around those types. `Option::None` omits the field instead of producing explicit
+/// null. Duplicate, malformed, nested, unknown, and unsupported declarations are compile errors.
+///
+/// Generated code resolves the downstream `rulery` facade through `proc-macro-crate`, so renamed
+/// dependencies remain hygienic. Generic and tuple structs are not supported.
 #[proc_macro_derive(RuleFacts, attributes(rulery))]
 pub fn derive_rule_facts(input: TokenStream) -> TokenStream {
     rule_facts::derive(input.into()).into()

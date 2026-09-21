@@ -5,11 +5,19 @@ use std::path::Path;
 use crate::XtaskError;
 
 /// Filesystem operations needed by bootstrap reconciliation.
-#[allow(clippy::missing_errors_doc)]
 pub trait WorkspaceFileSystem {
     /// Reads UTF-8 content when a file exists.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`XtaskError`] when metadata, bytes, or UTF-8 decoding cannot be read.
     fn read(&self, path: &Path) -> Result<Option<String>, XtaskError>;
     /// Atomically writes one complete file.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`XtaskError`] when directory creation, temporary writing, syncing, or renaming
+    /// fails.
     fn write_atomic(&self, path: &Path, content: &str) -> Result<(), XtaskError>;
 }
 

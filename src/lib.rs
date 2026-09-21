@@ -1,12 +1,20 @@
 //! Public facade for the Rulery rule compiler and evaluator.
+//!
+//! This crate composes source loading, package assembly, compilation, evaluation, analysis, and
+//! scenario workflows while re-exporting the focused workspace crates. Start with
+//! [`RuleryFacade`] when embedding the full workflow, or use modules such as [`contracts`],
+//! [`engine`], and [`analysis`] for lower-level integration. Package evaluation is deterministic
+//! when the evaluation port supplies explicit clock/timezone inputs; runtime actions remain
+//! declarative values.
 
 #![forbid(unsafe_code)]
 
 mod assembly;
+#[path = "macros.rs"]
+mod declarative_macros;
 mod facade;
-mod macros;
 mod tool_library;
-pub use macros::{FactBuildError, ScenarioBuildError};
+pub use declarative_macros::{FactBuildError, ScenarioBuildError};
 pub use tool_library::{ToolLibraryExplain, tool_library_explain};
 
 pub use assembly::{
@@ -21,7 +29,7 @@ pub use facade::{
 /// Hidden macro expansion surface.
 #[doc(hidden)]
 pub mod __private {
-    pub use crate::macros::{assert_decision_contract, build_scenario};
+    pub use crate::declarative_macros::{assert_decision_contract, build_scenario};
     pub use rulery_contracts::*;
     pub use rulery_diagnostics::*;
     pub use rulery_scenarios::*;

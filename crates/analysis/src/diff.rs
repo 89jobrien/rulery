@@ -108,6 +108,11 @@ pub struct PolicyDiffer;
 
 impl PolicyDiffer {
     /// Classifies paired union-partition evaluations under a state limit.
+    ///
+    /// Cells are examined in caller-provided order, so callers must supply canonical union-
+    /// partition order for deterministic truncation. When `max_states` excludes any cell,
+    /// completeness is inconclusive and [`PolicyDiff::unchanged`] is `None`; no equivalence claim
+    /// is made from the examined prefix.
     #[must_use]
     pub fn diff(&self, decision: DecisionId, cells: Vec<DiffCell>, max_states: u64) -> PolicyDiff {
         let available = usize::try_from(max_states).unwrap_or(usize::MAX);

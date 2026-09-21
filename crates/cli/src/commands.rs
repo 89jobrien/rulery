@@ -27,17 +27,36 @@ pub struct CompileResult {
 }
 
 /// Filesystem and workflow ports for write-capable commands.
-#[allow(clippy::missing_errors_doc)]
 pub trait CommandPorts {
     /// Returns whether a destination exists and is non-empty.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when destination metadata cannot be read.
     fn destination_non_empty(&self, path: &Path) -> Result<bool, String>;
     /// Initializes an empty package destination.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when required files cannot be created atomically.
     fn init(&self, path: &Path) -> Result<(), String>;
     /// Computes canonical formatting.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when sources cannot be read, formatted, or written.
     fn format(&self, path: &Path, write: bool) -> Result<FormatResult, String>;
     /// Compiles a package under explicit lock policy.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when the package workflow fails before diagnostics are produced.
     fn compile(&self, path: &Path, mode: LockMode) -> Result<CompileResult, String>;
     /// Atomically writes a validated replacement lock.
+    ///
+    /// # Errors
+    ///
+    /// Returns a message when the temporary write, sync, or rename fails.
     fn write_lock(&self, path: &Path, lock: &RulebookLock) -> Result<(), String>;
 }
 

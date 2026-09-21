@@ -115,7 +115,11 @@ impl HashDomain {
     }
 }
 
-/// Hashes length-prefixed parts under a versioned domain.
+/// Hashes ordered, length-prefixed byte parts under a versioned domain.
+///
+/// The frame is `u64::to_be_bytes(length) || bytes` for the domain and then for each part. Bytes
+/// are consumed exactly as supplied: no text, path, line-ending, or Unicode normalization occurs.
+/// Domain labels and framing are compatibility-sensitive wire contracts.
 #[must_use]
 pub fn hash_parts<'a>(
     domain: HashDomain,
