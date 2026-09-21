@@ -10,13 +10,13 @@
 - Godmode graph: 70 done, 0 running, 0 pending, 0 blocked (`.ctx/godmode/tasks.yaml`).
 - Standard gates pass: `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`, `cargo nextest run --workspace` (65 tests), and `cargo doc --workspace --no-deps`.
 - Public GitHub repo exists at `https://github.com/89jobrien/rulery`; `main` and `feat/rulery-v0-1` track the `github` remote.
-- The full implementation is still uncommitted; the remote feature branch only contains commit `2c1299e` and earlier history.
+- The full implementation is committed and pushed as `c25bb58` on `feat/rulery-v0-1`; the working tree is clean.
 
 ## Release blockers
 
 - All-target clippy currently reports test-only findings in contracts hashes, vocabulary validation, emit JSON tests, IR wire tests, facade/assembly tests, and xtask verify tests.
 - No release tags exist, so `v0.1.0` is the likely initial tag but still requires explicit confirmation.
-- Untracked Cargo Rail plan/design files may be unrelated to the Rulery v0.1 implementation commit.
+- Cargo Rail plan/design files were included in `c25bb58`; confirm they belong in the release scope.
 
 ## Decisions
 

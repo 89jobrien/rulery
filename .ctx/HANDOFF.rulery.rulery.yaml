@@ -6,6 +6,8 @@ summary: >-
   repository, and verified standard workspace gates.
 status:
   implementation: complete
+  commit: c25bb58
+  pushed: true
   task_graph: 70 done, 0 running, 0 pending, 0 blocked
   standard_gates: passing
   release_readiness: blocked

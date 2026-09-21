@@ -18,10 +18,10 @@
 
 ## In progress
 
-- Session closeout: memory/handoff update, one implementation commit, and push.
+- Nothing currently in progress; the implementation closeout commit is pushed.
 
 ## Not started
 
 - Release impact confirmation and version bump.
 - Changelog/release notes for the new implementation.
-- GitHub Actions validation of the uncommitted implementation.
+- GitHub Actions validation of commit `c25bb58` (no workflow runs were present at closeout).
