@@ -1,0 +1,95 @@
+[tasks."release:gate"]
+description = "Run release Cargo quality gates"
+run = [
+  "cargo fmt --all",
+  "cargo clippy --workspace -- -D warnings",
+  "cargo nextest run --workspace",
+]
+
+[tasks."release:check"]
+description = "Run post-bootstrap extended checks for all publishable crates"
+run = [
+  "cargo rail config validate --strict",
+  "cargo rail release check --all --extended",
+]
+
+[tasks."release:plan"]
+description = "Preview the lockstep workspace release"
+usage = '''
+arg "[bump]" help="Shared version bump" default="patch" {
+  choices "patch" "minor" "major"
+}
+'''
+run = '''
+#!/usr/bin/env nu
+let result = do {
+  cargo rail release run --all --bump $env.usage_bump --check
+} | complete
+
+if not ($result.stdout | is-empty) {
+  print $result.stdout
+}
+if not ($result.stderr | is-empty) {
+  print --stderr $result.stderr
+}
+
+if $result.exit_code > 1 {
+  exit $result.exit_code
+}
+'''
+
+[tasks."release:require-main"]
+description = "Require the default branch for cargo-rail mutations"
+hide = true
+run = '''
+#!/usr/bin/env nu
+let branch = (git branch --show-current | str trim)
+print $branch
+if $branch != "main" {
+  error make { msg: $"release task requires main; current branch: ($branch)" }
+}
+'''
+
+[tasks."release:preflight"]
+description = "Run release gates and readiness checks"
+hide = true
+run = [
+  "mise run release:gate",
+  "cargo rail config validate --strict",
+  "cargo rail release check --all",
+]
+
+[tasks."release:prepare"]
+description = "Prepare and open the lockstep release PR"
+depends = ["release:require-main", "release:preflight"]
+usage = '''
+arg "[bump]" help="Shared version bump" default="patch" {
+  choices "patch" "minor" "major"
+}
+'''
+run = 'cargo rail release run --all --bump "${usage_bump?}" --pr'
+
+[tasks."release:finalize"]
+description = "Finalize the merged release PR"
+depends = ["release:require-main", "release:preflight"]
+run = "cargo rail release finalize --all"
+
+[tasks."release:now"]
+description = "Immediately release the lockstep workspace"
+depends = ["release:require-main", "release:preflight"]
+usage = '''
+arg "[bump]" help="Shared version bump" default="patch" {
+  choices "patch" "minor" "major"
+}
+'''
+run = 'cargo rail release run --all --bump "${usage_bump?}"'
+
+[tasks."release:resume"]
+description = "Resume an interrupted cargo-rail release"
+usage = 'arg "<state>" help="Cargo-rail durable state file"'
+run = 'cargo rail release resume "${usage_state?}"'
+
+[tasks."release:abort"]
+description = "Abort a cargo-rail release before remote effects"
+usage = 'arg "<state>" help="Cargo-rail durable state file"'
+run = 'cargo rail release abort "${usage_state?}"'

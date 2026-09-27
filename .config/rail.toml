@@ -1,0 +1,47 @@
+targets = []
+
+[release]
+tag_prefix = "v"
+tag_format = "{crate}-{prefix}{version}"
+require_clean = true
+publish_delay = 5
+create_github_release = true
+forge = "github"
+push = true
+sign_tags = true
+require_changelog_entries = false
+require_release_notes = false
+unconventional_commits = "warn"
+semver_check = "warn"
+require_change_files = false
+change_dir = ".changes"
+release_notes_dir = ".release-notes"
+
+[release.version_groups]
+rulery = [
+  "rulery-contracts",
+  "rulery-diagnostics",
+  "rulery-syntax",
+  "rulery-vocabulary",
+  "rulery-ir",
+  "rulery-compiler",
+  "rulery-engine",
+  "rulery-analysis",
+  "rulery-scenarios",
+  "rulery-emit",
+  "rulery-store",
+  "rulery-macros",
+  "rulery",
+  "rulery-cli",
+]
+
+[release.changelog]
+path = "CHANGELOG.md"
+relative_to = "workspace"
+emoji = false
+
+[crates.xtask.release]
+publish = false
+
+[crates.xtask.changelog]
+skip = true

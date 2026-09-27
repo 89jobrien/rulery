@@ -1,0 +1,21 @@
+id: expired-training-is-denied
+title: Expired training prevents power-tool checkout
+decision: checkout
+at: "2026-09-16T16:00:00.000000000Z"
+given:
+  member:
+    account-status: active
+    training:
+      completed-at: "2025-01-10"
+      valid-until: "2026-09-15"
+    unresolved-damage-reports: 0
+  tool:
+    category: power-tool
+expect:
+  outcome: deny
+  determining_rules:
+    - package: community-tool-library
+      rule: deny-expired-training
+  required_facts: []
+  reason_codes: [expired-training]
+tags: [safety]
