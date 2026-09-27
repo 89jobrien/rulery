@@ -1,0 +1,180 @@
+project: rulery
+id: rulery
+updated: 2026-09-27
+items:
+- id: cli18
+  name: define-the-init-scaffold-and-the-fmt-canonical-form
+  priority: P2
+  status: blocked
+  title: Define the init scaffold and the fmt canonical form
+  description: init and fmt are the only two commands the specification does not determine. The spec says init writes one human path line but pins no template bytes and no required-file list, and it defines "canonical" only as JCS JSON for hashed payloads, so a formatter would have to invent the authored-source form it enforces. Both are currently surfaced as an explicit typed unavailable error through the same exit matrix rather than fabricating content, and the rationale constants cite the spec lines at crates/cli/src/dispatch.rs. Needs a specification amendment or an explicit deferral from v0.1 before implementation.
+  extra:
+  - date: 2026-09-27
+    type: blocker
+    note: init and fmt are the only two commands the specification does not determine. The spec says init writes one human path line but pins no template bytes and no required-file list, and it defines "canonical" only as JCS JSON for hashed payloads, so a formatter would have to invent the authored-source form it enforces. Both are currently surfaced as an explicit typed unavailable error through the same exit matrix rather than fabricating content, and the rationale constants cite the spec lines at crates/cli/src/dispatch.rs. Needs a specification amendment or an explicit deferral from v0.1 before implementation.
+- id: uncommitted-work
+  name: uncommitted-work
+  priority: P1
+  status: open
+  title: Uncommitted changes (72 files)
+  description: |-
+    Working tree has uncommitted changes:
+    .ctx/HANDOFF.rulery.rulery.yaml
+    .ctx/godmode/memory-bank/active-context.md
+    .ctx/godmode/tasks.yaml
+    Cargo.lock
+    Cargo.toml
+    README.md
+    crates/analysis/src/lib.rs
+    crates/analysis/src/partition.rs
+    crates/cli/Cargo.toml
+    crates/cli/src/args.rs
+    crates/cli/src/artifact.rs
+    crates/cli/src/lib.rs
+    crates/cli/src/main.rs
+    crates/compiler/src/lib.rs
+    crates/compiler/src/lower.rs
+    crates/contracts/src/outcome.rs
+    crates/contracts/src/time.rs
+    crates/contracts/tests/hashes.rs
+    crates/contracts/tests/scalars.rs
+    crates/diagnostics/src/lib.rs
+    crates/diagnostics/src/model.rs
+    crates/emit/src/decision_table.rs
+    crates/emit/src/human.rs
+    crates/emit/src/json.rs
+    crates/emit/src/lib.rs
+    crates/engine/Cargo.toml
+    crates/engine/src/evaluator.rs
+    crates/engine/src/lib.rs
+    crates/engine/src/precedence.rs
+    crates/engine/src/predicate.rs
+    crates/engine/src/trace.rs
+    crates/ir/src/lib.rs
+    crates/ir/src/package.rs
+    crates/ir/src/wire.rs
+    crates/scenarios/src/compile.rs
+    crates/store/src/filesystem.rs
+    crates/syntax/src/ast.rs
+    crates/syntax/src/lib.rs
+    crates/syntax/src/yaml/dto.rs
+    crates/syntax/src/yaml/mod.rs
+    crates/vocabulary/src/validate.rs
+    docs/specification.md
+    src/assembly.rs
+    src/facade.rs
+    src/lib.rs
+    src/tool_library.rs
+    tests/conformance.rs
+    tests/conformance/safety.rs
+    tests/conformance/tool_library_cli.rs
+    tests/conformance/wire.rs
+    tests/fixtures/tool-library-explain.txt
+    tests/workspace_scaffold.rs
+    xtask/src/conformance.rs
+    xtask/src/lib.rs
+    xtask/src/model.rs
+    xtask/tests/conformance.rs
+    xtask/tests/verify.rs
+    AGENTS.md
+    crates/analysis/src/extract.rs
+    crates/analysis/src/facts.rs
+    crates/cli/src/dispatch.rs
+    crates/cli/src/error.rs
+    crates/cli/src/facts.rs
+    crates/cli/src/findings.rs
+    crates/cli/src/report.rs
+    crates/cli/src/runtime.rs
+    crates/engine/src/policy_evaluator.rs
+    crates/ir/src/condition.rs
+    docs/designs/2026-09-23-cli-application-integration-design.md
+    docs/designs/2026-09-26-analysis-input-extraction-design.md
+    src/application.rs
+    tests/conformance/tool_library_explain.rs
+  files:
+  - .ctx/HANDOFF.rulery.rulery.yaml
+  - .ctx/godmode/memory-bank/active-context.md
+  - .ctx/godmode/tasks.yaml
+  - Cargo.lock
+  - Cargo.toml
+  - README.md
+  - crates/analysis/src/lib.rs
+  - crates/analysis/src/partition.rs
+  - crates/cli/Cargo.toml
+  - crates/cli/src/args.rs
+  - crates/cli/src/artifact.rs
+  - crates/cli/src/lib.rs
+  - crates/cli/src/main.rs
+  - crates/compiler/src/lib.rs
+  - crates/compiler/src/lower.rs
+  - crates/contracts/src/outcome.rs
+  - crates/contracts/src/time.rs
+  - crates/contracts/tests/hashes.rs
+  - crates/contracts/tests/scalars.rs
+  - crates/diagnostics/src/lib.rs
+  - crates/diagnostics/src/model.rs
+  - crates/emit/src/decision_table.rs
+  - crates/emit/src/human.rs
+  - crates/emit/src/json.rs
+  - crates/emit/src/lib.rs
+  - crates/engine/Cargo.toml
+  - crates/engine/src/evaluator.rs
+  - crates/engine/src/lib.rs
+  - crates/engine/src/precedence.rs
+  - crates/engine/src/predicate.rs
+  - crates/engine/src/trace.rs
+  - crates/ir/src/lib.rs
+  - crates/ir/src/package.rs
+  - crates/ir/src/wire.rs
+  - crates/scenarios/src/compile.rs
+  - crates/store/src/filesystem.rs
+  - crates/syntax/src/ast.rs
+  - crates/syntax/src/lib.rs
+  - crates/syntax/src/yaml/dto.rs
+  - crates/syntax/src/yaml/mod.rs
+  - crates/vocabulary/src/validate.rs
+  - docs/specification.md
+  - src/assembly.rs
+  - src/facade.rs
+  - src/lib.rs
+  - src/tool_library.rs
+  - tests/conformance.rs
+  - tests/conformance/safety.rs
+  - tests/conformance/tool_library_cli.rs
+  - tests/conformance/wire.rs
+  - tests/fixtures/tool-library-explain.txt
+  - tests/workspace_scaffold.rs
+  - xtask/src/conformance.rs
+  - xtask/src/lib.rs
+  - xtask/src/model.rs
+  - xtask/tests/conformance.rs
+  - xtask/tests/verify.rs
+  - AGENTS.md
+  - crates/analysis/src/extract.rs
+  - crates/analysis/src/facts.rs
+  - crates/cli/src/dispatch.rs
+  - crates/cli/src/error.rs
+  - crates/cli/src/facts.rs
+  - crates/cli/src/findings.rs
+  - crates/cli/src/report.rs
+  - crates/cli/src/runtime.rs
+  - crates/engine/src/policy_evaluator.rs
+  - crates/ir/src/condition.rs
+  - docs/designs/2026-09-23-cli-application-integration-design.md
+  - docs/designs/2026-09-26-analysis-input-extraction-design.md
+  - src/application.rs
+  - tests/conformance/tool_library_explain.rs
+log:
+- date: '20260927.001209'
+  summary: done=84 running=0 pending=3 blocked=1
+  commits:
+  - 42dc7e0fa8f83630bb0ce073dd70fb249c85a9cf
+  - cf420e6d9e016e6c9b4d1ac285ea35a4dc298a21
+  - c25bb585421dc0f8396ce8c679c2be7724e4a34f
+  - 2c1299e083e5edba52787a6c296af0408c06998d
+  - 4532bbe057c24dfbf80f978f3b9301e633968865
+  - dc41599e56df5a944a785601fb5030a7f95cdbfe
+  - a69aa37c1309a1870a8cff246e7654f7bb083318
+  - 1a74c6536d47ffbbe9096c7352339926bb3c8c53
+  - 456b7ef5442fd1050af8cede30e1e2e2d4bd4bbf
+  - d629660ecf34063c18d828a84bde7211250688a7

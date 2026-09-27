@@ -1,0 +1,16 @@
+[package]
+name = "rulery-vocabulary"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Resolved vocabulary and value validation for Rulery."
+
+[dependencies]
+rulery-contracts.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+thiserror = "2.0"
+
+[lints]
+workspace = true
