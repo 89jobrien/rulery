@@ -1,1 +1,10 @@
 /target
+local/
+.kgx/
+.ctx/godmode/traces/
+.ctx/godmode/sessions/
+.ctx/godmode/session.json
+
+# handoff-begin
+.ctx/
+# handoff-end

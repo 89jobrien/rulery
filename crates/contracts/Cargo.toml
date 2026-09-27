@@ -1,0 +1,23 @@
+[package]
+name = "rulery-contracts"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Stable shared contracts for Rulery."
+
+[dependencies]
+blake3 = "1.8"
+hex = "0.4"
+jiff = "0.2"
+rust_decimal = "1.39"
+serde = { version = "1.0", features = ["derive", "rc"] }
+semver = "1.0"
+thiserror = "2.0"
+
+[dev-dependencies]
+serde_json = "1.0"
+
+[lints]
+workspace = true

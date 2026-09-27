@@ -1,0 +1,17 @@
+[package]
+name = "rulery-syntax"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Authored source syntax and parsing for Rulery."
+
+[dependencies]
+rulery-contracts.workspace = true
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.9"
+thiserror = "2.0"
+
+[lints]
+workspace = true

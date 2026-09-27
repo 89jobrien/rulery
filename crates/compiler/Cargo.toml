@@ -1,0 +1,19 @@
+[package]
+name = "rulery-compiler"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+description = "Validation and lowering pipeline for Rulery rulebooks."
+
+[dependencies]
+rulery-contracts.workspace = true
+rulery-diagnostics.workspace = true
+rulery-ir.workspace = true
+rulery-syntax.workspace = true
+rulery-vocabulary.workspace = true
+serde_json = "1.0"
+
+[lints]
+workspace = true
