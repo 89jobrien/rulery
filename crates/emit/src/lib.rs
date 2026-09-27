@@ -1,7 +1,9 @@
 //! Human and machine renderers for typed Rulery artifacts.
 //!
-//! Renderers consume validated packages, traces, scenarios, diagnostics, and analysis results;
-//! they do not reinterpret policy semantics. JSON preserves strict versioned envelopes, while
+//! Renderers project the typed artifacts they are handed: decision trace envelopes, decision
+//! explanations, SARIF diagnostics, Markdown truth tables, and decision tables. They never compile,
+//! evaluate, or resolve policy semantics, and they import nothing from [`rulery_engine`] beyond
+//! [`Truth`](rulery_engine::Truth). JSON preserves strict versioned envelopes, while
 //! human/Markdown and SARIF render typed inputs directly. Before decision-table conversion,
 //! callers can run [`validate_projection`] to report unsupported semantics as [`ProjectionLoss`].
 

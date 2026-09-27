@@ -754,3 +754,325 @@ tasks:
   completed: 2026-09-17
   started_at: 2026-09-18T03:13:38.468246Z
   completed_at: 2026-09-18T03:14:55.036714Z
+- id: cli1
+  title: Preserve complete authored YAML bundle semantics
+  status: done
+  depends_on: []
+  notes: Implemented strict complete authored bundle parsing with canonical fixture, malformed-document, and duplicate-declaration coverage.
+  crate_name: rulery-syntax
+  completed: 2026-09-26
+  started_at: 2026-09-26T08:31:03.664006Z
+  completed_at: 2026-09-26T08:37:09.115205Z
+- id: cli2
+  title: Retain executable rule semantics in IR
+  status: done
+  depends_on:
+  - cli1
+  notes: Retained executable rule, decision, outcome, priority, and precedence semantics in strict compiled-package/v1 IR.
+  crate_name: rulery-ir
+  completed: 2026-09-26
+  started_at: 2026-09-26T08:37:09.123230Z
+  completed_at: 2026-09-26T08:41:11.619493Z
+- id: cli3
+  title: Implement end-to-end package compiler
+  status: done
+  depends_on:
+  - cli2
+  notes: Lowered complete assembled source bundles into populated executable IR and remapped all expanded AST spans.
+  crate_name: rulery-compiler
+  completed: 2026-09-26
+  started_at: 2026-09-26T08:41:11.627009Z
+  completed_at: 2026-09-26T08:45:42.718271Z
+- id: cli4
+  title: Implement package-level decision evaluation
+  status: done
+  depends_on:
+  - cli3
+  notes: >-
+    Added the PolicyEvaluator port and ProductionPolicyEvaluator in rulery-engine, backed by a
+    versioned time-zone database and four-valued fact-validation strategies; all 36 truth-table
+    cells and the relevance and precedence passes are covered by unit tests.
+  crate_name: rulery-engine
+  started_at: 2026-09-26T08:45:42.726081Z
+  completed_at: 2026-09-26T12:10:00Z
+- id: cli5
+  title: Complete analysis and semantic diff services
+  status: done
+  depends_on:
+  - cli4
+  notes: >-
+    Implemented the missing analysis input-extraction layer, which unblocked the v0.1 requirement
+    gate. New crates/analysis/src/extract.rs derives PartitionSpec, RuleAnalysisInput, and
+    CellEvaluation from a CompiledPackage; new crates/analysis/src/facts.rs performs
+    vocabulary-guided case-fact construction; new crates/ir/src/condition.rs provides condition
+    identity and referenced-path collection, which is the Expr walker that did not previously
+    exist. ApplicationService::analyze and ::diff now return real derived reports instead of
+    ApplicationError::AnalysisUnavailable, and the test that asserted the unavailable behaviour
+    has been replaced by analyze_derives_reachability_interaction_and_coverage_findings,
+    analyze_without_explicit_domains_reports_only_presence_states, and
+    diff_derives_outcome_changes_between_compiled_packages. Finite-domain inference treats
+    boolean, enum, and bounded integer as finite and text, list, and record as inconclusive, and
+    an exhausted state budget reports inconclusive without claiming coverage. Requirements V10
+    and S04 through S07 and S09 are now satisfied, and cargo xtask verify passes all seven gates.
+    Design note: docs/designs/2026-09-26-analysis-input-extraction-design.md.
+  crate_name: rulery-analysis
+  run: cargo nextest run -p rulery-analysis -p rulery
+- id: cli6
+  title: Compile and run authored scenarios
+  status: done
+  depends_on:
+  - cli5
+  notes: ScenarioCompiler and ScenarioRunner are implemented with exact result checking against
+    compiled expectations.
+  crate_name: rulery-scenarios
+- id: cli7
+  title: Expose diagnostics and package renderers
+  status: done
+  depends_on:
+  - cli6
+  notes: Json, human, SARIF, and decision-table renderers are implemented with strict projection
+    validation that rejects semantic loss.
+  crate_name: rulery-emit
+- id: cli8
+  title: Compose shared production application
+  status: done
+  depends_on:
+  - cli7
+  notes: >-
+    Added ApplicationService, ProductionApplication, and ApplicationError in the root rulery
+    crate, closing three composition gaps that did not previously exist: AssemblyCompilationInput
+    to SourceCompilationInput lowering with a canonical lock hash, the SourceScenario to
+    ScenarioSource bridge including type-directed literal resolution and root-keyed fact nesting,
+    and a ScenarioEvaluator over ProductionPolicyEvaluator. analyze and diff are
+    typed-unavailable per cli5. Four unit tests cover fact nesting, conflict rejection, outcome
+    mapping, and explicit analysis failure.
+  crate_name: rulery
+  run: cargo nextest run -p rulery
+- id: cli9
+  title: Implement unified CLI command dispatch
+  status: done
+  depends_on:
+  - cli8
+  notes: >-
+    The binary now executes. New crates/cli/src/runtime.rs supplies the production ArtifactPorts
+    and CommandPorts implementations over the root crate's ApplicationService, and dispatch.rs,
+    report.rs, findings.rs, facts.rs, and error.rs implement the seven fully specified commands
+    with the complete nine-row exit matrix at specification lines 3029-3041, first match wins, and
+    main.rs converts the resolved ExitStatus to a process exit code. Observed: check --format json
+    exits 0 with a DiagnosticReportEnvelope, check --format sarif emits SARIF 2.1.0, explain emits
+    a real human explanation derived from evaluation, render emits markdown, a
+    CompiledPackageEnvelope, and a DecisionTableEnvelope, test emits a scenario-result array,
+    analyze exits 6 when coverage is incomplete, an invalid format or unknown decision exits 2, a
+    missing path exits 3, a stale frozen lock exits 1, and a failing scenario exits 5. Human and
+    JSON formats map the same result to the same code. init and fmt are deferred to cli18 because
+    the specification does not determine them.
+  crate_name: rulery-cli
+  run: cargo nextest run -p rulery-cli
+- id: cli10
+  title: Lock process-level CLI contracts
+  status: done
+  depends_on:
+  - cli9
+  notes: >-
+    Added crates/cli/tests/process_contract.rs, the first suite that observes a finished process
+    rather than a library return value, plus a unit table in crates/cli/src/exit.rs. Nine tests pin
+    the contracts the specification states but no test covered: the exit-condition matrix by
+    observed code for thirteen command and format combinations, including analysis exit 6 and
+    invalid invocation exit 2; stderr-only reporting with an empty stdout for every argument-parse
+    failure; exactly one versioned envelope on stdout with empty stderr for machine formats; the
+    documented ScenarioResultEnvelope array as test's one exception to that rule; one SARIF 2.1.0
+    log that is not a Rulery envelope; the rule that no read-only command writes a file, checked by
+    comparing a sorted path-and-bytes snapshot of the fixture tree before and after each command;
+    the safety requirement that trace persistence is opt-in, checked the same way after explain; and
+    the normative MUST that environment variables must not change lock mode, checked by perturbing
+    a copied lock and running with a cleared environment plus CI, CONTINUOUS_INTEGRATION,
+    RULERY_FROZEN, and RULERY_LOCK_MODE, where Update must still tolerate the stale lock and Frozen
+    must still report it. The new crate tests directory is the first under any workspace member, so
+    CARGO_BIN_EXE_rulery is what makes a real process observable. Also renamed
+    ExitStatus::AnalysisInconclusive to AnalysisIncomplete to match the exit table and the
+    2026-09-23 design note, which both spell it that way. Every lock was mutation-checked on a
+    verified fresh build: breaking one exit code and forcing lock_of to ignore --frozen each fail
+    the suite. Two findings from that check. First, Command::lock_mode in crates/cli/src/args.rs is
+    public but has no production caller; dispatch.rs decides lock mode through its own private
+    lock_of, so the public accessor and the shipped behaviour can drift apart unobserved. Second,
+    target/debug/rulery was stale and did not match the working tree: it flipped Update mode to
+    Frozen whenever CI was present, which looked like a violation of the no-implicit-CI-detection
+    MUST, and cargo clean -p rulery-cli removed the behaviour. The fmt gate was also already red on
+    the untracked dispatch.rs from cli9, so the previous session's clean and passing report did not
+    hold. cargo xtask verify passes all seven gates with 109 tests.
+  crate_name: rulery-cli
+  run: cargo nextest run -p rulery-cli process_contract
+  completed: '2026-09-26'
+- id: cli11
+  title: Update CLI integration documentation
+  status: done
+  depends_on:
+  - cli10
+  notes: >-
+    Four claims in README.md and one in AGENTS.md still described a CLI that only parses
+    arguments, and all five were false as of cli9. README Status said the binary "only parses
+    arguments; command dispatch is not yet connected in main"; the build section called dispatch
+    "a stub"; the quickstart called the CLI "not-yet-wired"; and the whole CLI Surface section was
+    framed as "intended operation" with a bold "Dispatch warning" that the commands "exit without
+    performing their intended operations". All four README claims are replaced with what the binary
+    does. The CLI Surface section is rewritten as actual behavior: a per-command table with the
+    formats each command really emits, the lock-mode rules including that environment variables
+    never change lock mode, the full seven-row exit-status table, and new subsections on scaffolding
+    and formatting. Every command in the rewritten documentation was run before it was written, and
+    the explain, init, check, and fmt --check invocations are transcribed from real output. AGENTS.md
+    had the same staleness in its Gotchas section as a hard instruction not to assume CLI commands
+    execute, which would have actively misled the next agent; it now records that dispatch is wired,
+    that process_contract.rs is where a process-boundary change belongs, and three further gotchas
+    discovered while implementing cli10 and cli18: that the fmt emitter is defined over the parsed
+    document rather than the lowered AST, that target/debug/rulery can be stale enough to report a
+    spec violation that does not exist, and that Command::lock_mode is public with no production
+    caller. The Tests section now documents the crate-level integration suite and its env_clear
+    requirement. A repo-wide search for the stale phrasings returns nothing.
+  crate_name: rulery
+  completed: '2026-09-26'
+- id: cli12
+  title: Run full repository verification
+  status: done
+  depends_on:
+  - cli11
+  notes: >-
+    cargo xtask verify passes all seven gates in order, with 120 tests across 32 binaries and no
+    failures: bootstrap check, conformance, architecture, fmt, clippy with warnings denied,
+    nextest, and rustdoc. This run is the final state including the cli11 documentation changes, so
+    it covers every edit from cli10, cli18, and cli11. The only warning is the pre-existing cargo
+    doc output-filename collision between the rulery lib target and the rulery-cli bin target,
+    which is cargo issue 6313 and not a gate failure. Nothing is committed; the working tree holds
+    the full v0.1 CLI work uncommitted.
+  crate_name: rulery
+  run: cargo xtask verify
+  completed: '2026-09-26'
+- id: cli13
+  title: Cover the evaluation path with real tests
+  status: done
+  depends_on:
+  - cli8
+  notes: >-
+    Added five engine-level tests in crates/engine/src/policy_evaluator.rs covering a decisive
+    rule, default fallback, unknown-decision rejection, invalid-fact strategy application, and
+    reproducibility for one instant and database identity, plus five application-level tests in
+    src/application.rs driving evaluate_at and run_scenarios through the trait and asserting real
+    outcome, trace, reason, and scenario-status content. A fixed timezone database fake and a
+    fixed UtcInstant keep every assertion deterministic. This is the gate named by requirement V05
+    in the specification traceability table.
+  crate_name: rulery-engine
+  run: cargo nextest run -p rulery-engine -p rulery
+- id: cli14
+  title: Resolve the two unimplemented static checks
+  status: done
+  depends_on:
+  - cli8
+  notes: >-
+    Investigated and closed without implementation, because neither code has a reachable trigger.
+    RUL151 DEFAULT_OUTCOME_MISSING: a decision default is required by the authored grammar and is
+    non-optional in both SourceDecision and CompiledDecision; crates/syntax/src/yaml/dto.rs:78
+    declares it without serde(default), so an absent default is already reported as RUL001 at
+    parse time and a malformed one as RUL001 via crates/syntax/src/yaml/mod.rs:747-755.
+    RUL150 UNKNOWN_FACT_POLICY_UNHANDLED: the spec gives only a registry row at
+    docs/specification.md:2420 and no normative definition. Reading it as an unapplied policy is
+    unreachable because MissingFactStrategy is a closed four-variant enum, and reading it as an
+    unhandled fact duplicates RUL252, which the analyzer already emits. Both codes are now
+    documented as reserved in the specification. The two requirement bullets are satisfied by
+    RUL001 and RUL252 respectively, so requirement S08 is satisfied and S04 remains blocked only
+    on the cli5 analysis bridge.
+  crate_name: rulery-analysis
+- id: cli16
+  title: Gate the v0.1 requirement list in the specification
+  status: done
+  depends_on:
+  - cli13
+  notes: >-
+    Added the normative twelve-requirement list and two traceability tables to
+    docs/specification.md under "Versioned requirement traceability", and xtask::check_requirements
+    in xtask/src/conformance.rs, which runs inside the existing conformance gate. The gate rejects
+    a specification that omits any of V01-V12 or S01-S09, names a verification test that does not
+    exist in the workspace, or leaves any row not satisfied. Three unit tests cover the accept,
+    reject, and real-specification paths. The gate is red on exactly six rows, V10 and
+    S04/S05/S06/S07/S09, all of which trace to the cli5 analysis input-extraction gap; every other
+    row is satisfied and every named test exists.
+  crate_name: xtask
+  run: cargo nextest run -p xtask
+- id: cli17
+  title: Support record-valued authored literals in scenario facts
+  status: done
+  depends_on:
+  - cli15
+  notes: >-
+    Fixed by making the authored literal structure-preserving instead of flattening it to text.
+    SourceOperand::Literal now carries a new SourceValue in crates/syntax/src/ast.rs with Scalar,
+    Null, Sequence, and Mapping variants, and the parser builds it from the authored YAML instead
+    of calling render. The compiler's literal() and the scenario bridge's new recursive decode()
+    in src/application.rs both consume it. The bridge now handles records and lists by resolving
+    each nested entry against the declared vocabulary type, and resolve() synthesizes
+    TypeDeclaration::Primitive for the eleven built-in identities, which are named by identity and
+    never declared, so date, integer, and text leaves resolve. The compiler decoder was also
+    extended to the full scalar set and lists; a record literal remains unsupported there because
+    CheckedType has no record variant, which is a type-system boundary rather than a literal gap.
+    Locked in by canonical_scenario_compiles_and_passes_with_record_facts, and `rulery test
+    examples/tool-library --frozen` now emits a passing ScenarioResultEnvelope whose trace shows
+    the nested member.training record decoded.
+  crate_name: rulery-syntax
+  run: cargo nextest run -p rulery-syntax -p rulery
+- id: cli18
+  title: Define the init scaffold and the fmt canonical form
+  status: done
+  depends_on:
+  - cli9
+  notes: >-
+    Unblocked by amending the specification rather than deferring, and both commands are now
+    implemented. Two new sections under ## CLI: "Scaffolded package" and "Canonical authored
+    form", plus two entries in the table of contents and one added bullet in the conformance gate
+    list. The registry stays at exactly 40 codes, so fmt reports a comment removal as a change
+    through the existing fmt --check row of the exit matrix rather than through a diagnostic.
+    Scaffolded package: init writes exactly the five paths Exact file layout already required,
+    never a lock, refuses a non-empty destination, and derives the package identity from the
+    destination directory name by lowercasing, collapsing rejected-character and hyphen runs to a
+    single -, trimming boundary hyphens, and falling back to package. The scaffold is a valid
+    package: rulery check on a fresh destination reports no diagnostic. Canonical authored form is
+    defined over the parsed document rather than over the lowered source AST, so a document that
+    omits a defaulted field keeps omitting it and fmt never inserts a field the author did not
+    author; keys are sorted into ascending canonical-text order; indentation is two spaces with
+    block sequences aligned to their owning key; typed booleans and numbers render unquoted while
+    only strings that the core schema would retype are quoted; empty collections use flow form;
+    comments are dropped, which is a change and not an error; the form is idempotent.
+    Implementation: new crates/cli/src/canonical.rs is the emitter, new crates/cli/src/scaffold.rs
+    holds the templates, and HostWorkflow gains scaffold, source_files, canonicalize_sources,
+    canonicalize_file, and write_source. Scaffold templates are written in a readable order and
+    rendered through the emitter, so a fresh scaffold is canonical by construction rather than by
+    hand-ordering. The two rationale constants are deleted and the CommandPorts stubs now
+    implement both commands, so run_write_command no longer reports them unavailable. fmt FILE
+    reports canonical bytes on stdout and leaves the file untouched, matching the pre-existing
+    output-contract table; fmt PACKAGE rewrites in place; fmt --check writes nothing and exits 1
+    on any difference. Two design corrections found while implementing. Authored key order was
+    rejected because SourceValue::Mapping is a BTreeMap and has already discarded key order, so
+    preserving it would have meant an AST change reaching rulery-syntax, rulery-compiler, and
+    src/application.rs; sorted order is the order the AST already stores. The spec text first said
+    canonical form was defined over the source AST, which would have forced fmt to fill in
+    defaulted fields, so it was corrected to the parsed document before implementation. Twelve new
+    tests, including four process-level ones that spawn the binary. cargo xtask verify passes all
+    seven gates with 120 tests.
+  crate_name: rulery-cli
+  run: cargo nextest run -p rulery-cli
+  completed: '2026-09-26'
+- id: cli15
+  title: Make the tool-library conformance test actually evaluate
+  status: done
+  depends_on:
+  - cli13
+  notes: >-
+    rulery::tool_library_explain now drives a real pipeline: PackageAssembler with Frozen lock
+    mode, PolicyCompiler::compile_source, vocabulary-guided conversion of the case file into
+    typed CaseFacts, and ProductionPolicyEvaluator over a pinned policy calendar. Outcome,
+    determining rule, policy date, hashes, reasons, conditions, and superseded rules are all read
+    back from the returned DecisionTraceV1 rather than authored as literals, and the authored
+    scenario expectation is compared structurally instead of by substring. The test was renamed to
+    tool_library_explain_is_reproducible_end_to_end and its file to
+    tests/conformance/tool_library_explain.rs because it never touched the CLI. The canonical
+    explanation fixture, the human.rs canonical-text assertion, the specification's normative text
+    block, and README.md were regenerated together. crates/emit/src/lib.rs:3 no longer claims the
+    crate renders traces when it imports nothing from rulery-engine except Truth.
+  crate_name: rulery

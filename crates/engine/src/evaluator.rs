@@ -307,6 +307,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn strategies_create_exact_candidates_and_reasons() {
         let observations = vec![

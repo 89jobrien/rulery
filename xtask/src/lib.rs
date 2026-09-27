@@ -15,7 +15,9 @@ mod verify;
 
 pub use architecture::{PackageSnapshot, validate_architecture};
 pub use bootstrap::{Change, ChangeSet, ReconcileMode, plan_bootstrap, reconcile};
-pub use conformance::{ConformanceFailure, ConformanceReport, validate_specification};
+pub use conformance::{
+    ConformanceFailure, ConformanceReport, check_requirements, validate_specification,
+};
 pub use fs::{HostFileSystem, WorkspaceFileSystem};
 pub use model::{
     CrateSpec, DependencyRule, TargetKind, WorkspaceModel, model_dependencies, model_manifest,

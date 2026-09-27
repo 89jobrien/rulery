@@ -4,9 +4,17 @@
 
 mod args;
 mod artifact;
+mod canonical;
 mod commands;
+mod dispatch;
+mod error;
 mod exit;
+mod facts;
+mod findings;
 mod output;
+mod report;
+mod runtime;
+mod scaffold;
 
 pub use args::{BasicFormat, Cli, Command, OutputFormat, RenderFormat};
 pub use artifact::{
@@ -14,5 +22,9 @@ pub use artifact::{
     run_artifact_command,
 };
 pub use commands::{CommandPorts, CompileResult, FormatResult, run_write_command};
+pub use dispatch::{Format, Produced, run, run_with};
+pub use error::{DiagnosticFailure, HostError};
 pub use exit::ExitStatus;
+pub use findings::Findings;
 pub use output::CommandOutput;
+pub use runtime::HostWorkflow;

@@ -804,6 +804,9 @@ version = "0.1.0"
 dependencies = [
  "clap",
  "rulery",
+ "serde_json",
+ "serde_yaml",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -864,6 +867,7 @@ dependencies = [
  "jiff",
  "rulery-contracts",
  "rulery-ir",
+ "rulery-vocabulary",
  "serde",
  "serde_json",
  "thiserror 2.0.20",

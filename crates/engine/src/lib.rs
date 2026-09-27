@@ -8,6 +8,7 @@
 #![forbid(unsafe_code)]
 
 mod evaluator;
+mod policy_evaluator;
 mod precedence;
 mod predicate;
 mod relevance;
@@ -19,6 +20,7 @@ pub use evaluator::{
     EvaluationError, EvidenceClass, InvalidFactStrategy, MissingFactStrategy, PredicateObservation,
     StrategyApplication, StrategyCandidate, StrategyOutcome, StrategyReason, apply_strategies,
 };
+pub use policy_evaluator::{PolicyEvaluationError, PolicyEvaluator, ProductionPolicyEvaluator};
 pub use precedence::{
     Candidate, ConflictTrace, ExplicitRanks, PrecedenceError, PrecedenceModel, Selection,
     SemanticPrecedenceKey, SupersededCandidate, select_candidates,

@@ -17,10 +17,11 @@ pub use code::{
     Severity, Suppressibility,
 };
 pub use model::{
-    AnalysisLimitEvidence, AnalysisPhase, BehaviorChangeEvidence, Diagnostic, DiagnosticBuildError,
-    DiagnosticBuilder, DiagnosticEvidence, DiagnosticLabel, DiagnosticNote, DiagnosticProperties,
-    DiagnosticSubjects, FindingConfidence, FixApplicability, HelpItem, HelpPriority, LabelStyle,
-    NoteKind, ProvenanceEvidence, SuggestedFix, TextEdit,
+    AnalysisLimitEvidence, AnalysisPhase, BehaviorChangeEvidence, ConflictEvidence, Diagnostic,
+    DiagnosticBuildError, DiagnosticBuilder, DiagnosticEvidence, DiagnosticLabel, DiagnosticNote,
+    DiagnosticProperties, DiagnosticSubjects, FindingConfidence, FixApplicability, HelpItem,
+    HelpPriority, LabelStyle, NoteKind, ProofEvidence, ProvenanceEvidence, SuggestedFix, TextEdit,
+    TraceEvidence, WitnessEvidence,
 };
 pub use registry::{DiagnosticDefinition, diagnostic_definition, diagnostic_definitions};
 pub use wire::{DiagnosticReport, DiagnosticReportEnvelope, DiagnosticReportV1};

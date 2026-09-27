@@ -16,8 +16,8 @@ pub enum ExitStatus {
     InternalFailure = 4,
     /// One or more scenarios failed.
     ScenarioFailure = 5,
-    /// Analysis or semantic diff was inconclusive.
-    AnalysisInconclusive = 6,
+    /// Analysis or semantic diff was incomplete.
+    AnalysisIncomplete = 6,
 }
 
 impl ExitStatus {
@@ -25,5 +25,25 @@ impl ExitStatus {
     #[must_use]
     pub const fn code(self) -> i32 {
         self as i32
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn exit_codes_match_the_specification_table() {
+        for (status, code) in [
+            (ExitStatus::Success, 0),
+            (ExitStatus::DiagnosticsError, 1),
+            (ExitStatus::InvalidInvocation, 2),
+            (ExitStatus::IoFailure, 3),
+            (ExitStatus::InternalFailure, 4),
+            (ExitStatus::ScenarioFailure, 5),
+            (ExitStatus::AnalysisIncomplete, 6),
+        ] {
+            assert_eq!(status.code(), code);
+        }
     }
 }

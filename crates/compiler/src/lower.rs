@@ -109,7 +109,8 @@ mod tests {
             provenance: provenance(),
         };
         assert_eq!(
-            diagnostic_definition(&error.code).map(|definition| definition.severity()),
+            diagnostic_definition(&error.code)
+                .map(rulery_diagnostics::DiagnosticDefinition::severity),
             Some(Severity::Error)
         );
         let rejected = lower_package(input(source_map(false), vec![error]));

@@ -97,6 +97,17 @@ pub enum PartitionDomainKind {
     List,
     /// Record value domain (presence cells only without override).
     Record,
+    /// Unbounded value domain that no authored boundary constrains.
+    ///
+    /// The raw domain is infinite, so it is never enumerated. Because no authored literal
+    /// constrains the path, only presence predicates can read it, and presence is invariant across
+    /// its values, so the derived equivalence-class domain is a single class.
+    Unbounded,
+    /// Value domain that v0.1 cannot partition into a finite cell set.
+    ///
+    /// Temporal and decimal values have no domain kind in the normative partition contract, so they
+    /// contribute presence cells only and make completeness inconclusive.
+    Unsupported,
 }
 
 /// Partition declaration for one referenced path.
@@ -210,6 +221,10 @@ pub fn build_partition(
     }
 }
 
+/// Unbounded scalar classes carry one representative because no authored boundary separates any two
+/// of its values.
+const UNBOUNDED_REPRESENTATIVE: i64 = 0;
+
 fn inferred_domain(spec: &PartitionSpec) -> (Vec<FactPartitionValue>, bool) {
     match &spec.kind {
         PartitionDomainKind::Boolean => (
@@ -237,7 +252,15 @@ fn inferred_domain(spec: &PartitionSpec) -> (Vec<FactPartitionValue>, bool) {
                 .collect(),
             false,
         ),
-        PartitionDomainKind::List | PartitionDomainKind::Record => (Vec::new(), false),
+        PartitionDomainKind::Unbounded => (
+            vec![FactPartitionValue::Valid(Value::Integer(
+                UNBOUNDED_REPRESENTATIVE,
+            ))],
+            true,
+        ),
+        PartitionDomainKind::List
+        | PartitionDomainKind::Record
+        | PartitionDomainKind::Unsupported => (Vec::new(), false),
     }
 }
 
@@ -299,6 +322,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn partitions_follow_canonical_finite_domain_rules() {
         let integer = FactPath::from_str("member.age").expect("path");

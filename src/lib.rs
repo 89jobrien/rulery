@@ -9,6 +9,7 @@
 
 #![forbid(unsafe_code)]
 
+mod application;
 mod assembly;
 #[path = "macros.rs"]
 mod declarative_macros;
@@ -17,6 +18,7 @@ mod tool_library;
 pub use declarative_macros::{FactBuildError, ScenarioBuildError};
 pub use tool_library::{ToolLibraryExplain, tool_library_explain};
 
+pub use application::{ApplicationError, ApplicationService, ProductionApplication};
 pub use assembly::{
     AssemblyCompilationInput, AssemblyError, AssemblyIntegritySet, LockMode, PackageAssembler,
     PackageAssembly, PackageAssemblyService,

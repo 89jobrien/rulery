@@ -560,9 +560,9 @@ mod tests {
             assert!(
                 matches!(
                     result,
-                    Err(StoreError::InvalidImportPath { .. })
-                        | Err(StoreError::PathEscapesRoot { .. })
-                        | Err(StoreError::Io { .. })
+                    Err(StoreError::InvalidImportPath { .. }
+                        | StoreError::PathEscapesRoot { .. }
+                        | StoreError::Io { .. })
                 ),
                 "unexpected error for path `{invalid}`: {result:?}"
             );

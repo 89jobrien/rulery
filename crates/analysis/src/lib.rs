@@ -10,6 +10,8 @@
 mod budget;
 mod coverage;
 mod diff;
+mod extract;
+mod facts;
 mod interaction;
 mod partition;
 mod reachability;
@@ -24,6 +26,11 @@ pub use coverage::{
 pub use diff::{
     DiffCell, OutcomeChange, OutcomeChangeKind, PolicyDiff, PolicyDiffer, StructuralChange,
 };
+pub use extract::{
+    AnalysisContext, CellOutcome, DecisionAnalysisInput, PackageAnalyzer, analysis_instant,
+    derive_partition_specs,
+};
+pub use facts::{CaseFactsError, build_case_facts};
 pub use interaction::{
     AnalysisFinding, InteractionAnalysis, OverlapClassification, RuleAnalysisInput, RuleOverlap,
     analyze_interactions,

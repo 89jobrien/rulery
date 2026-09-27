@@ -78,6 +78,7 @@ mod tests {
         decimal: &'a str,
     }
 
+    #[allow(clippy::naive_bytecount)]
     #[test]
     fn json_renderer_emits_one_strict_typed_artifact() {
         let renderer = JsonRenderer;

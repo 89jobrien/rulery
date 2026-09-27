@@ -564,6 +564,7 @@ mod tests {
         ));
     }
 
+    #[allow(clippy::too_many_lines)]
     fn draft(conflict: bool) -> DecisionTraceDraft {
         let map = source_map();
         let span = map.span(SourceKey::new(1), 0, 1).expect("span");

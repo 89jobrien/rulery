@@ -130,7 +130,7 @@ const CRATES: &[CrateSpec] = &[
         "crates/engine",
         "crates/engine/Cargo.toml",
         Library,
-        ["rulery-contracts", "rulery-ir"]
+        ["rulery-contracts", "rulery-ir", "rulery-vocabulary"]
     ),
     spec!(
         "rulery-analysis",

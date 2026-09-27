@@ -96,7 +96,7 @@ pub fn run_artifact_command<P: ArtifactPorts>(command: &Command, ports: &P) -> C
             ArtifactCondition::Success => ExitStatus::Success,
             ArtifactCondition::DiagnosticsError => ExitStatus::DiagnosticsError,
             ArtifactCondition::ScenarioFailure => ExitStatus::ScenarioFailure,
-            ArtifactCondition::Inconclusive => ExitStatus::AnalysisInconclusive,
+            ArtifactCondition::Inconclusive => ExitStatus::AnalysisIncomplete,
         }
     };
     if ports.write_stdout(&execution.artifact).is_err() && status == ExitStatus::Success {
@@ -147,6 +147,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn artifact_commands_match_output_and_exit_matrix() {
         let test_command = Command::Test {
@@ -198,7 +199,7 @@ mod tests {
                 &FakePorts::new(ArtifactCondition::Inconclusive, b"{}".to_vec())
             )
             .status,
-            ExitStatus::AnalysisInconclusive
+            ExitStatus::AnalysisIncomplete
         );
         let diff = Command::Diff {
             before: PathBuf::from("a"),
@@ -216,7 +217,7 @@ mod tests {
                 &FakePorts::new(ArtifactCondition::Inconclusive, b"diff".to_vec())
             )
             .status,
-            ExitStatus::AnalysisInconclusive
+            ExitStatus::AnalysisIncomplete
         );
         let render = Command::Render {
             path: PathBuf::from("."),

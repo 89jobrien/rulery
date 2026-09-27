@@ -175,15 +175,14 @@ mod tests {
                 RuleId::new("deny-expired-training").expect("rule"),
             )],
             conditions: vec![
-                "true  tool.category equal power-tool".to_owned(),
-                "true  member.training.valid-until is expired".to_owned(),
-                "true  inclusive expiry: 2026-09-15 is earlier than 2026-09-16".to_owned(),
+                "true  member.training.valid-until is before today (2026-09-16)".to_owned(),
+                "true  tool.category equals power-tool".to_owned(),
             ],
             required_facts: Vec::new(),
             invalid_facts: Vec::new(),
             superseded_rules: Vec::new(),
         };
-        let expected = "Decision: DENY\nRulebook: community-tool-library@0.1.0\nDecision ID: checkout\nEvaluated at: 2026-09-16T16:00:00.000000000Z\nPolicy date: 2026-09-16 (America/New_York)\n\nReason:\n  [expired-training] Power-tool training has expired.\n\nDetermining rule:\n  community-tool-library::deny-expired-training\n\nConditions:\n  true  tool.category equal power-tool\n  true  member.training.valid-until is expired\n  true  inclusive expiry: 2026-09-15 is earlier than 2026-09-16\n\nRequired facts: none\nInvalid facts: none\nSuperseded rules: none\n\nEvidence:\n  canonical package, facts, and trace hashes are present in JSON output\n  timezone database identity is present in JSON output\n";
+        let expected = "Decision: DENY\nRulebook: community-tool-library@0.1.0\nDecision ID: checkout\nEvaluated at: 2026-09-16T16:00:00.000000000Z\nPolicy date: 2026-09-16 (America/New_York)\n\nReason:\n  [expired-training] Power-tool training has expired.\n\nDetermining rule:\n  community-tool-library::deny-expired-training\n\nConditions:\n  true  member.training.valid-until is before today (2026-09-16)\n  true  tool.category equals power-tool\n\nRequired facts: none\nInvalid facts: none\nSuperseded rules: none\n\nEvidence:\n  canonical package, facts, and trace hashes are present in JSON output\n  timezone database identity is present in JSON output\n";
         assert_eq!(HumanRenderer.explain(&explanation), expected);
 
         let markdown = crate::MarkdownRenderer.render_truths(&[

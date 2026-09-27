@@ -55,6 +55,8 @@ with this specification.
   - [Macro contracts and hygiene](#macro-contracts-and-hygiene)
 - [CLI](#cli)
   - [Command surface and lock defaults](#command-surface-and-lock-defaults)
+  - [Scaffolded package](#scaffolded-package)
+  - [Canonical authored form](#canonical-authored-form)
   - [Output contract](#output-contract)
   - [Exit-condition matrix](#exit-condition-matrix)
 - [Tool-library conformance example](#tool-library-conformance-example)
@@ -3000,6 +3002,113 @@ There is no implicit CI detection. Environment variables MUST NOT change lock mo
 Markdown and JSON, and rejected when the ID is unknown. Without it, Markdown and JSON render all
 decisions in ascending `DecisionId` order.
 
+### Scaffolded package
+
+`init` writes exactly the five paths that [Exact file layout](#exact-file-layout) requires, and
+nothing else. It MUST NOT write a lock, MUST NOT assemble imports, and MUST NOT create a scenario.
+The destination MUST be absent or an empty directory; a non-empty destination is the exit-matrix
+DiagnosticsError condition for `init`.
+
+The scaffolded package is a valid v0.1 package: `rulery check` on a freshly scaffolded destination
+reports no diagnostic. The three root files carry exactly these bytes once
+[canonical authored form](#canonical-authored-form) has been applied, where `package-identity` is
+the derived identity below:
+
+```yaml
+# rulery.yaml
+decisions:
+  - asks: Should this case be allowed?
+    default:
+      kind: deny
+      reasons:
+        - code: no_determining_rule
+          message: No rule determined an outcome.
+    id: default
+    input_roots:
+      - input
+    title: Default decision
+package:
+  display_name: package-identity
+  id: package-identity
+  language_version: 1
+  version: 0.1.0
+semantics:
+  expiry: inclusive
+  invalid_facts:
+    kind: reject_evaluation
+  missing_facts:
+    kind: preserve_unknown
+  precedence:
+    kind: priority_first
+  timezone: UTC
+```
+
+```yaml
+# vocabulary.yaml
+roots:
+  input:
+    description: Case input under evaluation.
+    type: text
+```
+
+```yaml
+# actions.yaml
+actions: {}
+```
+
+`rules/` and `scenarios/` are created as empty directories.
+
+`package-identity` is derived from the destination directory's own name and MUST satisfy the
+canonical `StableId` grammar. Derivation lowercases the name, replaces every run of characters the
+grammar rejects, and every run of hyphens, with a single `-`, trims leading and trailing `-`, and
+falls back to `package` when nothing survives. A destination of `.` uses the name of the current
+working directory. A `display_name` is the derived identity verbatim; the scaffold carries no prose
+that the grammar would reject.
+
+`init` reports the created `rulery.yaml` path on stdout as one human line. `init` accepts no output
+format, so its machine output is unavailable and stdout is empty whenever a caller requests one.
+
+**Verification:** `scaffolded_package_is_canonical_and_free_of_diagnostics` and
+`init_derives_a_package_identity_from_the_destination_name`.
+
+### Canonical authored form
+
+`fmt` rewrites authored source into the one form this section defines. The form is defined over the
+format-neutral parsed document, not over YAML text and not over the lowered source AST, so it is
+independent of any emitter and of which grammar fields happen to carry a default.
+
+A document that omits a defaulted field keeps omitting it. Canonical form never inserts a field the
+author did not author, and never removes one that was authored. The only field set `fmt` changes is
+the removal of comments, which rule 6 covers.
+
+1. Encoding is UTF-8 with no byte-order mark. Lines are separated by a single `\n`. Every file ends
+   with exactly one trailing newline.
+2. Documents use block style. Indentation is two spaces per level. A nested block sequence under a
+   mapping key is NOT indented relative to that key; its `-` markers align with the key's column.
+3. Mapping keys are emitted in ascending byte order of the canonical key text, so canonical form is a
+   total function of the parsed document.
+4. A scalar is emitted plain when it is non-empty, contains no character that requires quoting, and
+   is not text that YAML would implicitly retype. Otherwise it is emitted double-quoted with `\`, `"`
+   and control characters escaped. `null` is emitted plain. The canonical quoted forms for decimal,
+   date, date-time, and duration literals are the strings the grammar already requires, so quoting
+   never changes a value.
+5. An empty mapping is `{}` and an empty sequence is `[]`. A non-empty sequence is a block sequence.
+6. Comments are not part of the source AST and are therefore not part of canonical form. `fmt`
+   removes them. This is a change, not an error: `fmt --check` reports it through the
+   `fmt --check` row of the exit matrix rather than through a diagnostic code.
+
+Canonical form is idempotent: applying it to its own output reproduces the same bytes. A file
+already in canonical form is not rewritten.
+
+`fmt` with a PATH naming one file writes that file's canonical bytes to stdout and leaves the file
+unchanged, which is the artifact the output contract names for that form. `fmt` with a PATH naming a
+package rewrites every source file the package layout declares and reports one human line naming
+each rewritten path. `fmt --check` writes nothing to stdout, rewrites nothing, and exits 1 when any
+file is not already canonical, including when the only difference is a removed comment.
+
+**Verification:** `canonical_form_is_idempotent_and_drops_comments` and
+`fmt_check_reports_every_noncanonical_file`.
+
 ### Output contract
 
 Normal artifacts go to stdout. Diagnostics, progress, and I/O/internal error messages go to
@@ -3197,9 +3306,8 @@ Determining rule:
   community-tool-library::deny-expired-training
 
 Conditions:
-  true  tool.category equal power-tool
-  true  member.training.valid-until is expired
-  true  inclusive expiry: 2026-09-15 is earlier than 2026-09-16
+  true  member.training.valid-until is before today (2026-09-16)
+  true  tool.category equals power-tool
 
 Required facts: none
 Invalid facts: none
@@ -3209,6 +3317,11 @@ Evidence:
   canonical package, facts, and trace hashes are present in JSON output
   timezone database identity is present in JSON output
 ```
+
+Condition lines are the evaluated leaves of the determining rule's condition trace in trace order,
+so they name the checked predicate rather than the authored `is_expired` spelling. The compiler
+lowers `is_expired` under the inclusive expiry policy to a `before` comparison against the
+policy-local date, which is why the expiry check appears first and states the boundary date.
 
 ## Conformance and governance
 
@@ -3227,7 +3340,9 @@ A conforming implementation MUST pass:
 - independently recomputed fixed hash vectors for all domains;
 - scenario exact-comparison fixtures, including every mismatch field;
 - analyzer soundness, budget, witness replay, coverage, and semantic-diff fixtures;
-- renderer snapshots, including the canonical tool-library explanation; and
+- renderer snapshots, including the canonical tool-library explanation;
+- a canonical-authored-form fixture and a scaffolded-package fixture, both checked in under
+  `examples/`; and
 - renamed-dependency macro hygiene tests with default features and `macros` enabled.
 
 Trace invariants require that determining rules are selected true rule traces, superseded rules
@@ -3254,6 +3369,81 @@ timezone database identity produce byte-identical canonical trace payloads.
   outside allowed roots after canonical path resolution.
 - Implementations MUST bound source size, import depth, import count, expression depth, and
   analysis states and report deterministic diagnostics when a bound is exceeded.
+
+### Versioned requirement traceability
+
+Rulery v0.1 MUST:
+
+1. Load a rulebook package from structured source files.
+2. Resolve names against a declared vocabulary.
+3. Type-check conditions and values.
+4. Normalize rules into a typed intermediate representation.
+5. Evaluate a declared decision against a set of case facts.
+6. Preserve four-valued condition results: `true`, `false`, `unknown`, and `invalid`.
+7. Produce non-binary outcomes: `approve`, `deny`, `escalate`, and `request_information`.
+8. Emit a deterministic, complete decision trace.
+9. Run authored scenarios as executable specifications.
+10. Detect a first set of static problems, enumerated in the static-check table below.
+11. Provide stable JSON and SARIF-ready diagnostics.
+12. Work entirely offline.
+
+Each requirement names the test that demonstrates it. The conformance gate rejects this
+specification unless every identifier below is present, every named test exists in the workspace,
+and every status is `satisfied`.
+
+| ID  | Requirement                                          | Verification test                                          | Status    |
+| --- | ---------------------------------------------------- | ---------------------------------------------------------- | --------- |
+| V01 | Load a rulebook package from structured source files | `filesystem_store_selects_exact_authored_layout`           | satisfied |
+| V02 | Resolve names against a declared vocabulary          | `vocabulary_resolution_is_typed_and_deterministic`         | satisfied |
+| V03 | Type-check conditions and values                     | `typechecker_enforces_operator_matrix`                     | satisfied |
+| V04 | Normalize rules into a typed IR                      | `compilation_is_byte_deterministic`                        | satisfied |
+| V05 | Evaluate a decision against case facts               | `evaluate_records_decisive_rule_and_missing_evidence`      | satisfied |
+| V06 | Preserve four-valued condition results               | `truth_tables_match_all_36_cells`                          | satisfied |
+| V07 | Produce non-binary outcomes                          | `outcomes_require_reasons_and_kind_specific_data`          | satisfied |
+| V08 | Emit a deterministic, complete trace                 | `trace_modes_share_complete_logical_hash`                  | satisfied |
+| V09 | Run authored scenarios as specifications             | `run_scenarios_reports_passing_and_failing_expectations`   | satisfied |
+| V10 | Detect a first set of static problems                | see static-check table                                     | satisfied |
+| V11 | Provide stable JSON and SARIF diagnostics            | `all_v01_wire_contracts_round_trip_strictly`               | satisfied |
+| V12 | Work entirely offline                                | `resolved_dependency_closure_has_no_network_capable_crate` | satisfied |
+
+A static check is satisfied only when a production caller can reach it from a compiled package. A
+passing unit test over a hand-constructed input does not satisfy a static check.
+
+| ID  | Static problem                          | Verification test                                 | Status    |
+| --- | --------------------------------------- | ------------------------------------------------- | --------- |
+| S01 | Unknown symbols and invalid field paths | `compiler_rejects_duplicate_and_unknown_symbols`  | satisfied |
+| S02 | Type mismatches                         | `typechecker_enforces_operator_matrix`            | satisfied |
+| S03 | Duplicate names and IDs                 | `compiler_rejects_duplicate_and_unknown_symbols`  | satisfied |
+| S04 | Unhandled unknown facts                 | `coverage_uses_satisfiable_partition_denominator` | satisfied |
+| S05 | Unreachable rules                       | `interaction_findings_are_sound_and_evidenced`    | satisfied |
+| S06 | Rule overlaps                           | `interaction_findings_are_sound_and_evidenced`    | satisfied |
+| S07 | Conflicting outcomes                    | `interaction_findings_are_sound_and_evidenced`    | satisfied |
+| S08 | Missing defaults                        | `parser_rejects_malformed_external_document`      | satisfied |
+| S09 | Uncovered finite-domain cases           | `coverage_uses_satisfiable_partition_denominator` | satisfied |
+
+S04, S05, S06, S07, and S09 are satisfied. `PartitionSpec`, `RuleAnalysisInput`, `CellEvaluation`, and
+`DecisionProjection` are now derived from a `CompiledPackage` in production: the analysis service
+resolves each referenced fact path against the declared vocabulary, forms the finite partition,
+evaluates every cell through the evaluation engine at a fixed instant and time-zone identity, and
+projects the resulting traces. Every partition cell is therefore a real evaluation, so coverage,
+reachability, overlap, and conflict claims are consequences of the same cells rather than separate
+approximations. An unreachability finding carries a finite-partition-exhaustion proof, and each
+overlap carries a witness that replayed to the reported pair.
+
+A cell that cannot be enumerated leaves the partition incomplete, which suppresses the coverage
+percentage and forbids any unreachability claim. Incompleteness is the outcome of the finite-domain
+contract above, not a failure of the derivation. Paths whose declared type has no domain kind in the
+partition contract, and list and record paths with no authored boundary, contribute presence states
+only; a caller that needs a complete partition supplies finite values through the explicit-domain
+option. A decision added or removed between two packages, and a cell whose evaluation the declared
+invalid-fact strategy rejects, are reported as `RUL254` for that decision rather than being reported
+as an unchanged or covered result.
+
+`RUL150` and `RUL151` are registered but have no implementable trigger. A decision `default` is
+required by the authored grammar and its absence is already reported as `RUL001`, so
+`DEFAULT_OUTCOME_MISSING` has no reachable condition; `UNKNOWN_FACT_POLICY_UNHANDLED` has two
+incompatible readings and the behaviour its name describes is already reported as `RUL252`. Both
+codes are reserved pending a specification version that defines them.
 
 ## Blueprint phases
 

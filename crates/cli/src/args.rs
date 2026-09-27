@@ -248,7 +248,7 @@ mod tests {
         }
 
         assert!(
-            matches!(Cli::try_parse_from(["rulery", "check"]).expect("check").command, Command::Check { path, frozen: false, deny_warnings: false, format: OutputFormat::Human } if path == PathBuf::from("."))
+            matches!(Cli::try_parse_from(["rulery", "check"]).expect("check").command, Command::Check { path, frozen: false, deny_warnings: false, format: OutputFormat::Human } if path == std::path::Path::new("."))
         );
         assert!(matches!(
             Cli::try_parse_from(["rulery", "analyze"])

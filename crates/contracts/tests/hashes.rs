@@ -40,6 +40,6 @@ fn canonical_hash_vectors_match_specification() {
     );
 
     assert!(ContentHash::parse("sha256:00").is_err());
-    assert!(ContentHash::parse(&format!("blake3:{}", "A".repeat(64))).is_err());
+    assert!(ContentHash::parse(format!("blake3:{}", "A".repeat(64))).is_err());
     assert!(ContentHash::parse("blake3:00").is_err());
 }

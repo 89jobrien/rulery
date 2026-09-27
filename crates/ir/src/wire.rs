@@ -30,8 +30,9 @@ mod tests {
     use std::sync::Arc;
 
     use rulery_contracts::{
-        ActionId, ContentHash, DecisionId, FactPath, LanguageVersion, PackageId, QualifiedRuleId,
-        RuleId, SourceFile, SourceId, SourceKey, SourceMap, SourcePath, StableId, Value, Version,
+        ActionId, ContentHash, DecisionId, FactPath, LanguageVersion, OutcomeTemplate, PackageId,
+        PolicyTimeZone, QualifiedRuleId, Reason, ReasonCode, Reasons, RuleId, SourceFile, SourceId,
+        SourceKey, SourceMap, SourcePath, StableId, Value, Version,
     };
     use rulery_vocabulary::{
         EnumVariant, FieldDeclaration, FieldPresence, OperationalTerm, ResolvedRoot, ResolvedType,
@@ -39,13 +40,128 @@ mod tests {
     };
 
     use crate::{
-        CompiledAction, CompiledActionParameter, CompiledDecision, CompiledPackage,
-        CompiledPackageDraft, Expr, ExprOperand, Operator, PackageBuildError, PackageIntegritySet,
-        Predicate, ReservedOperand,
+        CompiledAction, CompiledActionParameter, CompiledDecision, CompiledEffect, CompiledPackage,
+        CompiledPackageDraft, DecisionSemantics, Expr, ExprOperand, Operator, PackageBuildError,
+        PackageIntegritySet, Predicate, ReservedOperand,
     };
 
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
+    #[test]
+    fn compiled_rule_semantics_round_trip_through_v1_wire() {
+        let source_map = source_map();
+        let span = source_map.span(SourceKey::new(1), 1, 7).expect("span");
+        let package_id = PackageId::new("pkg.main").expect("package");
+        let rule_id = RuleId::new("rule.review").expect("rule");
+        let effect: CompiledEffect = serde_json::from_value(serde_json::json!({
+            "outcome": {
+                "kind": "request_information",
+                "required_facts": ["account.contact.email"],
+                "reasons": [{
+                    "code": "missing-contact",
+                    "message": "A contact email is required.",
+                    "detail": "Account review cannot continue without it."
+                }],
+                "actions": [{
+                    "action": "action.request-contact",
+                    "arguments": {"channel": {"kind": "text", "value": "email"}}
+                }]
+            }
+        }))
+        .expect("effect");
+        let default: CompiledEffect = serde_json::from_value(serde_json::json!({
+            "outcome": {
+                "kind": "deny",
+                "reasons": [{
+                    "code": "no-matching-rule",
+                    "message": "No rule approved this account.",
+                    "detail": null
+                }],
+                "actions": []
+            }
+        }))
+        .expect("default");
+        let semantics: DecisionSemantics = serde_json::from_value(serde_json::json!({
+            "missing_facts": {"kind": "request_information"},
+            "invalid_facts": {"kind": "preserve_invalid"},
+            "precedence": {"kind": "priority_first"},
+            "timezone": "America/New_York",
+            "expiry": "inclusive"
+        }))
+        .expect("semantics");
+        let rule = crate::CompiledRule::new(
+            rule_id.clone(),
+            QualifiedRuleId::new(package_id.clone(), rule_id.clone()),
+            Some("Review contact details".to_owned()),
+            250,
+            Expr::Constant { value: true, span },
+            effect.clone(),
+            Some("Contact review is mandatory.".to_owned()),
+            span,
+            9,
+        );
+        let decision = CompiledDecision::new(
+            DecisionId::new("decision.review").expect("decision"),
+            semantics.clone(),
+            default.clone(),
+            vec![rule],
+            span,
+        )
+        .expect("decision");
+        let compiled = CompiledPackage::new(
+            CompiledPackageDraft {
+                package_id,
+                package_version: Version::new("1.2.3").expect("version"),
+                language_version: LanguageVersion::V1,
+                compiler_identity: "rulery.compiler".to_owned(),
+                decisions: vec![decision],
+                actions: Vec::new(),
+                integrity: PackageIntegritySet::new(crate::CompilationInput::new(
+                    digest(1),
+                    digest(2),
+                    None,
+                )),
+            },
+            source_map.clone(),
+            vocabulary(),
+        )
+        .expect("package");
+
+        let envelope = CompiledPackageEnvelope::V1(compiled.payload().clone());
+        let encoded = serde_json::to_value(&envelope).expect("encode");
+        let round_trip: CompiledPackageEnvelope =
+            serde_json::from_value(encoded.clone()).expect("decode");
+        assert_eq!(round_trip, envelope);
+        assert_eq!(
+            round_trip.payload().package_hash(),
+            compiled.payload().package_hash()
+        );
+
+        let mut unknown_effect_field = encoded;
+        let wire_effect = &mut unknown_effect_field["payload"]["decisions"]["decision.review"]["rules"]
+            ["rule.review"]["effect"];
+        wire_effect["unexpected"] = serde_json::Value::Bool(true);
+        assert!(serde_json::from_value::<CompiledPackageEnvelope>(unknown_effect_field).is_err());
+
+        let decision = round_trip
+            .payload()
+            .decisions()
+            .get(&DecisionId::new("decision.review").expect("decision"))
+            .expect("decision");
+        let rule = decision.rules().get(&rule_id).expect("rule");
+        assert_eq!(rule.priority(), 250);
+        assert_eq!(rule.specificity(), 9);
+        assert_eq!(rule.span(), span);
+        assert_eq!(rule.title(), Some("Review contact details"));
+        assert_eq!(rule.rationale(), Some("Contact review is mandatory."));
+        assert_eq!(rule.effect(), &effect);
+        assert_eq!(rule.outcome(), effect.outcome());
+        assert_eq!(decision.default(), &default);
+        assert_eq!(decision.semantics(), &semantics);
+    }
+
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn compiled_package_wrapper_rejects_invalid_payloads() {
         let source_map = source_map();
@@ -96,7 +212,7 @@ mod tests {
         let decision_id = DecisionId::new("decision.authz").expect("decision");
         let package_version = Version::new("1.2.3").expect("version");
         let rules = vec![
-            crate::CompiledRule::new(
+            compiled_rule(
                 RuleId::new("rule.alpha").expect("rule alpha"),
                 QualifiedRuleId::new(
                     package_id.clone(),
@@ -106,7 +222,7 @@ mod tests {
                 span1,
                 7,
             ),
-            crate::CompiledRule::new(
+            compiled_rule(
                 RuleId::new("rule.beta").expect("rule beta"),
                 QualifiedRuleId::new(
                     package_id.clone(),
@@ -116,7 +232,7 @@ mod tests {
                 span1,
                 5,
             ),
-            crate::CompiledRule::new(
+            compiled_rule(
                 RuleId::new("rule.gamma").expect("rule gamma"),
                 QualifiedRuleId::new(
                     package_id.clone(),
@@ -126,7 +242,7 @@ mod tests {
                 span2,
                 4,
             ),
-            crate::CompiledRule::new(
+            compiled_rule(
                 RuleId::new("rule.delta").expect("rule delta"),
                 QualifiedRuleId::new(
                     package_id.clone(),
@@ -136,7 +252,7 @@ mod tests {
                 span1,
                 8,
             ),
-            crate::CompiledRule::new(
+            compiled_rule(
                 RuleId::new("rule.epsilon").expect("rule epsilon"),
                 QualifiedRuleId::new(
                     package_id.clone(),
@@ -148,8 +264,10 @@ mod tests {
             ),
         ];
 
-        let decision = CompiledDecision::new(decision_id.clone(), rules).expect("decision");
-        let duplicate_rule = crate::CompiledRule::new(
+        let decision =
+            CompiledDecision::new(decision_id.clone(), semantics(), effect(), rules, span1)
+                .expect("decision");
+        let duplicate_rule = compiled_rule(
             RuleId::new("rule.alpha").expect("rule alpha"),
             QualifiedRuleId::new(
                 package_id.clone(),
@@ -164,7 +282,10 @@ mod tests {
         );
         let duplicate_rule_result = CompiledDecision::new(
             decision_id.clone(),
+            semantics(),
+            effect(),
             vec![duplicate_rule.clone(), duplicate_rule],
+            span1,
         );
         assert!(matches!(
             duplicate_rule_result,
@@ -405,5 +526,48 @@ mod tests {
 
     fn digest(byte: u8) -> ContentHash {
         ContentHash::from_bytes([byte; 32])
+    }
+
+    fn compiled_rule(
+        id: RuleId,
+        qualified_id: QualifiedRuleId,
+        condition: Expr,
+        span: rulery_contracts::Span,
+        specificity: u32,
+    ) -> crate::CompiledRule {
+        crate::CompiledRule::new(
+            id,
+            qualified_id,
+            Some("Fixture rule".to_owned()),
+            0,
+            condition,
+            effect(),
+            Some("Exercises v1 wire encoding.".to_owned()),
+            span,
+            specificity,
+        )
+    }
+
+    fn effect() -> CompiledEffect {
+        let reasons = Reasons::new(vec![
+            Reason::new(
+                ReasonCode::new("fixture-effect").expect("reason code"),
+                "Fixture effect.",
+            )
+            .expect("reason"),
+        ])
+        .expect("reasons");
+        CompiledEffect::new(OutcomeTemplate::approve(reasons, Vec::new()))
+    }
+
+    fn semantics() -> DecisionSemantics {
+        DecisionSemantics::new(
+            crate::MissingFactStrategy::PreserveUnknown,
+            crate::InvalidFactStrategy::PreserveInvalid,
+            crate::DecisionPrecedence::PriorityFirst,
+            PolicyTimeZone::new("UTC").expect("timezone"),
+            crate::ExpiryPolicy::Inclusive,
+        )
+        .expect("semantics")
     }
 }

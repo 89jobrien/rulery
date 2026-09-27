@@ -1,9 +1,11 @@
-//! Strict spanned YAML parser for authored source files.
+//! Strict, spanned YAML parser for complete authored source bundles.
+#![allow(clippy::too_many_lines, clippy::wildcard_imports)]
 
 mod dto;
 mod span;
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::path::Path;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -12,1445 +14,1189 @@ use rulery_contracts::{
     SourceMap, SourcePath, StableId, Version, VersionRequirement,
 };
 
-use crate::ast::{
-    ParsedPackage, SourceAction, SourceCondition, SourceDecision, SourceEffect,
-    SourceExpectedDecision, SourceImport, SourceMetadata, SourceOperand, SourceOperator,
-    SourcePackage, SourceParseError, SourceParseErrorKind, SourceParser, SourcePredicate,
-    SourceRule, SourceScenario, SourceSemantics, SourceVocabulary,
-};
+use self::dto::*;
+use crate::ast::*;
 
-use self::dto::{DecisionDto, EffectDto, ManifestDto, RuleDto, ScenarioDto, VocabularyDto};
-
-const RESERVED_PRIMITIVES: &[&str] = &[
-    "bool", "string", "int", "decimal", "date", "datetime", "duration",
+const PRIMITIVES: &[&str] = &[
+    "boolean",
+    "integer",
+    "decimal",
+    "text",
+    "date",
+    "date-time",
+    "duration",
 ];
 
-/// YAML implementation of [`SourceParser`].
+/// YAML parser for the v0.1 authored package language.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct YamlSourceParser;
 
 impl SourceParser for YamlSourceParser {
     fn parse(&self, input: &[u8]) -> Result<ParsedPackage, SourceParseError> {
         let text = std::str::from_utf8(input).map_err(|_| {
-            parse_error(
+            error_with_text(
+                "rulery.yaml",
+                "",
                 SourceParseErrorKind::Syntax,
                 "input is not valid UTF-8",
-                0,
-                input.len(),
+                "",
             )
         })?;
-
-        let source_path = SourcePath::new("rulery.yaml").map_err(|_| {
-            parse_error(
-                SourceParseErrorKind::Shape,
-                "invalid source path",
-                0,
-                input.len(),
-            )
-        })?;
-        let source_file = SourceFile::new(
-            SourceId::new("source.rulery").map_err(|_| {
-                parse_error(
-                    SourceParseErrorKind::Shape,
-                    "invalid source id",
-                    0,
-                    input.len(),
-                )
-            })?,
-            source_path,
-            Arc::<str>::from(text.to_owned()),
-        );
-        let mut source_map = SourceMap::new();
-        source_map
-            .insert(SourceKey::new(1), source_file)
-            .map_err(|_| {
-                parse_error(
-                    SourceParseErrorKind::Shape,
-                    "duplicate source key",
-                    0,
-                    input.len(),
-                )
-            })?;
-
-        reject_forbidden_constructs(&source_map, SourceKey::new(1), text)?;
-
-        let manifest: ManifestDto = serde_yaml::from_str(text).map_err(|_| {
-            let span = span::span_for(&source_map, SourceKey::new(1), text, "package");
-            SourceParseError {
-                kind: SourceParseErrorKind::Shape,
-                message: "manifest shape is invalid".to_owned(),
-                span,
-            }
-        })?;
-
-        validate_manifest(&source_map, SourceKey::new(1), text, &manifest)?;
-        build_package(&source_map, SourceKey::new(1), text, manifest)
+        Err(error_with_text(
+            "rulery.yaml",
+            text,
+            SourceParseErrorKind::Shape,
+            "a complete source bundle is required",
+            "rulery.yaml",
+        ))
     }
-}
 
-#[allow(clippy::too_many_lines)]
-fn build_package(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    manifest: ManifestDto,
-) -> Result<ParsedPackage, SourceParseError> {
-    let metadata = SourceMetadata {
-        package_id: PackageId::new(manifest.package.id).map_err(|_| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "package.id is invalid",
-                "id",
-            )
-        })?,
-        version: Version::new(manifest.package.version).map_err(|_| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "package.version is invalid",
-                "version",
-            )
-        })?,
-        title: manifest.package.title,
-    };
+    fn parse_bundle(
+        &self,
+        bundle: &rulery_contracts::SourceBundle,
+    ) -> Result<ParsedPackage, SourceParseError> {
+        let map = map_for_bundle(bundle);
+        let documents = bundle.documents();
+        let manifest = document(documents, "rulery.yaml", &map)?;
+        let vocabulary = document(documents, "vocabulary.yaml", &map)?;
+        let actions = document(documents, "actions.yaml", &map)?;
+        let manifest_dto: ManifestDto = decode(manifest.0, manifest.1, "manifest")?;
+        let vocabulary_dto: VocabularyDto = decode(vocabulary.0, vocabulary.1, "vocabulary")?;
+        let actions_dto: ActionsDto = decode(actions.0, actions.1, "actions")?;
+        reject_extra_documents(documents, &map)?;
 
-    let semantics = SourceSemantics {
-        timezone: manifest.semantics.timezone,
-        missing: manifest.semantics.missing,
-        invalid: manifest.semantics.invalid,
-        precedence: manifest.semantics.precedence,
-    };
+        let metadata = build_metadata(&map, manifest.0, manifest.1, manifest_dto.package)?;
+        let semantics = build_semantics(&map, manifest.0, manifest.1, manifest_dto.semantics)?;
+        let imports = build_imports(&map, manifest.0, manifest.1, manifest_dto.imports)?;
+        let mut decisions = build_decisions(&map, manifest.0, manifest.1, manifest_dto.decisions)?;
+        let vocabulary = build_vocabulary(&map, vocabulary.0, vocabulary.1, vocabulary_dto)?;
+        let actions = build_actions(&map, actions.0, actions.1, actions_dto)?;
+        let mut scenarios = Vec::new();
 
-    let imports = manifest
-        .imports
-        .into_iter()
-        .map(|import| {
-            let package = import.package.unwrap_or_else(|| import.alias.clone());
-            Ok(SourceImport {
-                package: PackageId::new(package).map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
-                        text,
-                        SourceParseErrorKind::Shape,
-                        "import package is invalid",
-                        "package",
-                    )
-                })?,
-                version: VersionRequirement::new(import.version.unwrap_or_else(|| "*".to_owned()))
-                    .map_err(|_| {
-                        span_error(
-                            source_map,
-                            source_key,
-                            text,
-                            SourceParseErrorKind::Shape,
-                            "import version is invalid",
-                            "version",
-                        )
-                    })?,
-                alias: Some(StableId::new(import.alias).map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
-                        text,
-                        SourceParseErrorKind::Shape,
-                        "import alias is invalid",
-                        "alias",
-                    )
-                })?),
-                path: SourcePath::new(import.path).map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
-                        text,
-                        SourceParseErrorKind::Shape,
-                        "import path is invalid",
-                        "path",
-                    )
-                })?,
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let decisions = manifest
-        .decisions
-        .iter()
-        .map(|decision| build_decision(source_map, source_key, text, decision))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let vocabulary = build_vocabulary(source_map, source_key, text, &manifest.vocabulary)?;
-
-    let actions = manifest
-        .actions
-        .iter()
-        .map(|action| {
-            let parameters = action
-                .parameters
-                .iter()
-                .map(|parameter| {
-                    (
-                        parameter.name.clone(),
-                        if parameter.required {
-                            "required"
-                        } else {
-                            "optional"
-                        }
-                        .to_owned(),
-                    )
-                })
-                .collect::<BTreeMap<_, _>>();
-
-            Ok(SourceAction {
-                id: StableId::new(action.id.clone()).map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
-                        text,
-                        SourceParseErrorKind::Shape,
-                        "action id is invalid",
-                        "actions",
-                    )
-                })?,
-                parameters,
-                span: span::span_for(source_map, source_key, text, "actions"),
-            })
-        })
-        .collect::<Result<Vec<_>, _>>()?;
-
-    let scenario = manifest
-        .scenario
-        .map(|value| build_scenario(source_map, source_key, text, &metadata.package_id, &value))
-        .transpose()?;
-
-    let package = SourcePackage {
-        metadata,
-        semantics,
-        imports,
-        decisions,
-        vocabulary,
-        actions,
-        scenario,
-    };
-    let scenarios = package.scenario.iter().cloned().collect();
-    Ok(ParsedPackage {
-        package,
-        scenarios,
-        source_map: source_map.clone(),
-    })
-}
-
-fn build_decision(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    decision: &DecisionDto,
-) -> Result<SourceDecision, SourceParseError> {
-    let rules = decision
-        .rules
-        .iter()
-        .map(|rule| build_rule(source_map, source_key, text, rule))
-        .collect::<Result<Vec<_>, _>>()?;
-
-    Ok(SourceDecision {
-        id: DecisionId::new(decision.id.clone()).map_err(|_| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "decision id is invalid",
-                "decisions",
-            )
-        })?,
-        rules,
-    })
-}
-
-fn build_rule(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    rule: &RuleDto,
-) -> Result<SourceRule, SourceParseError> {
-    let span = span::span_for(source_map, source_key, text, "rules");
-    let when = parse_condition(source_map, source_key, text, &rule.when)?;
-
-    Ok(SourceRule {
-        id: StableId::new(rule.id.clone()).map_err(|_| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "rule id is invalid",
-                "rules",
-            )
-        })?,
-        when,
-        effect: build_effect(source_map, source_key, text, &rule.effect)?,
-        span,
-    })
-}
-
-fn build_effect(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    effect: &EffectDto,
-) -> Result<SourceEffect, SourceParseError> {
-    let span = span::span_for(source_map, source_key, text, "effect");
-    match effect.kind.as_str() {
-        "approve" => Ok(SourceEffect::Approve {
-            reasons: effect.reasons.clone(),
-            span,
-        }),
-        "deny" => Ok(SourceEffect::Deny {
-            reasons: effect.reasons.clone(),
-            span,
-        }),
-        "escalate" => Ok(SourceEffect::Escalate {
-            to: effect.escalation_to.clone().ok_or_else(|| {
-                span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "escalate requires escalation_to",
-                    "escalation_to",
-                )
-            })?,
-            span,
-        }),
-        "request_information" => {
-            let facts = effect
-                .required_facts
-                .iter()
-                .map(|fact| {
-                    FactPath::from_str(fact).map_err(|_| {
-                        span_error(
-                            source_map,
-                            source_key,
-                            text,
-                            SourceParseErrorKind::Shape,
-                            "required fact path is invalid",
-                            "required_facts",
-                        )
-                    })
-                })
-                .collect::<Result<Vec<_>, _>>()?;
-            if facts.is_empty() {
-                return Err(span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "request_information requires required_facts",
-                    "required_facts",
+        let mut decision_indexes = BTreeMap::new();
+        for (index, decision) in decisions.iter().enumerate() {
+            if decision_indexes
+                .insert(decision.id.as_str().to_owned(), index)
+                .is_some()
+            {
+                return Err(err(
+                    &map,
+                    manifest.0,
+                    manifest.1,
+                    "decisions",
+                    "decision IDs must be unique",
                 ));
             }
-            Ok(SourceEffect::RequestInformation { facts, span })
         }
-        _ => Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "effect.kind is invalid",
-            "kind",
-        )),
-    }
-}
-
-#[allow(clippy::too_many_lines)]
-fn parse_condition(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    node: &serde_yaml::Value,
-) -> Result<SourceCondition, SourceParseError> {
-    let span = span::span_for(source_map, source_key, text, "when");
-    let map = node.as_mapping().ok_or_else(|| {
-        span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "when must be a mapping",
-            "when",
-        )
-    })?;
-
-    let forms = ["all", "any", "not", "predicate"];
-    let found = forms
-        .iter()
-        .filter(|name| map.contains_key(serde_yaml::Value::String((*name).to_string())))
-        .count();
-    if found != 1 {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "condition must contain exactly one form",
-            "when",
-        ));
-    }
-
-    if let Some(value) = map.get(serde_yaml::Value::String("all".to_owned())) {
-        let items = value.as_sequence().ok_or_else(|| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "all must be a sequence",
-                "all",
-            )
-        })?;
-        let conditions = items
+        let mut rule_ids = BTreeSet::new();
+        for item in documents
             .iter()
-            .map(|item| parse_condition(source_map, source_key, text, item))
-            .collect::<Result<Vec<_>, _>>()?;
-        return Ok(SourceCondition::All { conditions, span });
-    }
-    if let Some(value) = map.get(serde_yaml::Value::String("any".to_owned())) {
-        let items = value.as_sequence().ok_or_else(|| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "any must be a sequence",
-                "any",
-            )
-        })?;
-        let conditions = items
-            .iter()
-            .map(|item| parse_condition(source_map, source_key, text, item))
-            .collect::<Result<Vec<_>, _>>()?;
-        return Ok(SourceCondition::Any { conditions, span });
-    }
-    if let Some(value) = map.get(serde_yaml::Value::String("not".to_owned())) {
-        let condition = parse_condition(source_map, source_key, text, value)?;
-        return Ok(SourceCondition::Not {
-            condition: Box::new(condition),
-            span,
-        });
-    }
-
-    let predicate = map
-        .get(serde_yaml::Value::String("predicate".to_owned()))
-        .ok_or_else(|| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "predicate form is missing",
-                "predicate",
-            )
-        })?
-        .as_mapping()
-        .ok_or_else(|| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "predicate must be a mapping",
-                "predicate",
-            )
-        })?;
-
-    let operator_text = required_string(predicate, "operator", source_map, source_key, text)?;
-    let left = parse_operand(
-        predicate
-            .get(serde_yaml::Value::String("left".to_owned()))
-            .ok_or_else(|| {
-                span_error(
-                    source_map,
-                    source_key,
+            .filter(|item| item.path().as_str().starts_with("rules/"))
+        {
+            let (key, text) =
+                locate(&map, item.path().as_str()).expect("bundle document has source map entry");
+            let rules: RulesDto = decode(key, text, "rule file")?;
+            let index = *decision_indexes.get(&rules.decision).ok_or_else(|| {
+                err(
+                    &map,
+                    key,
                     text,
-                    SourceParseErrorKind::Shape,
-                    "predicate.left is required",
-                    "left",
-                )
-            })?,
-        source_map,
-        source_key,
-        text,
-    )?;
-
-    let right = predicate
-        .get(serde_yaml::Value::String("right".to_owned()))
-        .map(|value| parse_operand(value, source_map, source_key, text))
-        .transpose()?;
-
-    let operator = parse_operator(&operator_text).ok_or_else(|| {
-        span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "predicate operator is invalid",
-            "operator",
-        )
-    })?;
-
-    let unary = matches!(
-        operator,
-        SourceOperator::Exists
-            | SourceOperator::Missing
-            | SourceOperator::IsTrue
-            | SourceOperator::IsFalse
-    );
-    if unary && right.is_some() {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "unary predicate operator does not accept right operand",
-            "right",
-        ));
-    }
-    if !unary && right.is_none() {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "binary predicate operator requires right operand",
-            "right",
-        ));
-    }
-
-    Ok(SourceCondition::Predicate(SourcePredicate {
-        operator,
-        left,
-        right,
-        span,
-    }))
-}
-
-fn parse_operand(
-    node: &serde_yaml::Value,
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-) -> Result<SourceOperand, SourceParseError> {
-    if let Some(mapping) = node.as_mapping() {
-        let fact = mapping.get(serde_yaml::Value::String("fact".to_owned()));
-        let reserved = mapping.get(serde_yaml::Value::String("reserved".to_owned()));
-        let literal = mapping.get(serde_yaml::Value::String("literal".to_owned()));
-        let count = [fact.is_some(), reserved.is_some(), literal.is_some()]
-            .into_iter()
-            .filter(|present| *present)
-            .count();
-        if count != 1 {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "operand must contain exactly one of fact, reserved, literal",
-                "operand",
-            ));
-        }
-
-        if let Some(value) = fact {
-            let text = value.as_str().ok_or_else(|| {
-                span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "fact operand must be a string",
-                    "fact",
+                    "decision",
+                    "rule file names an undeclared decision",
                 )
             })?;
-            return FactPath::from_str(text)
-                .map(SourceOperand::Fact)
-                .map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
+            for rule in rules.rules {
+                let built = build_rule(&map, key, text, rule)?;
+                if !rule_ids.insert(built.id.as_str().to_owned()) {
+                    return Err(err(
+                        &map,
+                        key,
                         text,
-                        SourceParseErrorKind::Shape,
-                        "fact operand path is invalid",
-                        "fact",
-                    )
-                });
-        }
-
-        if let Some(value) = reserved {
-            return Ok(SourceOperand::Reserved(
-                value
-                    .as_str()
-                    .ok_or_else(|| {
-                        span_error(
-                            source_map,
-                            source_key,
-                            text,
-                            SourceParseErrorKind::Shape,
-                            "reserved operand must be a string",
-                            "reserved",
-                        )
-                    })?
-                    .to_owned(),
-            ));
-        }
-
-        if let Some(value) = literal {
-            if value.is_null() {
-                return Ok(SourceOperand::Literal("null".to_owned()));
+                        "id",
+                        "rule IDs must be unique across the package",
+                    ));
+                }
+                decisions[index].rules.push(built);
             }
-            if let Some(string_value) = value.as_str() {
-                return Ok(SourceOperand::Literal(string_value.to_owned()));
-            }
-            return Ok(SourceOperand::Literal(
-                serde_yaml::to_string(value)
-                    .unwrap_or_default()
-                    .trim()
-                    .to_owned(),
-            ));
         }
+        let mut scenario_ids = BTreeSet::new();
+        for item in documents
+            .iter()
+            .filter(|item| item.path().as_str().starts_with("scenarios/"))
+        {
+            let (key, text) =
+                locate(&map, item.path().as_str()).expect("bundle document has source map entry");
+            let scenario: ScenarioDto = decode(key, text, "scenario")?;
+            let built = build_scenario(&map, key, text, &metadata.package_id, scenario)?;
+            if !scenario_ids.insert(built.id.as_str().to_owned()) {
+                return Err(err(&map, key, text, "id", "scenario IDs must be unique"));
+            }
+            scenarios.push(built);
+        }
+        Ok(ParsedPackage {
+            package: SourcePackage {
+                metadata,
+                semantics,
+                imports,
+                decisions,
+                vocabulary,
+                actions,
+                scenario: scenarios.first().cloned(),
+            },
+            scenarios,
+            source_map: map,
+        })
     }
-
-    if node.is_null() {
-        return Ok(SourceOperand::Literal("null".to_owned()));
-    }
-    if let Some(value) = node.as_str() {
-        return Ok(SourceOperand::Literal(value.to_owned()));
-    }
-
-    Ok(SourceOperand::Literal(
-        serde_yaml::to_string(node)
-            .unwrap_or_default()
-            .trim()
-            .to_owned(),
-    ))
 }
 
-fn parse_operator(value: &str) -> Option<SourceOperator> {
-    match value {
-        "exists" => Some(SourceOperator::Exists),
-        "missing" => Some(SourceOperator::Missing),
-        "equals" => Some(SourceOperator::Equals),
-        "not_equals" => Some(SourceOperator::NotEquals),
-        "less_than" => Some(SourceOperator::LessThan),
-        "less_or_equal" => Some(SourceOperator::LessOrEqual),
-        "greater_than" => Some(SourceOperator::GreaterThan),
-        "greater_or_equal" => Some(SourceOperator::GreaterOrEqual),
-        "is_one_of" => Some(SourceOperator::IsOneOf),
-        "contains" => Some(SourceOperator::Contains),
-        "starts_with" => Some(SourceOperator::StartsWith),
-        "ends_with" => Some(SourceOperator::EndsWith),
-        "matches" => Some(SourceOperator::Matches),
-        "before" => Some(SourceOperator::Before),
-        "after" => Some(SourceOperator::After),
-        "between" => Some(SourceOperator::Between),
-        "on_or_before" => Some(SourceOperator::OnOrBefore),
-        "on_or_after" => Some(SourceOperator::OnOrAfter),
-        "is_true" => Some(SourceOperator::IsTrue),
-        "is_false" => Some(SourceOperator::IsFalse),
-        _ => None,
+fn document<'a>(
+    documents: &'a [rulery_contracts::SourceDocument],
+    path: &str,
+    map: &'a SourceMap,
+) -> Result<(SourceKey, &'a str), SourceParseError> {
+    documents
+        .iter()
+        .find(|item| item.path().as_str() == path)
+        .and_then(|item| locate(map, item.path().as_str()))
+        .ok_or_else(|| {
+            error_with_text(
+                path,
+                "",
+                SourceParseErrorKind::Shape,
+                &format!("required document `{path}` is missing"),
+                "",
+            )
+        })
+}
+
+fn locate<'a>(map: &'a SourceMap, path: &str) -> Option<(SourceKey, &'a str)> {
+    map.iter()
+        .find(|(_, file)| file.path().as_str() == path)
+        .map(|(key, file)| (key, file.content()))
+}
+
+fn reject_extra_documents(
+    documents: &[rulery_contracts::SourceDocument],
+    map: &SourceMap,
+) -> Result<(), SourceParseError> {
+    for item in documents {
+        let path = item.path().as_str();
+        if path != "rulery.yaml"
+            && path != "vocabulary.yaml"
+            && path != "actions.yaml"
+            && !path.starts_with("rules/")
+            && !path.starts_with("scenarios/")
+        {
+            let (key, text) = locate(map, path).expect("source map contains document");
+            return Err(err(map, key, text, path, "unexpected authored document"));
+        }
+        if (path.starts_with("rules/") || path.starts_with("scenarios/"))
+            && !Path::new(path)
+                .extension()
+                .is_some_and(|extension| extension.eq_ignore_ascii_case("yaml"))
+        {
+            let (key, text) = locate(map, path).expect("source map contains document");
+            return Err(err(
+                map,
+                key,
+                text,
+                path,
+                "authored directory documents must be YAML",
+            ));
+        }
     }
+    Ok(())
+}
+
+fn decode<T: serde::de::DeserializeOwned>(
+    key: SourceKey,
+    text: &str,
+    name: &str,
+) -> Result<T, SourceParseError> {
+    let map = one_file_map(key, text);
+    reject_forbidden(&map, key, text)?;
+    serde_yaml::from_str(text)
+        .map_err(|_| err(&map, key, text, name, &format!("{name} shape is invalid")))
+}
+
+fn one_file_map(key: SourceKey, text: &str) -> SourceMap {
+    let mut map = SourceMap::new();
+    map.insert(
+        key,
+        SourceFile::new(
+            SourceId::new(format!("source.{}", key.get())).expect("valid generated id"),
+            SourcePath::new("rulery.yaml").expect("valid synthetic path"),
+            Arc::from(text),
+        ),
+    )
+    .expect("unique source key");
+    map
+}
+
+fn build_metadata(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    dto: PackageDto,
+) -> Result<SourceMetadata, SourceParseError> {
+    if dto.language_version != 1 || empty(&dto.display_name) {
+        return Err(err(
+            map,
+            key,
+            text,
+            "package",
+            "package metadata is invalid",
+        ));
+    }
+    Ok(SourceMetadata {
+        package_id: PackageId::new(dto.id)
+            .map_err(|_| err(map, key, text, "id", "package.id is invalid"))?,
+        display_name: dto.display_name,
+        version: Version::new(dto.version)
+            .map_err(|_| err(map, key, text, "version", "package.version is invalid"))?,
+        language_version: dto.language_version,
+        description: nonempty_opt(dto.description, map, key, text, "description")?,
+        authors: dto
+            .authors
+            .into_iter()
+            .map(|a| {
+                Ok(SourceAuthor {
+                    name: required(a.name, map, key, text, "authors")?,
+                    contact: nonempty_opt(a.contact, map, key, text, "contact")?,
+                })
+            })
+            .collect::<Result<_, _>>()?,
+        tags: stable_set(dto.tags, map, key, text, "tags")?,
+    })
+}
+
+fn build_semantics(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    dto: SemanticsDto,
+) -> Result<SourceSemantics, SourceParseError> {
+    if empty(&dto.timezone) || !matches!(dto.expiry.as_str(), "inclusive" | "exclusive") {
+        return Err(err(map, key, text, "semantics", "semantics is invalid"));
+    }
+    let missing = strategy(
+        dto.missing_facts,
+        &[
+            "preserve_unknown",
+            "closed_world_false",
+            "request_information",
+            "escalate",
+        ],
+        map,
+        key,
+        text,
+    )?;
+    let invalid = strategy(
+        dto.invalid_facts,
+        &["reject_evaluation", "preserve_invalid", "escalate"],
+        map,
+        key,
+        text,
+    )?;
+    if !matches!(
+        dto.precedence.kind.as_str(),
+        "safety_first" | "priority_first" | "explicit"
+    ) {
+        return Err(err(
+            map,
+            key,
+            text,
+            "precedence",
+            "precedence kind is invalid",
+        ));
+    }
+    if dto.precedence.kind == "explicit"
+        && (dto.precedence.primary.is_none() || dto.precedence.outcome_ranks.len() != 4)
+    {
+        return Err(err(
+            map,
+            key,
+            text,
+            "precedence",
+            "explicit precedence is incomplete",
+        ));
+    }
+    Ok(SourceSemantics {
+        timezone: dto.timezone,
+        expiry: dto.expiry,
+        missing_facts: missing,
+        invalid_facts: invalid,
+        precedence: SourcePrecedence {
+            kind: dto.precedence.kind,
+            primary: dto.precedence.primary,
+            outcome_ranks: dto.precedence.outcome_ranks,
+        },
+    })
+}
+
+fn strategy(
+    dto: StrategyDto,
+    allowed: &[&str],
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+) -> Result<SourceStrategy, SourceParseError> {
+    if !allowed.contains(&dto.kind.as_str())
+        || (dto.kind == "escalate") != dto.destination.is_some()
+    {
+        return Err(err(map, key, text, "kind", "strategy is invalid"));
+    }
+    Ok(SourceStrategy {
+        kind: dto.kind,
+        destination: dto.destination,
+    })
+}
+
+fn build_imports(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    imports: Vec<ImportDto>,
+) -> Result<Vec<SourceImport>, SourceParseError> {
+    let mut aliases = BTreeSet::new();
+    imports
+        .into_iter()
+        .map(|i| {
+            let alias = i
+                .alias
+                .map(|value| {
+                    StableId::new(value)
+                        .map_err(|_| err(map, key, text, "alias", "import alias is invalid"))
+                })
+                .transpose()?;
+            if let Some(value) = &alias {
+                if !aliases.insert(value.as_str().to_owned()) {
+                    return Err(err(
+                        map,
+                        key,
+                        text,
+                        "alias",
+                        "import aliases must be unique",
+                    ));
+                }
+            }
+            Ok(SourceImport {
+                package: PackageId::new(i.package)
+                    .map_err(|_| err(map, key, text, "package", "import package is invalid"))?,
+                version: VersionRequirement::new(i.version)
+                    .map_err(|_| err(map, key, text, "version", "import version is invalid"))?,
+                path: SourcePath::new(i.path)
+                    .map_err(|_| err(map, key, text, "path", "import path is invalid"))?,
+                alias,
+            })
+        })
+        .collect()
+}
+
+fn build_decisions(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    values: Vec<DecisionDto>,
+) -> Result<Vec<SourceDecision>, SourceParseError> {
+    if values.is_empty() {
+        return Err(err(
+            map,
+            key,
+            text,
+            "decisions",
+            "decisions must not be empty",
+        ));
+    }
+    values
+        .into_iter()
+        .map(|d| {
+            Ok(SourceDecision {
+                id: DecisionId::new(d.id)
+                    .map_err(|_| err(map, key, text, "id", "decision id is invalid"))?,
+                title: required(d.title, map, key, text, "title")?,
+                asks: required(d.asks, map, key, text, "asks")?,
+                input_roots: stable_set_nonempty(d.input_roots, map, key, text, "input_roots")?,
+                default: build_outcome(map, key, text, d.default)?,
+                rules: Vec::new(),
+                span: span(map, key, text, "decisions"),
+            })
+        })
+        .collect()
 }
 
 fn build_vocabulary(
-    source_map: &SourceMap,
-    source_key: SourceKey,
+    map: &SourceMap,
+    key: SourceKey,
     text: &str,
-    vocabulary: &VocabularyDto,
+    dto: VocabularyDto,
 ) -> Result<SourceVocabulary, SourceParseError> {
-    let roots = vocabulary
+    if dto.roots.is_empty() {
+        return Err(err(
+            map,
+            key,
+            text,
+            "roots",
+            "vocabulary roots must not be empty",
+        ));
+    }
+    let roots = dto
         .roots
-        .iter()
-        .map(|root| {
-            FactPath::from_str(root).map_err(|_| {
-                span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "vocabulary root is invalid",
-                    "roots",
-                )
+        .into_iter()
+        .map(|(id, r)| {
+            Ok((
+                stable(id, map, key, text, "roots")?,
+                SourceRoot {
+                    type_id: required(r.type_id, map, key, text, "type")?,
+                    description: nonempty_opt(r.description, map, key, text, "description")?,
+                    span: span(map, key, text, "roots"),
+                },
+            ))
+        })
+        .collect::<Result<_, _>>()?;
+    let types = dto
+        .types
+        .into_iter()
+        .map(|(id, t)| {
+            if PRIMITIVES.contains(&id.as_str())
+                || !matches!(t.kind.as_str(), "enum" | "record" | "list")
+                || (t.kind == "enum" && t.variants.is_empty())
+                || (t.kind == "list" && t.items.is_none())
+                || t.min_items.zip(t.max_items).is_some_and(|(a, b)| a > b)
+            {
+                return Err(err(map, key, text, "types", "type declaration is invalid"));
+            }
+            let variants = t
+                .variants
+                .into_iter()
+                .map(|(n, v)| {
+                    Ok((
+                        stable(n, map, key, text, "variants")?,
+                        SourceVariant {
+                            display_name: required(v.display_name, map, key, text, "display_name")?,
+                            description: nonempty_opt(
+                                v.description,
+                                map,
+                                key,
+                                text,
+                                "description",
+                            )?,
+                            deprecated: v.deprecated,
+                            span: span(map, key, text, "variants"),
+                        },
+                    ))
+                })
+                .collect::<Result<_, _>>()?;
+            let fields = t
+                .fields
+                .into_iter()
+                .map(|(n, f)| {
+                    if !matches!(f.presence.as_str(), "required" | "optional" | "derived") {
+                        return Err(err(map, key, text, "presence", "field presence is invalid"));
+                    }
+                    Ok((
+                        stable(n, map, key, text, "fields")?,
+                        SourceField {
+                            type_id: required(f.type_id, map, key, text, "type")?,
+                            presence: f.presence,
+                            description: nonempty_opt(
+                                f.description,
+                                map,
+                                key,
+                                text,
+                                "description",
+                            )?,
+                            span: span(map, key, text, "fields"),
+                        },
+                    ))
+                })
+                .collect::<Result<_, _>>()?;
+            Ok((
+                stable(id, map, key, text, "types")?,
+                SourceType {
+                    kind: t.kind,
+                    variants,
+                    closed: t.closed,
+                    fields,
+                    items: t.items,
+                    min_items: t.min_items,
+                    max_items: t.max_items,
+                    span: span(map, key, text, "types"),
+                },
+            ))
+        })
+        .collect::<Result<_, _>>()?;
+    let terms = dto
+        .terms
+        .into_iter()
+        .map(|(id, t)| {
+            Ok((
+                stable(id, map, key, text, "terms")?,
+                SourceTerm {
+                    display_name: required(t.display_name, map, key, text, "display_name")?,
+                    definition: required(t.definition, map, key, text, "definition")?,
+                    applies_to: fact_set_nonempty(t.applies_to, map, key, text, "applies_to")?,
+                    examples: t.examples,
+                    counterexamples: t.counterexamples,
+                    span: span(map, key, text, "terms"),
+                },
+            ))
+        })
+        .collect::<Result<_, _>>()?;
+    Ok(SourceVocabulary {
+        roots,
+        types,
+        terms,
+    })
+}
+
+fn build_actions(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    dto: ActionsDto,
+) -> Result<Vec<SourceAction>, SourceParseError> {
+    dto.actions
+        .into_iter()
+        .map(|(id, a)| {
+            let parameters = a
+                .parameters
+                .into_iter()
+                .map(|(id, p)| {
+                    Ok((
+                        stable(id, map, key, text, "parameters")?,
+                        SourceActionParameter {
+                            type_id: required(p.type_id, map, key, text, "type")?,
+                            required: p.required,
+                            description: nonempty_opt(
+                                p.description,
+                                map,
+                                key,
+                                text,
+                                "description",
+                            )?,
+                            span: span(map, key, text, "parameters"),
+                        },
+                    ))
+                })
+                .collect::<Result<_, _>>()?;
+            Ok(SourceAction {
+                id: stable(id, map, key, text, "actions")?,
+                display_name: required(a.display_name, map, key, text, "display_name")?,
+                description: nonempty_opt(a.description, map, key, text, "description")?,
+                parameters,
+                span: span(map, key, text, "actions"),
             })
         })
-        .collect::<Result<Vec<_>, _>>()?;
-    let terms = vocabulary
-        .terms
-        .iter()
-        .map(|term| term.name.clone())
-        .collect();
-    Ok(SourceVocabulary { roots, terms })
+        .collect()
+}
+
+fn build_rule(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    r: RuleDto,
+) -> Result<SourceRule, SourceParseError> {
+    if r.explicit_override && r.rationale.as_deref().is_none_or(str::is_empty) {
+        return Err(err(
+            map,
+            key,
+            text,
+            "rationale",
+            "override requires rationale",
+        ));
+    }
+    Ok(SourceRule {
+        id: stable(r.id, map, key, text, "id")?,
+        title: nonempty_opt(r.title, map, key, text, "title")?,
+        priority: r.priority,
+        when: condition(map, key, text, &r.when)?,
+        effect: build_outcome(map, key, text, r.effect)?,
+        explicit_override: r.explicit_override,
+        rationale: r.rationale,
+        span: span(map, key, text, "rules"),
+    })
+}
+
+fn condition(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    node: &serde_yaml::Value,
+) -> Result<SourceCondition, SourceParseError> {
+    let mapping = node
+        .as_mapping()
+        .ok_or_else(|| err(map, key, text, "when", "condition must be a mapping"))?;
+    let get = |name: &str| mapping.get(serde_yaml::Value::String(name.to_owned()));
+    let forms = ["all", "any", "not"]
+        .into_iter()
+        .filter(|name| get(name).is_some())
+        .count();
+    if forms > 1 || (forms == 1 && mapping.len() != 1) {
+        return Err(err(
+            map,
+            key,
+            text,
+            "when",
+            "condition must have exactly one form",
+        ));
+    }
+    let at = span(map, key, text, "when");
+    if let Some(v) = get("all") {
+        return Ok(SourceCondition::All {
+            conditions: v
+                .as_sequence()
+                .ok_or_else(|| err(map, key, text, "all", "all must be a sequence"))?
+                .iter()
+                .map(|v| condition(map, key, text, v))
+                .collect::<Result<_, _>>()?,
+            span: at,
+        });
+    }
+    if let Some(v) = get("any") {
+        return Ok(SourceCondition::Any {
+            conditions: v
+                .as_sequence()
+                .ok_or_else(|| err(map, key, text, "any", "any must be a sequence"))?
+                .iter()
+                .map(|v| condition(map, key, text, v))
+                .collect::<Result<_, _>>()?,
+            span: at,
+        });
+    }
+    if let Some(v) = get("not") {
+        return Ok(SourceCondition::Not {
+            condition: Box::new(condition(map, key, text, v)?),
+            span: at,
+        });
+    }
+    if forms == 0
+        && mapping
+            .keys()
+            .any(|key| !matches!(key.as_str(), Some("fact" | "operator" | "value")))
+    {
+        return Err(err(map, key, text, "when", "predicate fields are invalid"));
+    }
+    let fact = string_field(mapping, "fact", map, key, text)?;
+    let op = string_field(mapping, "operator", map, key, text)?;
+    let operator =
+        operator(&op).ok_or_else(|| err(map, key, text, "operator", "operator is invalid"))?;
+    let value = get("value")
+        .map(|v| operand(map, key, text, v))
+        .transpose()?;
+    if is_unary(&operator) != value.is_none() {
+        return Err(err(
+            map,
+            key,
+            text,
+            "value",
+            "operator value arity is invalid",
+        ));
+    }
+    Ok(SourceCondition::Predicate(SourcePredicate {
+        fact: FactPath::from_str(&fact)
+            .map_err(|_| err(map, key, text, "fact", "fact path is invalid"))?,
+        operator,
+        value,
+        span: at,
+    }))
+}
+
+fn operator(value: &str) -> Option<SourceOperator> {
+    Some(match value {
+        "equal" => SourceOperator::Equal,
+        "not_equal" => SourceOperator::NotEqual,
+        "less_than" => SourceOperator::LessThan,
+        "less_than_or_equal" => SourceOperator::LessThanOrEqual,
+        "greater_than" => SourceOperator::GreaterThan,
+        "greater_than_or_equal" => SourceOperator::GreaterThanOrEqual,
+        "contains" => SourceOperator::Contains,
+        "not_contains" => SourceOperator::NotContains,
+        "starts_with" => SourceOperator::StartsWith,
+        "ends_with" => SourceOperator::EndsWith,
+        "is_one_of" => SourceOperator::IsOneOf,
+        "is_absent" => SourceOperator::IsAbsent,
+        "is_present" => SourceOperator::IsPresent,
+        "is_valid" => SourceOperator::IsValid,
+        "is_invalid" => SourceOperator::IsInvalid,
+        "before" => SourceOperator::Before,
+        "on_or_after" => SourceOperator::OnOrAfter,
+        "is_expired" => SourceOperator::IsExpired,
+        "is_unexpired" => SourceOperator::IsUnexpired,
+        _ => return None,
+    })
+}
+fn is_unary(op: &SourceOperator) -> bool {
+    matches!(
+        op,
+        SourceOperator::IsAbsent
+            | SourceOperator::IsPresent
+            | SourceOperator::IsValid
+            | SourceOperator::IsInvalid
+            | SourceOperator::IsExpired
+            | SourceOperator::IsUnexpired
+    )
+}
+
+fn build_outcome(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    o: OutcomeDto,
+) -> Result<SourceOutcome, SourceParseError> {
+    if !matches!(
+        o.kind.as_str(),
+        "approve" | "deny" | "escalate" | "request_information"
+    ) || o.reasons.is_empty()
+        || (o.kind == "escalate") != o.destination.is_some()
+        || (o.kind == "request_information") == o.required_facts.is_empty()
+    {
+        return Err(err(map, key, text, "effect", "outcome is invalid"));
+    }
+    Ok(SourceOutcome {
+        kind: o.kind,
+        reasons: o
+            .reasons
+            .into_iter()
+            .map(|r| {
+                Ok(SourceReason {
+                    code: stable(r.code, map, key, text, "code")?,
+                    message: required(r.message, map, key, text, "message")?,
+                    detail: nonempty_opt(r.detail, map, key, text, "detail")?,
+                    span: span(map, key, text, "reasons"),
+                })
+            })
+            .collect::<Result<_, _>>()?,
+        actions: o
+            .actions
+            .into_iter()
+            .map(|a| {
+                Ok(SourceActionInvocation {
+                    action: stable(a.action, map, key, text, "action")?,
+                    arguments: a
+                        .arguments
+                        .into_iter()
+                        .map(|(name, value)| {
+                            Ok((
+                                stable(name, map, key, text, "arguments")?,
+                                operand(map, key, text, &value)?,
+                            ))
+                        })
+                        .collect::<Result<_, _>>()?,
+                    span: span(map, key, text, "actions"),
+                })
+            })
+            .collect::<Result<_, _>>()?,
+        destination: o.destination,
+        required_facts: fact_set(o.required_facts, map, key, text, "required_facts")?,
+        span: span(map, key, text, "effect"),
+    })
 }
 
 fn build_scenario(
-    source_map: &SourceMap,
-    source_key: SourceKey,
+    map: &SourceMap,
+    key: SourceKey,
     text: &str,
-    package: &PackageId,
-    scenario: &ScenarioDto,
+    _package: &PackageId,
+    s: ScenarioDto,
 ) -> Result<SourceScenario, SourceParseError> {
-    let expectations = scenario
-        .expectations
-        .iter()
-        .map(|expectation| {
-            let determining_rules = expectation
-                .determining_rules
-                .iter()
-                .map(|rule| {
-                    RuleId::new(rule.clone())
-                        .map(|rule_id| QualifiedRuleId::new(package.clone(), rule_id))
-                })
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
+    let determining_rules = s
+        .expect
+        .determining_rules
+        .into_iter()
+        .map(|r| {
+            Ok(QualifiedRuleId::new(
+                PackageId::new(r.package).map_err(|_| {
+                    err(
+                        map,
+                        key,
                         text,
-                        SourceParseErrorKind::Shape,
-                        "scenario determining rule is invalid",
-                        "determining_rules",
-                    )
-                })?;
-            Ok(SourceExpectedDecision {
-                decision: DecisionId::new(expectation.decision.clone()).map_err(|_| {
-                    span_error(
-                        source_map,
-                        source_key,
-                        text,
-                        SourceParseErrorKind::Shape,
-                        "scenario expectation decision is invalid",
-                        "decision",
+                        "package",
+                        "qualified rule package is invalid",
                     )
                 })?,
-                determining_rules,
-                span: span::span_for(source_map, source_key, text, "expectations"),
-            })
+                RuleId::new(r.rule)
+                    .map_err(|_| err(map, key, text, "rule", "qualified rule is invalid"))?,
+            ))
         })
-        .collect::<Result<Vec<_>, _>>()?;
-
+        .collect::<Result<_, _>>()?;
     Ok(SourceScenario {
-        id: StableId::new(scenario.id.clone()).map_err(|_| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "scenario id is invalid",
-                "scenario",
-            )
-        })?,
-        title: scenario.title.clone(),
-        expectations,
-        span: span::span_for(source_map, source_key, text, "scenario"),
+        id: stable(s.id, map, key, text, "id")?,
+        title: required(s.title, map, key, text, "title")?,
+        description: nonempty_opt(s.description, map, key, text, "description")?,
+        decision: DecisionId::new(s.decision)
+            .map_err(|_| err(map, key, text, "decision", "scenario decision is invalid"))?,
+        at: required(s.at, map, key, text, "at")?,
+        given: s
+            .given
+            .into_iter()
+            .map(|(name, value)| {
+                Ok((
+                    stable(name, map, key, text, "given")?,
+                    operand(map, key, text, &value)?,
+                ))
+            })
+            .collect::<Result<_, _>>()?,
+        expect: SourceExpectedDecision {
+            outcome: s.expect.outcome,
+            determining_rules,
+            required_facts: fact_set(s.expect.required_facts, map, key, text, "required_facts")?,
+            reason_codes: stable_set(s.expect.reason_codes, map, key, text, "reason_codes")?,
+            span: span(map, key, text, "expect"),
+        },
+        tags: stable_set(s.tags, map, key, text, "tags")?,
+        span: span(map, key, text, "scenario"),
     })
 }
 
-fn validate_manifest(
-    source_map: &SourceMap,
-    source_key: SourceKey,
+fn operand(
+    map: &SourceMap,
+    key: SourceKey,
     text: &str,
-    manifest: &ManifestDto,
-) -> Result<(), SourceParseError> {
-    if manifest.package.language.unwrap_or(1) != 1 {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "language must be 1",
-            "language",
-        ));
-    }
-    if manifest.semantics.timezone.trim().is_empty() {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "timezone must be non-empty",
-            "timezone",
-        ));
-    }
-
-    let mut aliases = BTreeSet::new();
-    for import in &manifest.imports {
-        if !aliases.insert(import.alias.as_str()) {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "import aliases must be unique",
-                "imports",
-            ));
+    value: &serde_yaml::Value,
+) -> Result<SourceOperand, SourceParseError> {
+    if let Some(m) = value.as_mapping() {
+        if m.len() == 1 {
+            for (k, v) in m {
+                match k.as_str() {
+                    Some("fact") => {
+                        return FactPath::from_str(v.as_str().ok_or_else(|| {
+                            err(map, key, text, "fact", "fact operand must be text")
+                        })?)
+                        .map(SourceOperand::Fact)
+                        .map_err(|_| err(map, key, text, "fact", "fact operand is invalid"));
+                    }
+                    Some("reserved") => {
+                        let v = v.as_str().ok_or_else(|| {
+                            err(map, key, text, "reserved", "reserved operand must be text")
+                        })?;
+                        if !matches!(v, "today" | "now") {
+                            return Err(err(
+                                map,
+                                key,
+                                text,
+                                "reserved",
+                                "reserved operand is invalid",
+                            ));
+                        }
+                        return Ok(SourceOperand::Reserved(v.to_owned()));
+                    }
+                    Some("literal") => {
+                        return authored(map, key, text, "literal", v).map(SourceOperand::Literal);
+                    }
+                    _ => {}
+                }
+            }
         }
     }
-
-    for decision in &manifest.decisions {
-        if decision.rules.is_empty() {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "decisions must declare at least one rule",
-                "decisions",
-            ));
-        }
-        for rule in &decision.rules {
-            validate_rule(source_map, source_key, text, rule)?;
-        }
-    }
-
-    validate_vocabulary(source_map, source_key, text, &manifest.vocabulary)?;
-
-    if manifest
-        .actions
-        .iter()
-        .any(|action| action.id.trim().is_empty())
-    {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "action id must be non-empty",
-            "actions",
-        ));
-    }
-
-    if let Some(scenario) = &manifest.scenario {
-        if scenario.expectations.is_empty() {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "scenario expectations must be non-empty",
-                "scenario",
-            ));
-        }
-    }
-
-    Ok(())
+    authored(map, key, text, "operand", value).map(SourceOperand::Literal)
 }
 
-fn validate_rule(
-    source_map: &SourceMap,
-    source_key: SourceKey,
+/// Converts one authored YAML value into a structure-preserving [`SourceValue`].
+fn authored(
+    map: &SourceMap,
+    key: SourceKey,
     text: &str,
-    rule: &RuleDto,
-) -> Result<(), SourceParseError> {
-    let when_map = rule.when.as_mapping().ok_or_else(|| {
-        span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "rule when must be a mapping",
-            "when",
-        )
-    })?;
-    let condition_forms = ["all", "any", "not", "predicate"];
-    let found = condition_forms
-        .iter()
-        .filter(|name| when_map.contains_key(serde_yaml::Value::String((*name).to_string())))
-        .count();
-    if found != 1 {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "rule when must contain exactly one condition form",
-            "when",
-        ));
-    }
-
-    match rule.effect.kind.as_str() {
-        "approve" | "deny" => {
-            if rule.effect.reasons.is_empty() {
-                return Err(span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "approve and deny require reasons",
-                    "reasons",
-                ));
-            }
-        }
-        "escalate" => {
-            if rule
-                .effect
-                .escalation_to
-                .as_deref()
-                .is_none_or(str::is_empty)
-            {
-                return Err(span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "escalate requires escalation_to",
-                    "escalation_to",
-                ));
-            }
-            if !rule.effect.reasons.is_empty() || !rule.effect.required_facts.is_empty() {
-                return Err(span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "escalate cannot carry deny/approval fields",
-                    "effect",
-                ));
-            }
-        }
-        "request_information" => {
-            if rule.effect.required_facts.is_empty() {
-                return Err(span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "request_information requires required_facts",
-                    "required_facts",
-                ));
-            }
-            if !rule.effect.reasons.is_empty() || rule.effect.escalation_to.is_some() {
-                return Err(span_error(
-                    source_map,
-                    source_key,
-                    text,
-                    SourceParseErrorKind::Shape,
-                    "request_information cannot carry unrelated fields",
-                    "effect",
-                ));
-            }
-        }
-        _ => {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "unknown effect kind",
-                "kind",
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn validate_vocabulary(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    vocabulary: &VocabularyDto,
-) -> Result<(), SourceParseError> {
-    if vocabulary.roots.is_empty() {
-        return Err(span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            "vocabulary roots must be non-empty",
-            "roots",
-        ));
-    }
-
-    let mut type_names = BTreeSet::new();
-    for declaration in &vocabulary.types {
-        if declaration.name.trim().is_empty() {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "type name must be non-empty",
-                "types",
-            ));
-        }
-        if RESERVED_PRIMITIVES.contains(&declaration.name.as_str()) {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "primitive type redeclaration is forbidden",
-                "types",
-            ));
-        }
-        if !type_names.insert(declaration.name.as_str()) {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "type names must be unique",
-                "types",
-            ));
-        }
-        if declaration.kind == "enum" && declaration.variants.is_empty() {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "enum variants must be non-empty",
-                "variants",
-            ));
-        }
-        if declaration.kind == "list"
-            && declaration
-                .min_items
-                .zip(declaration.max_items)
-                .is_some_and(|(min, max)| min > max)
-        {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "list min_items cannot exceed max_items",
-                "types",
-            ));
-        }
-    }
-
-    for term in &vocabulary.terms {
-        if term.name.trim().is_empty() || term.definition.trim().is_empty() {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "term name and definition must be non-empty",
-                "terms",
-            ));
-        }
-        if term.applies_to.is_empty() {
-            return Err(span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                "term applies_to must be non-empty",
-                "terms",
-            ));
-        }
-    }
-    Ok(())
-}
-
-fn reject_forbidden_constructs(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-) -> Result<(), SourceParseError> {
-    let forbidden = [
-        (
-            "&",
-            SourceParseErrorKind::Syntax,
-            "YAML anchors are forbidden",
-        ),
-        (
-            "*",
-            SourceParseErrorKind::Syntax,
-            "YAML aliases are forbidden",
-        ),
-        (
-            "<<:",
-            SourceParseErrorKind::Syntax,
-            "YAML merge keys are forbidden",
-        ),
-        (
-            "!",
-            SourceParseErrorKind::Syntax,
-            "YAML custom tags are forbidden",
-        ),
-        (
-            "? ",
-            SourceParseErrorKind::Shape,
-            "non-string map keys are forbidden",
-        ),
-    ];
-
-    for (needle, kind, message) in forbidden {
-        if text.contains(needle) {
-            return Err(SourceParseError {
-                kind,
-                message: message.to_owned(),
-                span: span::span_for(source_map, source_key, text, needle),
-            });
-        }
-    }
-    if text.contains("\n  unknown_field:") {
-        return Err(SourceParseError {
-            kind: SourceParseErrorKind::Shape,
-            message: "unknown fields are forbidden".to_owned(),
-            span: span::span_for(source_map, source_key, text, "unknown_field"),
-        });
-    }
-    Ok(())
-}
-
-fn required_string(
-    map: &serde_yaml::Mapping,
     field: &str,
-    source_map: &SourceMap,
-    source_key: SourceKey,
+    value: &serde_yaml::Value,
+) -> Result<SourceValue, SourceParseError> {
+    if value.is_null() {
+        return Ok(SourceValue::Null);
+    }
+    if let Some(sequence) = value.as_sequence() {
+        return sequence
+            .iter()
+            .map(|item| authored(map, key, text, field, item))
+            .collect::<Result<Vec<_>, _>>()
+            .map(SourceValue::Sequence);
+    }
+    if let Some(mapping) = value.as_mapping() {
+        return mapping
+            .iter()
+            .map(|(name, item)| {
+                let name = name.as_str().ok_or_else(|| {
+                    err(map, key, text, field, "literal mapping keys must be text")
+                })?;
+                let name = StableId::new(name)
+                    .map_err(|_| err(map, key, text, field, "literal mapping key is invalid"))?;
+                authored(map, key, text, field, item).map(|item| (name, item))
+            })
+            .collect::<Result<BTreeMap<_, _>, SourceParseError>>()
+            .map(SourceValue::Mapping);
+    }
+    let scalar = match value {
+        serde_yaml::Value::Bool(inner) => inner.to_string(),
+        serde_yaml::Value::Number(inner) => inner.to_string(),
+        serde_yaml::Value::String(inner) => inner.clone(),
+        _ => {
+            return Err(err(
+                map,
+                key,
+                text,
+                field,
+                "literal must be a scalar, sequence, or mapping",
+            ));
+        }
+    };
+    Ok(SourceValue::Scalar(scalar))
+}
+
+fn stable(
+    value: String,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<StableId, SourceParseError> {
+    StableId::new(value).map_err(|_| err(map, key, text, field, "stable ID is invalid"))
+}
+fn stable_set(
+    values: Vec<String>,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<BTreeSet<StableId>, SourceParseError> {
+    values
+        .into_iter()
+        .map(|v| stable(v, map, key, text, field))
+        .collect()
+}
+fn stable_set_nonempty(
+    values: Vec<String>,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<BTreeSet<StableId>, SourceParseError> {
+    let set = stable_set(values, map, key, text, field)?;
+    if set.is_empty() {
+        Err(err(map, key, text, field, "set must not be empty"))
+    } else {
+        Ok(set)
+    }
+}
+fn fact_set(
+    values: Vec<String>,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<BTreeSet<FactPath>, SourceParseError> {
+    values
+        .into_iter()
+        .map(|v| {
+            FactPath::from_str(&v).map_err(|_| err(map, key, text, field, "fact path is invalid"))
+        })
+        .collect()
+}
+fn fact_set_nonempty(
+    values: Vec<String>,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<BTreeSet<FactPath>, SourceParseError> {
+    let set = fact_set(values, map, key, text, field)?;
+    if set.is_empty() {
+        Err(err(map, key, text, field, "set must not be empty"))
+    } else {
+        Ok(set)
+    }
+}
+fn required(
+    value: String,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<String, SourceParseError> {
+    if empty(&value) {
+        Err(err(map, key, text, field, "text must not be empty"))
+    } else {
+        Ok(value)
+    }
+}
+fn nonempty_opt(
+    value: Option<String>,
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    field: &str,
+) -> Result<Option<String>, SourceParseError> {
+    value
+        .map(|v| required(v, map, key, text, field))
+        .transpose()
+}
+fn empty(value: &str) -> bool {
+    value.trim().is_empty()
+}
+fn string_field(
+    mapv: &serde_yaml::Mapping,
+    name: &str,
+    map: &SourceMap,
+    key: SourceKey,
     text: &str,
 ) -> Result<String, SourceParseError> {
-    let value = map
-        .get(serde_yaml::Value::String(field.to_owned()))
-        .ok_or_else(|| {
-            span_error(
-                source_map,
-                source_key,
-                text,
-                SourceParseErrorKind::Shape,
-                format!("{field} is required"),
-                field,
-            )
-        })?;
-    value.as_str().map(ToOwned::to_owned).ok_or_else(|| {
-        span_error(
-            source_map,
-            source_key,
-            text,
-            SourceParseErrorKind::Shape,
-            format!("{field} must be a string"),
-            field,
-        )
-    })
+    mapv.get(serde_yaml::Value::String(name.to_owned()))
+        .and_then(serde_yaml::Value::as_str)
+        .map(ToOwned::to_owned)
+        .ok_or_else(|| err(map, key, text, name, &format!("{name} is required text")))
 }
-
-fn parse_error(
+fn span(map: &SourceMap, key: SourceKey, text: &str, needle: &str) -> rulery_contracts::Span {
+    span::span_for(map, key, text, needle)
+}
+fn err(
+    map: &SourceMap,
+    key: SourceKey,
+    text: &str,
+    needle: &str,
+    message: &str,
+) -> SourceParseError {
+    SourceParseError {
+        kind: SourceParseErrorKind::Shape,
+        message: message.to_owned(),
+        span: span(map, key, text, needle),
+    }
+}
+fn error_with_text(
+    path: &str,
+    text: &str,
     kind: SourceParseErrorKind,
     message: &str,
-    start: usize,
-    end: usize,
+    needle: &str,
 ) -> SourceParseError {
-    let end = end.max(start);
-    let source_file = SourceFile::new(
-        SourceId::new("source.rulery").expect("valid source id"),
-        SourcePath::new("rulery.yaml").expect("valid source path"),
-        Arc::<str>::from(""),
-    );
-    let mut source_map = SourceMap::new();
-    source_map
-        .insert(SourceKey::new(1), source_file)
-        .expect("unique source key");
-    let start = u32::try_from(start).unwrap_or(0);
-    let end = u32::try_from(end).unwrap_or(start);
+    let mut map = SourceMap::new();
+    map.insert(
+        SourceKey::new(1),
+        SourceFile::new(
+            SourceId::new("source.rulery").expect("valid source ID"),
+            SourcePath::new(path)
+                .unwrap_or_else(|_| SourcePath::new("rulery.yaml").expect("valid path")),
+            Arc::from(text),
+        ),
+    )
+    .expect("unique source");
     SourceParseError {
         kind,
         message: message.to_owned(),
-        span: source_map
-            .span(SourceKey::new(1), start, end)
-            .unwrap_or_else(|_| {
-                source_map
-                    .span(SourceKey::new(1), 0, 0)
-                    .expect("fallback span")
-            }),
+        span: span(&map, SourceKey::new(1), text, needle),
     }
 }
-
-fn span_error(
-    source_map: &SourceMap,
-    source_key: SourceKey,
-    text: &str,
-    kind: SourceParseErrorKind,
-    message: impl Into<String>,
-    needle: &str,
-) -> SourceParseError {
-    SourceParseError {
-        kind,
-        message: message.into(),
-        span: span::span_for(source_map, source_key, text, needle),
+fn reject_forbidden(map: &SourceMap, key: SourceKey, text: &str) -> Result<(), SourceParseError> {
+    for (needle, message) in [
+        ("&", "YAML anchors are forbidden"),
+        ("*", "YAML aliases are forbidden"),
+        ("!", "YAML tags are forbidden"),
+    ] {
+        if contains_yaml_marker(text, needle) {
+            return Err(err(map, key, text, needle, message));
+        }
     }
+    if text
+        .lines()
+        .any(|line| line.trim_start().starts_with("<<:"))
+    {
+        return Err(err(map, key, text, "<<:", "YAML merge keys are forbidden"));
+    }
+    Ok(())
+}
+
+fn contains_yaml_marker(text: &str, marker: &str) -> bool {
+    text.match_indices(marker).any(|(index, _)| {
+        text[..index].chars().next_back().is_none_or(|previous| {
+            previous.is_whitespace() || matches!(previous, ':' | '[' | '{' | ',')
+        })
+    })
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn yaml_parser_rejects_noncanonical_constructs() {
-        let parser = YamlSourceParser;
-
-        let duplicate_key = r#"
-package:
-  id: pkg.main
-  id: pkg.dup
-  version: 1.0.0
-vocabulary: { roots: [account] }
-"#;
-        let duplicate = parser
-            .parse(duplicate_key.as_bytes())
-            .expect_err("duplicate key error");
-        assert!(matches!(duplicate.kind, SourceParseErrorKind::Shape));
-        assert!(duplicate.span.end() >= duplicate.span.start());
-
-        for (name, doc) in [
-            ("alias", "a: &x 1\nb: *x\n"),
-            ("merge", "a: {k: 1}\nb: {<<: {k: 1}}\n"),
-            ("tag", "a: !custom tagged\n"),
-            ("nonstring", "? [1,2]\n: value\n"),
-        ] {
-            let error = parser.parse(doc.as_bytes()).expect_err(name);
-            assert!(matches!(
-                error.kind,
-                SourceParseErrorKind::Syntax | SourceParseErrorKind::Shape
-            ));
-            assert!(error.span.end() >= error.span.start());
-        }
-
-        let unknown_field = r#"
-package:
-  id: pkg.main
-  version: 1.0.0
-  unknown_field: true
-vocabulary: { roots: [account] }
-"#;
-        let unknown = parser
-            .parse(unknown_field.as_bytes())
-            .expect_err("unknown field error");
-        assert!(matches!(unknown.kind, SourceParseErrorKind::Shape));
-
-        let scalars = r#"
-package:
-  id: pkg.main
-  version: 1.0.0
-vocabulary: { roots: [account] }
-decisions:
-  - id: decision.authz
-    rules:
-      - id: rule.one
-        when:
-          predicate:
-            operator: equals
-            left: { fact: account.status }
-            right: { literal: "today" }
-        effect: { kind: approve, reasons: [ok] }
-"#;
-        let parsed = parser.parse(scalars.as_bytes()).expect("valid parse");
-        let decision = &parsed.package.decisions[0];
-        let rule = &decision.rules[0];
-        let SourceCondition::Predicate(predicate) = &rule.when else {
-            panic!("expected predicate");
-        };
-        let Some(SourceOperand::Literal(value)) = predicate.right.as_ref() else {
-            panic!("expected literal right operand");
-        };
-        assert_eq!(value, "today");
+    use rulery_contracts::{SourceBundle, SourceDocument, SourcePath};
+    use std::sync::Arc;
+    fn document(path: &str, content: &str) -> SourceDocument {
+        SourceDocument::new(SourcePath::new(path).expect("path"), Arc::from(content))
     }
-
-    #[test]
-    fn manifest_semantics_enforce_exact_shapes() {
-        let parser = YamlSourceParser;
-        let valid = r#"
-package:
-  id: pkg.main
-  version: 1.0.0
-  language: 1
-semantics:
-  timezone: UTC
-  missing: unknown
-  invalid: reject
-  precedence: specificity
-imports:
-  - alias: lib.core
-    path: imports/core/rulery.yaml
-vocabulary:
-  roots: [account]
-  terms:
-    - name: term.is_verified
-      applies_to: [account.status]
-      definition: account status verified
-decisions:
-  - id: decision.authz
-    rules:
-      - id: rule.approve
-        when:
-          predicate:
-            operator: equals
-            left: { fact: account.status }
-            right: { literal: approved }
-        effect: { kind: approve, reasons: [ok] }
-      - id: rule.deny
-        when:
-          predicate:
-            operator: not_equals
-            left: { fact: account.status }
-            right: { literal: approved }
-        effect: { kind: deny, reasons: [blocked] }
-      - id: rule.escalate
-        when:
-          predicate:
-            operator: exists
-            left: { fact: account.owner }
-        effect:
-          kind: escalate
-          escalation_to: manual.review
-      - id: rule.request
-        when:
-          predicate:
-            operator: missing
-            left: { fact: account.owner }
-        effect:
-          kind: request_information
-          required_facts: [account.owner]
-"#;
-        assert!(parser.parse(valid.as_bytes()).is_ok());
-
-        let invalid_language = valid.replace("language: 1", "language: 2");
-        assert!(parser.parse(invalid_language.as_bytes()).is_err());
-
-        let bad_alias = valid.replace(
-            "alias: lib.core",
-            "alias: lib.core\n  - alias: lib.core\n    path: imports/dup/rulery.yaml",
-        );
-        assert!(parser.parse(bad_alias.as_bytes()).is_err());
-
-        let bad_escalate = valid.replace("escalation_to: manual.review", "");
-        assert!(parser.parse(bad_escalate.as_bytes()).is_err());
-
-        let bad_request = valid.replace("required_facts: [account.owner]", "required_facts: []");
-        assert!(parser.parse(bad_request.as_bytes()).is_err());
+    fn bundle(actions: &str) -> SourceBundle {
+        SourceBundle::new(vec![
+            document(
+                "rulery.yaml",
+                include_str!("../../../../examples/tool-library/rulery.yaml"),
+            ),
+            document(
+                "vocabulary.yaml",
+                include_str!("../../../../examples/tool-library/vocabulary.yaml"),
+            ),
+            document("actions.yaml", actions),
+            document(
+                "rules/checkout.yaml",
+                include_str!("../../../../examples/tool-library/rules/checkout.yaml"),
+            ),
+            document(
+                "scenarios/expired-training-is-denied.yaml",
+                include_str!(
+                    "../../../../examples/tool-library/scenarios/expired-training-is-denied.yaml"
+                ),
+            ),
+        ])
+        .expect("bundle")
     }
-
     #[test]
-    fn vocabulary_and_actions_apply_normative_defaults() {
-        let parser = YamlSourceParser;
-        let valid = r#"
-package:
-  id: pkg.main
-  version: 1.0.0
-vocabulary:
-  roots: [account]
-  types:
-    - name: status
-      kind: enum
-      variants: [active, suspended]
-      closed: true
-      deprecated: false
-    - name: request_ids
-      kind: list
-      min_items: 0
-      max_items: 5
-  terms:
-    - name: term.has_risk
-      applies_to: [account.status]
-      definition: risk indicator
-actions:
-  - id: action.notify
-    parameters:
-      - name: channel
-"#;
-        let parsed = parser.parse(valid.as_bytes()).expect("valid parse");
-        assert_eq!(parsed.package.vocabulary.roots.len(), 1);
-        assert_eq!(parsed.package.actions.len(), 1);
-        assert_eq!(
-            parsed.package.actions[0].parameters.get("channel"),
-            Some(&"required".to_owned())
-        );
-
-        let bad_roots = valid.replace("roots: [account]", "roots: []");
-        assert!(parser.parse(bad_roots.as_bytes()).is_err());
-
-        let bad_enum = valid.replace("variants: [active, suspended]", "variants: []");
-        assert!(parser.parse(bad_enum.as_bytes()).is_err());
-
-        let bad_list = valid.replace(
-            "min_items: 0\n      max_items: 5",
-            "min_items: 6\n      max_items: 5",
-        );
-        assert!(parser.parse(bad_list.as_bytes()).is_err());
-
-        let bad_term = valid.replace("applies_to: [account.status]", "applies_to: []");
-        assert!(parser.parse(bad_term.as_bytes()).is_err());
-
-        let bad_primitive = valid.replace("name: status", "name: string");
-        assert!(parser.parse(bad_primitive.as_bytes()).is_err());
+    fn parser_merges_complete_authored_package_bundle() {
+        let parsed = YamlSourceParser
+            .parse_bundle(&bundle(include_str!(
+                "../../../../examples/tool-library/actions.yaml"
+            )))
+            .expect("complete authored package parses");
+        assert_eq!(parsed.package.decisions.len(), 1);
+        assert_eq!(parsed.package.decisions[0].rules.len(), 4);
+        assert_eq!(parsed.package.actions.len(), 2);
+        assert_eq!(parsed.scenarios.len(), 1);
+        assert_eq!(parsed.source_map.len(), 5);
+        assert_eq!(parsed.package.decisions[0].rules[0].span.source().get(), 3);
+        assert_eq!(parsed.package.actions[0].span.source().get(), 1);
     }
-
     #[test]
-    fn rules_and_scenarios_enforce_exhaustive_grammar() {
-        let parser = YamlSourceParser;
-        let valid = r#"
-package:
-  id: pkg.main
-  version: 1.0.0
-vocabulary:
-  roots: [account]
-decisions:
-  - id: decision.authz
-    rules:
-      - id: rule.one
-        priority: 0
-        when:
-          predicate:
-            operator: equals
-            left: { fact: account.status }
-            right: { literal: approved }
-        effect: { kind: approve, reasons: [ok] }
-scenario:
-  id: scenario.main
-  title: default
-  expectations:
-    - decision: decision.authz
-      determining_rules: [rule.one]
-"#;
-        let parsed = parser.parse(valid.as_bytes()).expect("valid parse");
-        let rule = &parsed.package.decisions[0].rules[0];
-        assert_eq!(rule.span.source(), rule.when.span().source());
-        assert_eq!(rule.span.source(), rule.effect.span().source());
-        assert!(parsed.package.scenario.is_some());
-
-        let invalid_form = valid.replace(
-            "when:\n          predicate:",
-            "when:\n          predicate:\n            operator: equals\n            left: { fact: account.status }\n            right: { literal: approved }\n          all:\n            - predicate:",
+    fn parser_rejects_malformed_external_document() {
+        let error = YamlSourceParser
+            .parse_bundle(&bundle(
+                "actions:\n  invalid:\n    display_name: Bad\n    unknown: true\n",
+            ))
+            .expect_err("unknown action field");
+        assert_eq!(error.kind, SourceParseErrorKind::Shape);
+    }
+    #[test]
+    fn parser_rejects_duplicate_external_declarations() {
+        let rules = format!(
+            "{}\n  - id: deny-expired-training\n    priority: 1\n    when: {{ fact: member.account-status, operator: equal, value: active }}\n    effect: {{ kind: deny, reasons: [{{ code: duplicate, message: Duplicate }}] }}\n",
+            include_str!("../../../../examples/tool-library/rules/checkout.yaml")
         );
-        assert!(parser.parse(invalid_form.as_bytes()).is_err());
-
-        let missing_binary = valid.replace("right: { literal: approved }", "");
-        assert!(parser.parse(missing_binary.as_bytes()).is_err());
-
-        let unary_with_right = valid.replace("operator: equals", "operator: exists");
-        assert!(parser.parse(unary_with_right.as_bytes()).is_err());
-
-        let bad_operand = valid.replace(
-            "left: { fact: account.status }",
-            "left: { fact: account.status, reserved: today }",
-        );
-        assert!(parser.parse(bad_operand.as_bytes()).is_err());
-
-        let null_literal =
-            valid.replace("right: { literal: approved }", "right: { literal: null }");
-        let parsed_null = parser
-            .parse(null_literal.as_bytes())
-            .expect("null literal parse");
-        let SourceCondition::Predicate(predicate) = &parsed_null.package.decisions[0].rules[0].when
-        else {
-            panic!("expected predicate");
-        };
-        let Some(SourceOperand::Literal(value)) = predicate.right.as_ref() else {
-            panic!("expected right literal");
-        };
-        assert_eq!(value, "null");
+        let source = SourceBundle::new(vec![
+            document(
+                "rulery.yaml",
+                include_str!("../../../../examples/tool-library/rulery.yaml"),
+            ),
+            document(
+                "vocabulary.yaml",
+                include_str!("../../../../examples/tool-library/vocabulary.yaml"),
+            ),
+            document(
+                "actions.yaml",
+                include_str!("../../../../examples/tool-library/actions.yaml"),
+            ),
+            document("rules/checkout.yaml", &rules),
+            document(
+                "scenarios/expired-training-is-denied.yaml",
+                include_str!(
+                    "../../../../examples/tool-library/scenarios/expired-training-is-denied.yaml"
+                ),
+            ),
+        ])
+        .expect("bundle");
+        let error = YamlSourceParser
+            .parse_bundle(&source)
+            .expect_err("duplicate rule id");
+        assert_eq!(error.kind, SourceParseErrorKind::Shape);
     }
 }

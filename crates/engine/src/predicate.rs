@@ -342,6 +342,7 @@ mod tests {
         );
     }
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn operators_are_structural_type_strict_and_unicode_based() {
         let null = OperandState::Null;

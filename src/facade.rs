@@ -275,7 +275,7 @@ mod tests {
 
         let package = output.package.as_ref().expect("package");
         let before = events.lock().expect("events").len();
-        let facts = CaseFacts::new(Default::default());
+        let facts = CaseFacts::new(std::collections::BTreeMap::default());
         let conflict = facade
             .evaluate(
                 package,
@@ -386,7 +386,7 @@ mod tests {
                     None,
                 )),
             },
-            Default::default(),
+            rulery_contracts::SourceMap::default(),
             ResolvedVocabulary::default(),
         )
         .expect("package")

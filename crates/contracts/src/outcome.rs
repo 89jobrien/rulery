@@ -57,6 +57,24 @@ impl Reason {
             })
         }
     }
+
+    /// Returns the stable reason code.
+    #[must_use]
+    pub const fn code(&self) -> &ReasonCode {
+        &self.code
+    }
+
+    /// Returns the human-readable reason message.
+    #[must_use]
+    pub fn message(&self) -> &str {
+        &self.message
+    }
+
+    /// Returns the optional authored detail.
+    #[must_use]
+    pub fn detail(&self) -> Option<&str> {
+        self.detail.as_deref()
+    }
 }
 
 /// Non-empty ordered decision reasons.
@@ -77,6 +95,11 @@ impl Reasons {
             Ok(Self(values))
         }
     }
+
+    /// Borrows the reasons in deterministic order.
+    pub fn iter(&self) -> impl Iterator<Item = &Reason> {
+        self.0.iter()
+    }
 }
 
 /// Non-empty set of facts requested from a caller.
@@ -96,6 +119,12 @@ impl RequiredFacts {
         } else {
             Ok(Self(values))
         }
+    }
+
+    /// Returns the requested paths in ascending order.
+    #[must_use]
+    pub const fn paths(&self) -> &BTreeSet<FactPath> {
+        &self.0
     }
 }
 

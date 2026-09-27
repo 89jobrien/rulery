@@ -197,6 +197,8 @@ pub(crate) fn check(root: &Path) -> Result<(), XtaskError> {
     let specification = std::fs::read_to_string(&path)
         .map_err(|error| XtaskError::Conformance(format!("{}: {error}", path.display())))?;
 
+    check_requirements(root, &specification)?;
+
     let report = validate_specification(
         &specification,
         Path::new(".ctx/_WORKING_DIR/xtask-conformance"),
@@ -214,6 +216,147 @@ pub(crate) fn check(root: &Path) -> Result<(), XtaskError> {
                 .join("\n"),
         ))
     }
+}
+
+/// Requirement identifiers the v0.1 specification must declare.
+const REQUIREMENT_IDS: &[&str] = &[
+    "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", "V11", "V12",
+];
+
+/// Static-problem identifiers nested under requirement `V10`.
+const STATIC_CHECK_IDS: &[&str] = &[
+    "S01", "S02", "S03", "S04", "S05", "S06", "S07", "S08", "S09",
+];
+
+/// Heading that introduces the normative requirement traceability tables.
+const TRACEABILITY_HEADING: &str = "### Versioned requirement traceability";
+
+/// One row of the specification's requirement traceability tables.
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct RequirementRow {
+    /// Declared requirement or static-check identifier.
+    id: String,
+    /// Test named as the verification, empty when the row defers to another table.
+    verification: String,
+    /// Declared satisfaction status.
+    status: String,
+}
+
+/// Rejects a specification whose declared requirements are incomplete, unverified, or unsatisfied.
+///
+/// A requirement is verified only when the test it names exists in the workspace, and satisfied
+/// only when the specification says so. Naming a test that does not exist, omitting a
+/// requirement, or leaving a requirement unsatisfied all fail the gate.
+///
+/// # Errors
+///
+/// Returns [`XtaskError::Conformance`] listing every missing identifier, missing test, and
+/// unsatisfied requirement.
+pub fn check_requirements(root: &Path, specification: &str) -> Result<(), XtaskError> {
+    let rows = requirement_rows(specification);
+    let mut failures = Vec::new();
+
+    let declared: BTreeSet<&str> = rows.iter().map(|row| row.id.as_str()).collect();
+    for id in REQUIREMENT_IDS.iter().chain(STATIC_CHECK_IDS.iter()) {
+        if !declared.contains(id) {
+            failures.push(format!("{id} is not declared under {TRACEABILITY_HEADING}"));
+        }
+    }
+
+    let tests = collect_test_names(root);
+    for row in &rows {
+        if !row.verification.is_empty() && !tests.contains(&row.verification) {
+            failures.push(format!(
+                "{} names test {}, which does not exist in the workspace",
+                row.id, row.verification
+            ));
+        }
+    }
+
+    for row in &rows {
+        if row.status != "satisfied" {
+            failures.push(format!("{} is {}, not satisfied", row.id, row.status));
+        }
+    }
+
+    if failures.is_empty() {
+        Ok(())
+    } else {
+        Err(XtaskError::Conformance(failures.join("\n")))
+    }
+}
+
+/// Parses the traceability rows declared under [`TRACEABILITY_HEADING`].
+fn requirement_rows(specification: &str) -> Vec<RequirementRow> {
+    let Some(section) = specification.split(TRACEABILITY_HEADING).nth(1) else {
+        return Vec::new();
+    };
+    let body = section.split("\n## ").next().unwrap_or(section);
+
+    let mut rows = Vec::new();
+    for line in body.lines() {
+        let cells: Vec<&str> = line
+            .split('|')
+            .map(str::trim)
+            .filter(|cell| !cell.is_empty())
+            .collect();
+        if cells.len() != 4 {
+            continue;
+        }
+        if !REQUIREMENT_IDS.contains(&cells[0]) && !STATIC_CHECK_IDS.contains(&cells[0]) {
+            continue;
+        }
+        rows.push(RequirementRow {
+            id: cells[0].to_owned(),
+            verification: cells[2]
+                .strip_prefix('`')
+                .and_then(|cell| cell.strip_suffix('`'))
+                .unwrap_or_default()
+                .to_owned(),
+            status: cells[3].to_owned(),
+        });
+    }
+    rows
+}
+
+/// Collects every function name declared in a Rust source file in the workspace.
+fn collect_test_names(root: &Path) -> BTreeSet<String> {
+    let mut names = BTreeSet::new();
+    let mut pending = vec![root.to_path_buf()];
+    while let Some(directory) = pending.pop() {
+        let Ok(entries) = std::fs::read_dir(&directory) else {
+            continue;
+        };
+        for entry in entries.flatten() {
+            let path = entry.path();
+            if path.is_dir() {
+                if path.file_name().and_then(|name| name.to_str()) != Some("target") {
+                    pending.push(path);
+                }
+                continue;
+            }
+            if path.extension().and_then(|extension| extension.to_str()) != Some("rs") {
+                continue;
+            }
+            let Ok(source) = std::fs::read_to_string(&path) else {
+                continue;
+            };
+            for line in source.lines() {
+                let Some(signature) = line.trim().strip_prefix("fn ") else {
+                    continue;
+                };
+                let name = signature.split('(').next().unwrap_or_default().trim();
+                if !name.is_empty()
+                    && name
+                        .chars()
+                        .all(|character| character.is_ascii_alphanumeric() || character == '_')
+                {
+                    names.insert(name.to_owned());
+                }
+            }
+        }
+    }
+    names
 }
 
 fn check_registry(specification: &str) -> Result<(), XtaskError> {

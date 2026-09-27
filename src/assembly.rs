@@ -432,14 +432,34 @@ fn remap_parsed_package(
     keys: &SourceKeyMap,
 ) -> Result<(), AssemblyError> {
     for decision in &mut parsed.package.decisions {
+        decision.span = remap_span(decision.span, package_id, merged, keys)?;
+        remap_outcome(&mut decision.default, package_id, merged, keys)?;
         for rule in &mut decision.rules {
             rule.span = remap_span(rule.span, package_id, merged, keys)?;
             remap_condition(&mut rule.when, package_id, merged, keys)?;
-            remap_effect(&mut rule.effect, package_id, merged, keys)?;
+            remap_outcome(&mut rule.effect, package_id, merged, keys)?;
         }
+    }
+    for root in parsed.package.vocabulary.roots.values_mut() {
+        root.span = remap_span(root.span, package_id, merged, keys)?;
+    }
+    for ty in parsed.package.vocabulary.types.values_mut() {
+        ty.span = remap_span(ty.span, package_id, merged, keys)?;
+        for variant in ty.variants.values_mut() {
+            variant.span = remap_span(variant.span, package_id, merged, keys)?;
+        }
+        for field in ty.fields.values_mut() {
+            field.span = remap_span(field.span, package_id, merged, keys)?;
+        }
+    }
+    for term in parsed.package.vocabulary.terms.values_mut() {
+        term.span = remap_span(term.span, package_id, merged, keys)?;
     }
     for action in &mut parsed.package.actions {
         action.span = remap_span(action.span, package_id, merged, keys)?;
+        for parameter in action.parameters.values_mut() {
+            parameter.span = remap_span(parameter.span, package_id, merged, keys)?;
+        }
     }
     if let Some(scenario) = &mut parsed.package.scenario {
         remap_scenario(scenario, package_id, merged, keys)?;
@@ -475,19 +495,19 @@ fn remap_condition(
     Ok(())
 }
 
-fn remap_effect(
+fn remap_outcome(
     effect: &mut SourceEffect,
     package_id: &PackageId,
     merged: &SourceMap,
     keys: &SourceKeyMap,
 ) -> Result<(), AssemblyError> {
-    let span = match effect {
-        SourceEffect::Approve { span, .. }
-        | SourceEffect::Deny { span, .. }
-        | SourceEffect::Escalate { span, .. }
-        | SourceEffect::RequestInformation { span, .. } => span,
-    };
-    *span = remap_span(*span, package_id, merged, keys)?;
+    effect.span = remap_span(effect.span, package_id, merged, keys)?;
+    for reason in &mut effect.reasons {
+        reason.span = remap_span(reason.span, package_id, merged, keys)?;
+    }
+    for action in &mut effect.actions {
+        action.span = remap_span(action.span, package_id, merged, keys)?;
+    }
     Ok(())
 }
 
@@ -498,9 +518,7 @@ fn remap_scenario(
     keys: &SourceKeyMap,
 ) -> Result<(), AssemblyError> {
     scenario.span = remap_span(scenario.span, package_id, merged, keys)?;
-    for expectation in &mut scenario.expectations {
-        expectation.span = remap_span(expectation.span, package_id, merged, keys)?;
-    }
+    scenario.expect.span = remap_span(scenario.expect.span, package_id, merged, keys)?;
     Ok(())
 }
 
@@ -639,8 +657,8 @@ impl AssemblyError {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
     use std::sync::{Arc, Mutex};
+    use std::{collections::BTreeSet, str::FromStr};
 
     use rulery_contracts::{
         ContentHash, DecisionId, FactPath, LoadedSourceBundle, PackageId, QualifiedRuleId, RuleId,
@@ -648,9 +666,8 @@ mod tests {
         Version, VersionRequirement,
     };
     use rulery_syntax::{
-        SourceAction, SourceDecision, SourceExpectedDecision, SourceMetadata, SourceOperand,
-        SourceOperator, SourcePackage, SourcePredicate, SourceRule, SourceSemantics,
-        SourceVocabulary,
+        SourceAction, SourceDecision, SourceExpectedDecision, SourceMetadata, SourceOperator,
+        SourcePackage, SourcePredicate, SourceRule, SourceSemantics, SourceVocabulary,
     };
 
     use super::*;
@@ -985,6 +1002,7 @@ mod tests {
             package: SourcePackage {
                 metadata: SourceMetadata {
                     package_id: id.clone(),
+                    display_name: package.to_owned(),
                     version: Version::new(
                         if mode == ParserMode::VersionMismatch && package == "pkg.a" {
                             "2.0.0"
@@ -993,19 +1011,39 @@ mod tests {
                         },
                     )
                     .expect("version"),
-                    title: None,
+                    language_version: 1,
+                    description: None,
+                    authors: Vec::new(),
+                    tags: BTreeSet::new(),
                 },
                 semantics: SourceSemantics {
                     timezone: "UTC".to_owned(),
-                    missing: "unknown".to_owned(),
-                    invalid: "reject".to_owned(),
-                    precedence: "specificity".to_owned(),
+                    expiry: "inclusive".to_owned(),
+                    missing_facts: rulery_syntax::SourceStrategy {
+                        kind: "preserve_unknown".to_owned(),
+                        destination: None,
+                    },
+                    invalid_facts: rulery_syntax::SourceStrategy {
+                        kind: "reject_evaluation".to_owned(),
+                        destination: None,
+                    },
+                    precedence: rulery_syntax::SourcePrecedence {
+                        kind: "safety_first".to_owned(),
+                        primary: None,
+                        outcome_ranks: BTreeMap::new(),
+                    },
                 },
                 imports: fixture_imports(package, mode),
                 decisions: vec![decision(span)],
-                vocabulary: SourceVocabulary::default(),
+                vocabulary: SourceVocabulary {
+                    roots: BTreeMap::new(),
+                    types: BTreeMap::new(),
+                    terms: BTreeMap::new(),
+                },
                 actions: vec![SourceAction {
                     id: StableId::new("action.notify").expect("action"),
+                    display_name: "Notify".to_owned(),
+                    description: None,
                     parameters: BTreeMap::new(),
                     span,
                 }],
@@ -1020,8 +1058,7 @@ mod tests {
         let ids: &[&str] = match package {
             "pkg.root" if mode == ParserMode::NoImports => &[],
             "pkg.root" => &["pkg.b", "pkg.a"],
-            "pkg.a" => &["pkg.c"],
-            "pkg.b" => &["pkg.c"],
+            "pkg.a" | "pkg.b" => &["pkg.c"],
             "pkg.c" if mode == ParserMode::Cycle => &["pkg.a"],
             _ => &[],
         };
@@ -1045,9 +1082,9 @@ mod tests {
 
     fn decision(span: Span) -> SourceDecision {
         let predicate = SourceCondition::Predicate(SourcePredicate {
-            operator: SourceOperator::Exists,
-            left: SourceOperand::Fact(FactPath::from_str("member.id").expect("fact")),
-            right: None,
+            fact: FactPath::from_str("member.id").expect("fact"),
+            operator: SourceOperator::IsPresent,
+            value: None,
             span,
         });
         let condition = SourceCondition::All {
@@ -1062,44 +1099,73 @@ mod tests {
         };
         SourceDecision {
             id: DecisionId::new("decision.main").expect("decision"),
+            title: "Main".to_owned(),
+            asks: "Does it apply?".to_owned(),
+            input_roots: BTreeSet::from([StableId::new("member").expect("root")]),
+            default: outcome("deny", span),
             rules: vec![
                 SourceRule {
                     id: StableId::new("rule.approve").expect("rule"),
+                    title: None,
+                    priority: 0,
                     when: condition.clone(),
-                    effect: SourceEffect::Approve {
-                        reasons: vec!["ok".to_owned()],
-                        span,
-                    },
+                    effect: outcome("approve", span),
+                    explicit_override: false,
+                    rationale: None,
                     span,
                 },
                 SourceRule {
                     id: StableId::new("rule.deny").expect("rule"),
+                    title: None,
+                    priority: 0,
                     when: condition.clone(),
-                    effect: SourceEffect::Deny {
-                        reasons: vec!["no".to_owned()],
-                        span,
-                    },
+                    effect: outcome("deny", span),
+                    explicit_override: false,
+                    rationale: None,
                     span,
                 },
                 SourceRule {
                     id: StableId::new("rule.escalate").expect("rule"),
+                    title: None,
+                    priority: 0,
                     when: condition.clone(),
-                    effect: SourceEffect::Escalate {
-                        to: "review".to_owned(),
-                        span,
-                    },
+                    effect: outcome("escalate", span),
+                    explicit_override: false,
+                    rationale: None,
                     span,
                 },
                 SourceRule {
                     id: StableId::new("rule.request").expect("rule"),
+                    title: None,
+                    priority: 0,
                     when: condition,
-                    effect: SourceEffect::RequestInformation {
-                        facts: vec![FactPath::from_str("member.id").expect("fact")],
-                        span,
-                    },
+                    effect: outcome("request_information", span),
+                    explicit_override: false,
+                    rationale: None,
                     span,
                 },
             ],
+            span,
+        }
+    }
+
+    fn outcome(kind: &str, span: Span) -> SourceEffect {
+        SourceEffect {
+            kind: kind.to_owned(),
+            reasons: vec![rulery_syntax::SourceReason {
+                code: StableId::new("reason").expect("reason"),
+                message: "reason".to_owned(),
+                detail: None,
+                span,
+            }],
+            actions: Vec::new(),
+            destination: (kind == "escalate").then(|| "review".to_owned()),
+            required_facts: if kind == "request_information" {
+                BTreeSet::from([FactPath::from_str("member.id").expect("fact")])
+            } else {
+                BTreeSet::new()
+            },
+            span,
         }
     }
 
@@ -1107,14 +1173,21 @@ mod tests {
         SourceScenario {
             id: StableId::new("scenario.main").expect("scenario"),
             title: "main".to_owned(),
-            expectations: vec![SourceExpectedDecision {
-                decision: DecisionId::new("decision.main").expect("decision"),
-                determining_rules: vec![QualifiedRuleId::new(
+            description: None,
+            decision: DecisionId::new("decision.main").expect("decision"),
+            at: "2026-01-01T00:00:00Z".to_owned(),
+            given: BTreeMap::new(),
+            expect: SourceExpectedDecision {
+                outcome: "approve".to_owned(),
+                determining_rules: BTreeSet::from([QualifiedRuleId::new(
                     package.clone(),
                     RuleId::new("rule.approve").expect("rule"),
-                )],
+                )]),
+                required_facts: BTreeSet::new(),
+                reason_codes: BTreeSet::new(),
                 span,
-            }],
+            },
+            tags: BTreeSet::new(),
             span,
         }
     }
@@ -1124,7 +1197,13 @@ mod tests {
             for rule in &decision.rules {
                 assert_eq!(rule.span.source(), key);
                 assert_condition_key(&rule.when, key);
-                assert_eq!(rule.effect.span().source(), key);
+                assert_eq!(rule.effect.span.source(), key);
+                assert!(
+                    rule.effect
+                        .reasons
+                        .iter()
+                        .all(|reason| reason.span.source() == key)
+                );
             }
         }
         assert!(
@@ -1136,12 +1215,7 @@ mod tests {
         );
         for scenario in &parsed.scenarios {
             assert_eq!(scenario.span.source(), key);
-            assert!(
-                scenario
-                    .expectations
-                    .iter()
-                    .all(|expectation| expectation.span.source() == key)
-            );
+            assert_eq!(scenario.expect.span.source(), key);
         }
     }
 

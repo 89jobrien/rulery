@@ -12,7 +12,8 @@ mod yaml;
 pub use ast::{
     ParsedPackage, SourceAction, SourceCondition, SourceDecision, SourceEffect,
     SourceExpectedDecision, SourceImport, SourceMetadata, SourceOperand, SourceOperator,
-    SourcePackage, SourceParseError, SourceParseErrorKind, SourceParser, SourcePredicate,
-    SourceRule, SourceScenario, SourceSemantics, SourceVocabulary,
+    SourceOutcome, SourcePackage, SourceParseError, SourceParseErrorKind, SourceParser,
+    SourcePrecedence, SourcePredicate, SourceReason, SourceRoot, SourceRule, SourceScenario,
+    SourceSemantics, SourceStrategy, SourceType, SourceValue, SourceVocabulary,
 };
 pub use yaml::YamlSourceParser;

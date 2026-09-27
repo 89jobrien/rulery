@@ -6,12 +6,238 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use rulery_contracts::{
-    ActionId, ContentHash, DecisionId, HashDomain, LanguageVersion, PackageId, QualifiedRuleId,
-    RuleId, SourceMap, Span, StableId, Version, hash_parts,
+    ActionId, ContentHash, DecisionId, EscalationId, HashDomain, LanguageVersion, OutcomeKind,
+    OutcomeTemplate, PackageId, PolicyTimeZone, QualifiedRuleId, RuleId, SourceMap, Span, StableId,
+    Version, hash_parts,
 };
 use rulery_vocabulary::{ResolvedVocabulary, TypeDeclaration};
 
 use crate::Expr;
+
+/// Validated executable effect attached to a compiled rule.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct CompiledEffect {
+    outcome: OutcomeTemplate,
+}
+
+impl CompiledEffect {
+    /// Creates an executable effect from a validated outcome template.
+    #[must_use]
+    pub const fn new(outcome: OutcomeTemplate) -> Self {
+        Self { outcome }
+    }
+
+    /// Returns the outcome template selected when this effect applies.
+    #[must_use]
+    pub const fn outcome(&self) -> &OutcomeTemplate {
+        &self.outcome
+    }
+
+    /// Returns the coarse outcome kind selected by this effect.
+    #[must_use]
+    pub const fn outcome_kind(&self) -> OutcomeKind {
+        self.outcome.kind()
+    }
+}
+
+/// Strategy for predicates with absent facts.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum MissingFactStrategy {
+    /// Preserve the unknown result for precedence and relevance analysis.
+    PreserveUnknown,
+    /// Treat an absent fact as a false predicate result.
+    ClosedWorldFalse,
+    /// Resolve missing evidence by requesting it from the caller.
+    RequestInformation,
+    /// Resolve missing evidence by escalating to a named authority.
+    Escalate {
+        /// Escalation destination.
+        destination: EscalationId,
+    },
+}
+
+/// Strategy for predicates with malformed facts.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum InvalidFactStrategy {
+    /// Reject the evaluation when invalid evidence is encountered.
+    RejectEvaluation,
+    /// Preserve the invalid result for relevance analysis.
+    PreserveInvalid,
+    /// Resolve invalid evidence by escalating to a named authority.
+    Escalate {
+        /// Escalation destination.
+        destination: EscalationId,
+    },
+}
+
+/// Primary dimension for explicitly ranked outcomes.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum PrecedenceDimension {
+    /// Outcome rank is the primary precedence dimension.
+    Outcome,
+    /// Rule priority is the primary precedence dimension.
+    Priority,
+}
+
+/// Compiled rule precedence configuration.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+pub enum DecisionPrecedence {
+    /// Safety outcome rank precedes authored priority.
+    SafetyFirst,
+    /// Authored priority precedes safety outcome rank.
+    PriorityFirst,
+    /// Complete custom outcome ranks with an explicit primary dimension.
+    Explicit {
+        /// Primary precedence dimension.
+        primary: PrecedenceDimension,
+        /// Rank for every outcome kind.
+        outcome_ranks: BTreeMap<OutcomeKind, u16>,
+    },
+}
+
+/// Date-expiry boundary behavior compiled from authored semantics.
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ExpiryPolicy {
+    /// An item remains valid through its expiry date.
+    Inclusive,
+    /// An item expires at the start of its expiry date.
+    Exclusive,
+}
+
+/// Validated semantic configuration retained for each compiled decision.
+#[derive(Clone, Debug, Eq, PartialEq, Serialize)]
+#[serde(deny_unknown_fields)]
+pub struct DecisionSemantics {
+    missing_facts: MissingFactStrategy,
+    invalid_facts: InvalidFactStrategy,
+    precedence: DecisionPrecedence,
+    timezone: PolicyTimeZone,
+    expiry: ExpiryPolicy,
+}
+
+impl DecisionSemantics {
+    /// Creates validated decision semantics.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`DecisionSemanticsError`] when explicit outcome ranks are incomplete or overlap.
+    pub fn new(
+        missing_facts: MissingFactStrategy,
+        invalid_facts: InvalidFactStrategy,
+        precedence: DecisionPrecedence,
+        timezone: PolicyTimeZone,
+        expiry: ExpiryPolicy,
+    ) -> Result<Self, DecisionSemanticsError> {
+        validate_precedence(&precedence)?;
+        Ok(Self {
+            missing_facts,
+            invalid_facts,
+            precedence,
+            timezone,
+            expiry,
+        })
+    }
+
+    /// Returns the missing-fact strategy.
+    #[must_use]
+    pub const fn missing_facts(&self) -> &MissingFactStrategy {
+        &self.missing_facts
+    }
+
+    /// Returns the invalid-fact strategy.
+    #[must_use]
+    pub const fn invalid_facts(&self) -> &InvalidFactStrategy {
+        &self.invalid_facts
+    }
+
+    /// Returns the precedence configuration.
+    #[must_use]
+    pub const fn precedence(&self) -> &DecisionPrecedence {
+        &self.precedence
+    }
+
+    /// Returns the decision timezone.
+    #[must_use]
+    pub fn timezone(&self) -> &PolicyTimeZone {
+        &self.timezone
+    }
+
+    /// Returns the compiled expiry boundary.
+    #[must_use]
+    pub const fn expiry(&self) -> ExpiryPolicy {
+        self.expiry
+    }
+}
+
+impl<'de> Deserialize<'de> for DecisionSemantics {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        #[derive(Deserialize)]
+        #[serde(deny_unknown_fields)]
+        struct WireSemantics {
+            missing_facts: MissingFactStrategy,
+            invalid_facts: InvalidFactStrategy,
+            precedence: DecisionPrecedence,
+            timezone: PolicyTimeZone,
+            expiry: ExpiryPolicy,
+        }
+
+        let wire = WireSemantics::deserialize(deserializer)?;
+        Self::new(
+            wire.missing_facts,
+            wire.invalid_facts,
+            wire.precedence,
+            wire.timezone,
+            wire.expiry,
+        )
+        .map_err(serde::de::Error::custom)
+    }
+}
+
+/// Error returned for an invalid compiled decision semantic configuration.
+#[derive(Clone, Debug, Eq, Error, PartialEq)]
+pub enum DecisionSemanticsError {
+    /// Explicit ranks do not cover every possible outcome.
+    #[error("explicit precedence ranks must contain every outcome kind exactly once")]
+    IncompleteExplicitRanks,
+    /// Explicit ranks contain an ambiguous duplicate value.
+    #[error("explicit precedence ranks must be pairwise distinct")]
+    DuplicateExplicitRank,
+}
+
+fn validate_precedence(precedence: &DecisionPrecedence) -> Result<(), DecisionSemanticsError> {
+    let DecisionPrecedence::Explicit { outcome_ranks, .. } = precedence else {
+        return Ok(());
+    };
+    let kinds = [
+        OutcomeKind::Approve,
+        OutcomeKind::Deny,
+        OutcomeKind::Escalate,
+        OutcomeKind::RequestInformation,
+    ];
+    if outcome_ranks.len() != kinds.len()
+        || !kinds
+            .into_iter()
+            .all(|kind| outcome_ranks.contains_key(&kind))
+    {
+        return Err(DecisionSemanticsError::IncompleteExplicitRanks);
+    }
+    let ranks = outcome_ranks
+        .values()
+        .collect::<std::collections::BTreeSet<_>>();
+    if ranks.len() != outcome_ranks.len() {
+        return Err(DecisionSemanticsError::DuplicateExplicitRank);
+    }
+    Ok(())
+}
 
 /// One checked action binding retained in a compiled package.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
@@ -56,7 +282,11 @@ impl CompiledActionParameter {
 pub struct CompiledRule {
     id: RuleId,
     qualified_id: QualifiedRuleId,
+    title: Option<String>,
+    priority: i32,
     condition: Expr,
+    effect: CompiledEffect,
+    rationale: Option<String>,
     span: Span,
     specificity: u32,
     override_rank: u8,
@@ -65,17 +295,26 @@ pub struct CompiledRule {
 impl CompiledRule {
     /// Creates a checked rule.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new(
         id: RuleId,
         qualified_id: QualifiedRuleId,
+        title: Option<String>,
+        priority: i32,
         condition: Expr,
+        effect: CompiledEffect,
+        rationale: Option<String>,
         span: Span,
         specificity: u32,
     ) -> Self {
         Self {
             id,
             qualified_id,
+            title,
+            priority,
             condition,
+            effect,
+            rationale,
             span,
             specificity,
             override_rank: 0,
@@ -84,10 +323,15 @@ impl CompiledRule {
 
     /// Creates a checked rule with a statically derived explicit-override rank.
     #[must_use]
+    #[allow(clippy::too_many_arguments)]
     pub fn new_with_override(
         id: RuleId,
         qualified_id: QualifiedRuleId,
+        title: Option<String>,
+        priority: i32,
         condition: Expr,
+        effect: CompiledEffect,
+        rationale: Option<String>,
         span: Span,
         specificity: u32,
         explicit_override: bool,
@@ -95,7 +339,11 @@ impl CompiledRule {
         Self {
             id,
             qualified_id,
+            title,
+            priority,
             condition,
+            effect,
+            rationale,
             span,
             specificity,
             override_rank: u8::from(explicit_override),
@@ -114,16 +362,52 @@ impl CompiledRule {
         &self.qualified_id
     }
 
+    /// Returns the optional authored rule title.
+    #[must_use]
+    pub fn title(&self) -> Option<&str> {
+        self.title.as_deref()
+    }
+
+    /// Returns the signed authored priority.
+    #[must_use]
+    pub const fn priority(&self) -> i32 {
+        self.priority
+    }
+
     /// Returns the checked condition expression.
     #[must_use]
     pub fn condition(&self) -> &Expr {
         &self.condition
     }
 
+    /// Returns the executable effect.
+    #[must_use]
+    pub const fn effect(&self) -> &CompiledEffect {
+        &self.effect
+    }
+
+    /// Returns the outcome template selected by this rule.
+    #[must_use]
+    pub const fn outcome(&self) -> &OutcomeTemplate {
+        self.effect.outcome()
+    }
+
+    /// Returns the optional authored rationale.
+    #[must_use]
+    pub fn rationale(&self) -> Option<&str> {
+        self.rationale.as_deref()
+    }
+
     /// Returns the authored rule span.
     #[must_use]
     pub const fn span(&self) -> Span {
         self.span
+    }
+
+    /// Returns the static condition specificity.
+    #[must_use]
+    pub const fn specificity(&self) -> u32 {
+        self.specificity
     }
 
     /// Returns `1` for an authored explicit override and `0` otherwise.
@@ -138,7 +422,10 @@ impl CompiledRule {
 #[serde(deny_unknown_fields)]
 pub struct CompiledDecision {
     id: DecisionId,
+    semantics: DecisionSemantics,
+    default: CompiledEffect,
     rules: BTreeMap<RuleId, CompiledRule>,
+    span: Span,
 }
 
 impl CompiledDecision {
@@ -147,7 +434,13 @@ impl CompiledDecision {
     /// # Errors
     ///
     /// Returns [`PackageBuildError`] when the same rule id appears more than once.
-    pub fn new(id: DecisionId, rules: Vec<CompiledRule>) -> Result<Self, PackageBuildError> {
+    pub fn new(
+        id: DecisionId,
+        semantics: DecisionSemantics,
+        default: CompiledEffect,
+        rules: Vec<CompiledRule>,
+        span: Span,
+    ) -> Result<Self, PackageBuildError> {
         let mut map = BTreeMap::new();
         for rule in rules {
             let key = rule.id.clone();
@@ -158,7 +451,13 @@ impl CompiledDecision {
                 });
             }
         }
-        Ok(Self { id, rules: map })
+        Ok(Self {
+            id,
+            semantics,
+            default,
+            rules: map,
+            span,
+        })
     }
 
     /// Returns the decision identifier.
@@ -167,10 +466,28 @@ impl CompiledDecision {
         &self.id
     }
 
+    /// Returns the compiled semantic configuration.
+    #[must_use]
+    pub const fn semantics(&self) -> &DecisionSemantics {
+        &self.semantics
+    }
+
+    /// Returns the default effect used when no rule determines an outcome.
+    #[must_use]
+    pub const fn default(&self) -> &CompiledEffect {
+        &self.default
+    }
+
     /// Returns checked rules keyed by id.
     #[must_use]
     pub fn rules(&self) -> &BTreeMap<RuleId, CompiledRule> {
         &self.rules
+    }
+
+    /// Returns the authored decision span.
+    #[must_use]
+    pub const fn span(&self) -> Span {
+        self.span
     }
 }
 

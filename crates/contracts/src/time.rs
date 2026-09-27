@@ -82,6 +82,18 @@ impl UtcInstant {
         Self::new(nanoseconds)
     }
 
+    /// Parses a UTC RFC 3339 date-time, as authored for a scenario `at`.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`TimeValueError`] for non-RFC-3339 or out-of-range values.
+    pub fn parse_rfc3339(value: &str) -> Result<Self, TimeValueError> {
+        let timestamp = value
+            .parse::<jiff::Timestamp>()
+            .map_err(|_| TimeValueError::InvalidInstant(value.to_owned()))?;
+        Self::new(timestamp.as_nanosecond())
+    }
+
     /// Formats this instant as UTC RFC 3339 with nine fractional digits.
     #[must_use]
     pub fn to_rfc3339(self) -> String {

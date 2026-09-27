@@ -23,6 +23,7 @@ use rulery::engine::{
     evaluate_presence, select_candidates, should_use_default,
 };
 
+#[allow(clippy::too_many_lines)]
 #[test]
 fn normative_safety_properties_hold_across_pipeline() {
     let path = FactPath::from_str("member.email").expect("path");

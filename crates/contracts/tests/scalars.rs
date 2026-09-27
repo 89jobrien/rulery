@@ -32,6 +32,39 @@ fn exact_scalars_use_canonical_wire_forms() {
     assert_eq!(epoch.to_rfc3339(), "1970-01-01T00:00:00.000000000Z");
     assert!(UtcInstant::parse("+1").is_err());
     assert!(UtcInstant::parse("01").is_err());
+
+    // The authored scenario `at` is RFC 3339 while the wire form stays signed nanoseconds, so the
+    // two entry points must accept exactly their own grammar and never each other's. The
+    // nine-fractional-digit rule governs the canonical output, so shorter input still normalizes.
+    for (authored, nanoseconds) in [
+        ("1970-01-01T00:00:00.000000000Z", "0"),
+        ("2026-09-16T16:00:00.000000000Z", "1789574400000000000"),
+    ] {
+        let instant = UtcInstant::parse_rfc3339(authored).expect("rfc3339");
+        assert_eq!(instant.as_nanoseconds().to_string(), nanoseconds);
+        assert_eq!(instant.to_rfc3339(), authored);
+        assert!(
+            UtcInstant::parse(authored).is_err(),
+            "wire form accepted {authored}"
+        );
+        assert!(
+            UtcInstant::parse_rfc3339(nanoseconds).is_err(),
+            "rfc3339 accepted {nanoseconds}"
+        );
+    }
+    assert_eq!(
+        UtcInstant::parse_rfc3339("2026-09-16T16:00:00Z")
+            .expect("rfc3339")
+            .to_rfc3339(),
+        "2026-09-16T16:00:00.000000000Z"
+    );
+    for invalid in ["2026-09-16", "not-an-instant", "2026-13-01T00:00:00Z", ""] {
+        assert!(
+            UtcInstant::parse_rfc3339(invalid).is_err(),
+            "accepted {invalid}"
+        );
+    }
+
     assert_eq!(
         DurationValue::parse("-42").expect("duration").to_string(),
         "-42"

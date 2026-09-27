@@ -228,7 +228,6 @@ pub enum DiagnosticEvidence {
     /// Generic properties evidence.
     Properties(BTreeMap<String, String>),
 }
-
 /// Replayable witness evidence.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -240,6 +239,34 @@ pub struct WitnessEvidence {
     decision: DecisionId,
     matched_rules: Vec<QualifiedRuleId>,
     outcome_kinds: Vec<OutcomeKind>,
+}
+
+impl WitnessEvidence {
+    /// Creates witness evidence from a synthetic analysis witness.
+    ///
+    /// Evidence is the only way a producer can satisfy a registry witness requirement, so the
+    /// constructor stays infallible and leaves validation to [`DiagnosticBuilder`].
+    #[must_use]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        witness_id: StableId,
+        summary: impl Into<String>,
+        facts: impl Into<String>,
+        facts_hash: ContentHash,
+        decision: DecisionId,
+        matched_rules: Vec<QualifiedRuleId>,
+        outcome_kinds: Vec<OutcomeKind>,
+    ) -> Self {
+        Self {
+            witness_id,
+            summary: summary.into(),
+            facts: facts.into(),
+            facts_hash,
+            decision,
+            matched_rules,
+            outcome_kinds,
+        }
+    }
 }
 
 /// Evaluation trace evidence.
@@ -262,6 +289,26 @@ pub struct BehaviorChangeEvidence {
     witness_facts_hash: ContentHash,
 }
 
+impl BehaviorChangeEvidence {
+    /// Creates behavior-change evidence from one paired evaluation.
+    #[must_use]
+    pub fn new(
+        before_outcome: OutcomeKind,
+        after_outcome: OutcomeKind,
+        before_rules: Vec<QualifiedRuleId>,
+        after_rules: Vec<QualifiedRuleId>,
+        witness_facts_hash: ContentHash,
+    ) -> Self {
+        Self {
+            before_outcome,
+            after_outcome,
+            before_rules,
+            after_rules,
+            witness_facts_hash,
+        }
+    }
+}
+
 /// Provenance evidence.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -278,6 +325,32 @@ pub struct ProofEvidence {
     method: String,
     constraints_hash: ContentHash,
     subjects: DiagnosticSubjects,
+}
+
+impl ProofEvidence {
+    /// Creates proof evidence from a completed static proof.
+    #[must_use]
+    pub fn new(method: impl Into<String>, constraints_hash: ContentHash) -> Self {
+        Self {
+            method: method.into(),
+            constraints_hash,
+            subjects: DiagnosticSubjects::default(),
+        }
+    }
+
+    /// Creates proof evidence with explicit diagnostic subjects.
+    #[must_use]
+    pub fn with_subjects(
+        method: impl Into<String>,
+        constraints_hash: ContentHash,
+        subjects: DiagnosticSubjects,
+    ) -> Self {
+        Self {
+            method: method.into(),
+            constraints_hash,
+            subjects,
+        }
+    }
 }
 
 /// Conflict evidence.
@@ -315,6 +388,26 @@ pub struct AnalysisLimitEvidence {
     configured_limit: u64,
     observed_value: u64,
     unresolved_paths: Vec<FactPath>,
+}
+
+impl AnalysisLimitEvidence {
+    /// Creates budget evidence for one analysis phase.
+    #[must_use]
+    pub fn new(
+        phase: AnalysisPhase,
+        limit_name: impl Into<String>,
+        configured_limit: u64,
+        observed_value: u64,
+        unresolved_paths: Vec<FactPath>,
+    ) -> Self {
+        Self {
+            phase,
+            limit_name: limit_name.into(),
+            configured_limit,
+            observed_value,
+            unresolved_paths,
+        }
+    }
 }
 
 /// Whether a fix can be safely applied automatically.

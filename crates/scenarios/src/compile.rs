@@ -214,12 +214,14 @@ mod tests {
     use std::sync::Arc;
 
     use rulery_contracts::{
-        ContentHash, LanguageVersion, PackageId, ReasonCode, RuleId, SourceFile, SourceId,
-        SourceKey, SourceMap, SourcePath, TypeId, Version,
+        ContentHash, LanguageVersion, OutcomeTemplate, PackageId, PolicyTimeZone, Reason,
+        ReasonCode, Reasons, RuleId, SourceFile, SourceId, SourceKey, SourceMap, SourcePath,
+        TypeId, Version,
     };
     use rulery_ir::{
-        CompilationInput, CompiledDecision, CompiledPackageDraft, CompiledRule, Expr,
-        FieldDeclaration, FieldPresence, PackageIntegritySet, ResolvedRoot, ResolvedType,
+        CompilationInput, CompiledDecision, CompiledEffect, CompiledPackageDraft, CompiledRule,
+        DecisionPrecedence, DecisionSemantics, ExpiryPolicy, Expr, FieldDeclaration, FieldPresence,
+        InvalidFactStrategy, MissingFactStrategy, PackageIntegritySet, ResolvedRoot, ResolvedType,
         ResolvedVocabulary, TypeDeclaration,
     };
 
@@ -329,13 +331,27 @@ mod tests {
         let rule = CompiledRule::new(
             RuleId::new("rule.allow").expect("rule"),
             QualifiedRuleId::new(package_id.clone(), RuleId::new("rule.allow").expect("rule")),
+            Some("Allow active member".to_owned()),
+            100,
             Expr::Constant { value: true, span },
+            approve_effect("member-allowed", "An active member is allowed."),
+            Some("Scenario fixture requires an approving rule.".to_owned()),
             span,
             1,
         );
         let decision = CompiledDecision::new(
             DecisionId::new("decision.main").expect("decision"),
+            DecisionSemantics::new(
+                MissingFactStrategy::PreserveUnknown,
+                InvalidFactStrategy::PreserveInvalid,
+                DecisionPrecedence::PriorityFirst,
+                PolicyTimeZone::new("UTC").expect("timezone"),
+                ExpiryPolicy::Inclusive,
+            )
+            .expect("semantics"),
+            approve_effect("no-match", "No rule approved the member."),
             vec![rule],
+            span,
         )
         .expect("decision");
         let record_type = TypeId::new("type.member").expect("type");
@@ -396,5 +412,15 @@ mod tests {
         )
         .expect("package");
         (package, span)
+    }
+
+    fn approve_effect(code: &str, message: &str) -> CompiledEffect {
+        CompiledEffect::new(OutcomeTemplate::approve(
+            Reasons::new(vec![
+                Reason::new(ReasonCode::new(code).expect("reason code"), message).expect("reason"),
+            ])
+            .expect("reasons"),
+            Vec::new(),
+        ))
     }
 }

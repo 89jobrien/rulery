@@ -92,6 +92,11 @@ fn validate_value<'a>(
     vocabulary: &'a ResolvedVocabulary,
 ) {
     let Some(resolved_type) = vocabulary.types.get(expected) else {
+        // Primitive built-ins are named by identity, never declared, so they carry no resolved
+        // declaration. A supplied value is valid exactly when its kind is the built-in's kind.
+        if built_in_kind(expected.as_str()) == Some(kind_of(value)) {
+            return;
+        }
         states.insert(
             path.to_owned(),
             FactLookupState::Malformed(FactValidationError::TypeMismatch {
@@ -153,11 +158,17 @@ fn validate_value<'a>(
                 }
             }
         }
-        (TypeDeclaration::Enum { .. }, Value::Enum(_)) => {
-            states.insert(
-                path.to_owned(),
-                FactLookupState::Malformed(FactValidationError::OutOfRange),
-            );
+        (TypeDeclaration::Enum { id, variants, .. }, Value::Enum(supplied)) => {
+            let declared = supplied.type_id() == id
+                && variants
+                    .iter()
+                    .any(|variant| variant.symbol == *supplied.variant());
+            if !declared {
+                states.insert(
+                    path.to_owned(),
+                    FactLookupState::Malformed(FactValidationError::OutOfRange),
+                );
+            }
         }
         (
             TypeDeclaration::List {
@@ -219,12 +230,29 @@ fn kind_of(value: &Value) -> ValueKind {
     }
 }
 
+/// Returns the value kind a primitive built-in identity accepts, or `None` for a named type.
+fn built_in_kind(name: &str) -> Option<ValueKind> {
+    Some(match name {
+        "bool" | "boolean" => ValueKind::Boolean,
+        "int" | "integer" => ValueKind::Integer,
+        "decimal" => ValueKind::Decimal,
+        "string" | "text" => ValueKind::Text,
+        "date" => ValueKind::Date,
+        "datetime" | "date-time" => ValueKind::DateTime,
+        "duration" => ValueKind::Duration,
+        _ => return None,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeMap;
     use std::str::FromStr;
 
-    use rulery_contracts::{CaseFacts, FactPath, FactRootId, StableId, TypeId, Value};
+    use rulery_contracts::{
+        CaseFacts, EnumValue, FactPath, FactRootId, FactValidationError, PolicyDate, StableId,
+        TypeId, Value,
+    };
 
     use crate::model::{
         EnumVariant, FieldDeclaration, FieldPresence, ResolvedRoot, ResolvedType,
@@ -233,6 +261,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn fact_validation_preserves_absent_null_and_malformed() {
         let account_type = TypeId::new("type.account").expect("type");
@@ -388,5 +417,133 @@ mod tests {
             missing_required.states.get("account.status"),
             Some(FactLookupState::Absent)
         ));
+    }
+
+    #[test]
+    fn built_in_and_enum_values_validate_against_their_declared_shape() {
+        let vocabulary = scalar_fixture_vocabulary();
+        let supplied = supplied_facts();
+        let validated = validate_case_facts(&vocabulary, &supplied);
+        assert!(validated.failures.is_empty(), "{:?}", validated.failures);
+        for path in ["account.status", "account.valid-until", "account.reports"] {
+            assert!(
+                matches!(validated.states.get(path), Some(FactLookupState::Valid(_))),
+                "{path} is not valid"
+            );
+        }
+
+        let wrong_kind = CaseFacts::new(root_record(BTreeMap::from([(
+            StableId::new("valid-until").expect("field"),
+            Value::Text("2026-09-15".to_owned()),
+        )])));
+        assert!(matches!(
+            validate_case_facts(&vocabulary, &wrong_kind)
+                .states
+                .get("account.valid-until"),
+            Some(FactLookupState::Malformed(
+                FactValidationError::TypeMismatch { .. }
+            ))
+        ));
+
+        let undeclared_variant = CaseFacts::new(root_record(BTreeMap::from([(
+            StableId::new("status").expect("field"),
+            Value::Enum(EnumValue::new(
+                TypeId::new("type.status").expect("type"),
+                StableId::new("status.other").expect("variant"),
+            )),
+        )])));
+        assert!(matches!(
+            validate_case_facts(&vocabulary, &undeclared_variant)
+                .states
+                .get("account.status"),
+            Some(FactLookupState::Malformed(FactValidationError::OutOfRange))
+        ));
+    }
+
+    /// Declares one `account` record with an enum, a `date` built-in, and an `integer` built-in.
+    fn scalar_fixture_vocabulary() -> ResolvedVocabulary {
+        let status_type = TypeId::new("type.status").expect("type");
+        let account_type = TypeId::new("type.account").expect("type");
+        ResolvedVocabulary {
+            roots: BTreeMap::from([(
+                FactPath::from_str("account").expect("path"),
+                ResolvedRoot {
+                    path: FactPath::from_str("account").expect("path"),
+                    type_id: account_type.clone(),
+                },
+            )]),
+            types: BTreeMap::from([
+                (
+                    account_type.clone(),
+                    ResolvedType {
+                        id: account_type.clone(),
+                        declaration: TypeDeclaration::Record {
+                            id: account_type,
+                            fields: BTreeMap::from([
+                                (
+                                    StableId::new("status").expect("field"),
+                                    required_field(status_type.clone()),
+                                ),
+                                (
+                                    StableId::new("valid-until").expect("field"),
+                                    required_field(TypeId::new("date").expect("type")),
+                                ),
+                                (
+                                    StableId::new("reports").expect("field"),
+                                    required_field(TypeId::new("integer").expect("type")),
+                                ),
+                            ]),
+                            closed: true,
+                        },
+                    },
+                ),
+                (
+                    status_type.clone(),
+                    ResolvedType {
+                        id: status_type.clone(),
+                        declaration: TypeDeclaration::Enum {
+                            id: status_type,
+                            variants: vec![EnumVariant {
+                                symbol: StableId::new("status.active").expect("variant"),
+                            }],
+                        },
+                    },
+                ),
+            ]),
+            terms: BTreeMap::new(),
+        }
+    }
+
+    fn required_field(type_id: TypeId) -> FieldDeclaration {
+        FieldDeclaration {
+            type_id,
+            presence: FieldPresence::Required,
+            derived: false,
+        }
+    }
+
+    /// Supplies one value per declared field, each matching its declared shape.
+    fn supplied_facts() -> CaseFacts {
+        CaseFacts::new(root_record(BTreeMap::from([
+            (
+                StableId::new("status").expect("field"),
+                Value::Enum(EnumValue::new(
+                    TypeId::new("type.status").expect("type"),
+                    StableId::new("status.active").expect("variant"),
+                )),
+            ),
+            (
+                StableId::new("valid-until").expect("field"),
+                Value::Date(PolicyDate::parse("2026-09-15").expect("date")),
+            ),
+            (StableId::new("reports").expect("field"), Value::Integer(0)),
+        ])))
+    }
+
+    fn root_record(fields: BTreeMap<StableId, Value>) -> BTreeMap<FactRootId, Value> {
+        BTreeMap::from([(
+            FactRootId::new("account").expect("root"),
+            Value::Record(fields),
+        )])
     }
 }

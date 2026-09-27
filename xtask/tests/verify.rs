@@ -97,7 +97,7 @@ fn verify_runs_exact_fail_fast_gate_order() {
         .push("rulery".to_owned());
     assert!(matches!(
         xtask::validate_architecture(model, &cycle),
-        Err(XtaskError::ForbiddenDependency { .. }) | Err(XtaskError::DependencyCycle { .. })
+        Err(XtaskError::ForbiddenDependency { .. } | XtaskError::DependencyCycle { .. })
     ));
     assert!(valid.iter().all(|package| {
         !package

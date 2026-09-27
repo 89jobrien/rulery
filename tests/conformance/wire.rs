@@ -66,16 +66,16 @@ fn all_v01_wire_contracts_round_trip_strictly() {
         serde_json::json!(["a.path", "z.path"])
     );
 
-    assert_strict(lock_envelope());
-    assert_strict(compiled_envelope());
-    assert_strict(diagnostic_envelope());
+    assert_strict(&lock_envelope());
+    assert_strict(&compiled_envelope());
+    assert_strict(&diagnostic_envelope());
     let trace = trace_envelope();
-    let trace_value = assert_strict(trace);
+    let trace_value = assert_strict(&trace);
     assert!(trace_value["payload"]["outcome"].is_object());
     assert!(trace_value["payload"]["conflict"].is_null());
     assert!(trace_value["payload"]["evaluated_at"].is_string());
-    assert_strict(scenario_envelope());
-    let analysis = assert_strict(analysis_envelope());
+    assert_strict(&scenario_envelope());
+    let analysis = assert_strict(&analysis_envelope());
     for field in [
         "reachability",
         "overlaps",
@@ -85,20 +85,20 @@ fn all_v01_wire_contracts_round_trip_strictly() {
     ] {
         assert!(analysis["payload"][field].is_array());
     }
-    let table = assert_strict(decision_table_envelope());
+    let table = assert_strict(&decision_table_envelope());
     let span = &table["payload"]["source_references"]["rule.main"][0];
     assert!(span["source"].is_string());
     assert!(span["start"].is_string());
     assert!(span["end"].is_string());
 }
 
-fn assert_strict<T>(envelope: T) -> serde_json::Value
+fn assert_strict<T>(envelope: &T) -> serde_json::Value
 where
     T: Clone + Serialize + DeserializeOwned + PartialEq + std::fmt::Debug,
 {
-    let value = serde_json::to_value(&envelope).expect("serialize");
+    let value = serde_json::to_value(envelope).expect("serialize");
     let round_trip: T = serde_json::from_value(value.clone()).expect("round trip");
-    assert_eq!(round_trip, envelope);
+    assert_eq!(&round_trip, envelope);
 
     let mut unknown = value.clone();
     unknown

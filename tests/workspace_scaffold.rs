@@ -18,6 +18,45 @@ const CRATES: &[(&str, &str)] = &[
     ("macros", "rulery-macros"),
 ];
 
+const NETWORK_CAPABLE: &[&str] = &[
+    "isahc",
+    "attohttpc",
+    "aws-sdk",
+    "aws-smithy",
+    "curl",
+    "git2",
+    "h2",
+    "hyper",
+    "hyper-tls",
+    "libgit2",
+    "mio",
+    "native-tls",
+    "octocrab",
+    "openssl",
+    "quinn",
+    "reqwest",
+    "rustls",
+    "smtp",
+    "socket2",
+    "surf",
+    "tokio",
+    "tonic",
+    "ureq",
+];
+
+#[test]
+fn resolved_dependency_closure_has_no_network_capable_crate() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let lock = std::fs::read_to_string(root.join("Cargo.lock")).expect("readable Cargo.lock");
+    for name in NETWORK_CAPABLE {
+        let entry = format!("name = \"{name}\"");
+        assert!(
+            !lock.contains(&entry),
+            "network-capable crate resolved into the graph: {name}"
+        );
+    }
+}
+
 #[test]
 fn workspace_contains_approved_crates() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));

@@ -11,9 +11,8 @@ Determining rule:
   community-tool-library::deny-expired-training
 
 Conditions:
-  true  tool.category equal power-tool
-  true  member.training.valid-until is expired
-  true  inclusive expiry: 2026-09-15 is earlier than 2026-09-16
+  true  member.training.valid-until is before today (2026-09-16)
+  true  tool.category equals power-tool
 
 Required facts: none
 Invalid facts: none

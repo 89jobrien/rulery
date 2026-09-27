@@ -276,6 +276,7 @@ mod tests {
 
     use super::*;
 
+    #[allow(clippy::too_many_lines)]
     #[test]
     fn precedence_excludes_rule_identity_and_preserves_conflict() {
         assert_eq!(default_outcome_rank(OutcomeKind::Deny), 4_000);

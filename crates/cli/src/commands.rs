@@ -13,6 +13,8 @@ pub struct FormatResult {
     pub changed: bool,
     /// Deterministically ordered affected paths.
     pub paths: Vec<String>,
+    /// Canonical bytes when one named file was targeted, empty when a package was targeted.
+    pub stdout: Vec<u8>,
 }
 
 /// Compilation result needed by check/lock orchestration.
@@ -300,6 +302,7 @@ mod tests {
             Ok(FormatResult {
                 changed: true,
                 paths: vec!["a.yaml".to_owned(), "b.yaml".to_owned()],
+                stdout: Vec::new(),
             })
         }
         fn compile(&self, _: &Path, mode: LockMode) -> Result<CompileResult, String> {
