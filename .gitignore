@@ -1,6 +1,7 @@
 /target
 local/
 .kgx/
+.taskit/telemetry/
 .ctx/godmode/traces/
 .ctx/godmode/sessions/
 .ctx/godmode/session.json
