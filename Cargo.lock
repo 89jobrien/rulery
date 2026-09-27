@@ -849,12 +849,9 @@ dependencies = [
 name = "rulery-emit"
 version = "0.1.0"
 dependencies = [
- "rulery-analysis",
  "rulery-contracts",
- "rulery-diagnostics",
  "rulery-engine",
  "rulery-ir",
- "rulery-scenarios",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
@@ -903,7 +900,6 @@ dependencies = [
  "rulery-diagnostics",
  "rulery-engine",
  "rulery-ir",
- "rulery-syntax",
  "serde",
  "serde_json",
  "thiserror 2.0.20",
