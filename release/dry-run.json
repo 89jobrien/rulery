@@ -1,0 +1,5 @@
+{
+  "workspace": "/Users/joe/dev/rulery",
+  "publish_command": "cargo rail release run --all --bump patch --check --format json",
+  "bump": "patch"
+}

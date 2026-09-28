@@ -1,0 +1,162 @@
+pipeline: rulery_release
+display:
+  title: Rulery release orchestration
+  output: always
+  steps:
+    preflight_tree: Verify the working tree is clean
+    preflight_branch: Require the default branch
+    plan: Preview the lockstep release with cargo-rail
+    fix_format: Auto-fix formatting
+    gate_fmt: rustfmt
+    gate_clippy: clippy with warnings denied
+    gate_test: nextest
+    gate_coverage: llvm-cov line coverage
+    log_coverage: Coverage summary
+    publish: Publish, tag, and release the version group
+    report: Release report
+    emit_report: Human-readable report
+
+input_schema:
+  type: object
+  definition:
+    properties:
+      workspace:
+        schema:
+          type: string
+        required: true
+      publish_command:
+        schema:
+          type: string
+        required: true
+      bump:
+        schema:
+          type: string
+        required: false
+
+budget:
+  calls: 40
+  duration_ms: 3600000
+
+steps:
+  - step: preflight_tree
+    handler: git::status
+    args:
+      cwd: "{{ input.workspace }}"
+
+  - step: require_clean_tree
+    handler: ctrl::assert
+    args:
+      condition: "{{ steps.preflight_tree.output.clean }}"
+      message: working tree is dirty; cargo-rail require_clean would refuse
+
+  # There is no string comparison in the Crux expression language, so the branch
+  # rule is expressed as a command that fails off-main, asserted by exit code.
+  - step: preflight_branch
+    handler: shell::exec
+    args:
+      cmd: 'test "$(git rev-parse --abbrev-ref HEAD)" = main && git rev-parse --abbrev-ref HEAD'
+      cwd: "{{ input.workspace }}"
+
+  - step: plan
+    handler: shell::exec
+    args:
+      cmd: "cargo rail release run --all --bump {{ input.bump }} --check --format json"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 600000
+
+  - step: log_plan
+    handler: ctrl::log
+    args:
+      field: stdout
+
+  # The only mutation this pipeline performs before a gate. A formatter cannot
+  # change behaviour, so this is the sole auto-fix that is safe here. If it
+  # rewrites anything the post-fix tree check below stops the run rather than
+  # let an unreviewed edit ride into a tagged release.
+  - step: fix_format
+    handler: shell::exec
+    args:
+      cmd: "cargo fmt --all"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 300000
+
+  - step: postfix_tree
+    handler: git::status
+    args:
+      cwd: "{{ input.workspace }}"
+
+  - step: require_formatter_changed_nothing
+    handler: ctrl::assert
+    args:
+      condition: "{{ steps.postfix_tree.output.clean }}"
+      message: the formatter rewrote files; commit them and re-run before releasing
+
+  - step: gate_fmt
+    handler: shell::exec
+    args:
+      cmd: "cargo fmt --all -- --check"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 300000
+
+  - step: gate_clippy
+    handler: shell::exec
+    args:
+      cmd: "cargo clippy --workspace --all-targets -- -D warnings"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 1800000
+
+  - step: gate_test
+    handler: shell::exec
+    args:
+      cmd: "cargo nextest run --workspace"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 1800000
+
+  - step: gate_coverage
+    handler: shell::exec
+    args:
+      cmd: "cargo llvm-cov --workspace --summary-only --no-report"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 1800000
+
+  - step: log_coverage
+    handler: ctrl::log
+    args:
+      field: stdout
+
+  # Publish, tag, push, and create the GitHub release, all through cargo-rail so
+  # the declared version_groups order and publish_delay stay authoritative.
+  # retry.count is additional attempts beyond the first. The Crux retry schema
+  # exposes only count and delay_ms, so the delay is fixed, not exponential.
+  - step: publish
+    handler: shell::exec
+    args:
+      cmd: "{{ input.publish_command }}"
+      cwd: "{{ input.workspace }}"
+    timeout_ms: 1800000
+    retry:
+      count: 4
+      delay_ms: 15000
+    allow_failure: true
+
+  # Step outputs are referenced whole rather than by dotted path: without a
+  # declared contract per handler the compiler cannot resolve paths inside a
+  # shell envelope, and nesting the envelope keeps every exit code and stream.
+  - step: report
+    handler: json::merge
+    args:
+      with:
+        workspace: "{{ input.workspace }}"
+        tree: "{{ steps.preflight_tree.output }}"
+        branch: "{{ steps.preflight_branch.output }}"
+        plan: "{{ steps.plan.output }}"
+        gate_fmt: "{{ steps.gate_fmt.output }}"
+        gate_clippy: "{{ steps.gate_clippy.output }}"
+        gate_test: "{{ steps.gate_test.output }}"
+        gate_coverage: "{{ steps.gate_coverage.output }}"
+        publish: "{{ steps.publish.output }}"
+
+  - step: emit_report
+    handler: ctrl::log
+    args:
+      pretty: true
