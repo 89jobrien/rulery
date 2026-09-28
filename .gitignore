@@ -6,7 +6,17 @@ local/
 .ctx/godmode/traces/
 .ctx/godmode/sessions/
 .ctx/godmode/session.json
+**/.ctx/_WORKING_DIR/
 
 # handoff-begin
-.ctx/
+.ctx/*
+!.ctx/HANDOFF.*.yaml
+.ctx/HANDOFF.godmode.*.yaml
+.ctx/HANDOFF.*.state.json
+!.ctx/handoff.*.config.toml.example
+.ctx/HANDOFF.*.*.state.json
+.ctx/HANDOFF.*.*.state.yaml
+.ctx/HANDOFF.hj.hj.state.json
+.ctx/.initialized
+!.ctx/godmode/
 # handoff-end

@@ -1,170 +1,74 @@
 project: rulery
 id: rulery
-updated: 2026-09-27
+updated: 2026-09-28
 items:
 - id: cli18
+  doob_uuid: null
   name: define-the-init-scaffold-and-the-fmt-canonical-form
   priority: P2
-  status: blocked
+  status: done
   title: Define the init scaffold and the fmt canonical form
-  description: init and fmt are the only two commands the specification does not determine. The spec says init writes one human path line but pins no template bytes and no required-file list, and it defines "canonical" only as JCS JSON for hashed payloads, so a formatter would have to invent the authored-source form it enforces. Both are currently surfaced as an explicit typed unavailable error through the same exit matrix rather than fabricating content, and the rationale constants cite the spec lines at crates/cli/src/dispatch.rs. Needs a specification amendment or an explicit deferral from v0.1 before implementation.
+  description: 'Resolved. The specification was amended with two normative sections under ## CLI, "Scaffolded package" at docs/specification.md:3005 and "Canonical authored form" at docs/specification.md:3074, and both commands are implemented rather than deferred. crates/cli/src/scaffold.rs owns the init template and derives a package identity from the destination name; crates/cli/src/canonical.rs renders it through the emitter, so a fresh scaffold is canonical by construction. Both are covered at the process boundary by init_derives_identity_and_refuses_a_non_empty_destination, init_scaffolds_a_canonical_package_that_checks_clean, fmt_check_reports_every_noncanonical_file, and fmt_of_one_file_reports_bytes_without_rewriting in crates/cli/tests/process_contract.rs, plus unit tests in canonical::tests and scaffold::tests.'
+  files:
+  - crates/cli/src/scaffold.rs
+  - crates/cli/src/canonical.rs
+  - crates/cli/tests/process_contract.rs
+  - docs/specification.md
+  completed: 2026-09-28
   extra:
   - date: 2026-09-27
     type: blocker
+    field: null
+    value: null
+    reviewed: 2026-09-28
     note: init and fmt are the only two commands the specification does not determine. The spec says init writes one human path line but pins no template bytes and no required-file list, and it defines "canonical" only as JCS JSON for hashed payloads, so a formatter would have to invent the authored-source form it enforces. Both are currently surfaced as an explicit typed unavailable error through the same exit matrix rather than fabricating content, and the rationale constants cite the spec lines at crates/cli/src/dispatch.rs. Needs a specification amendment or an explicit deferral from v0.1 before implementation.
+  - date: 2026-09-28
+    type: resolution
+    field: null
+    value: null
+    reviewed: null
+    note: Spec amended and both commands implemented. The blocker above no longer describes the tree; the unavailable-error path those notes referenced is gone from dispatch.
 - id: uncommitted-work
+  doob_uuid: null
   name: uncommitted-work
   priority: P1
-  status: open
+  status: done
   title: Uncommitted changes (72 files)
-  description: |-
-    Working tree has uncommitted changes:
-    .ctx/HANDOFF.rulery.rulery.yaml
-    .ctx/godmode/memory-bank/active-context.md
-    .ctx/godmode/tasks.yaml
-    Cargo.lock
-    Cargo.toml
-    README.md
-    crates/analysis/src/lib.rs
-    crates/analysis/src/partition.rs
-    crates/cli/Cargo.toml
-    crates/cli/src/args.rs
-    crates/cli/src/artifact.rs
-    crates/cli/src/lib.rs
-    crates/cli/src/main.rs
-    crates/compiler/src/lib.rs
-    crates/compiler/src/lower.rs
-    crates/contracts/src/outcome.rs
-    crates/contracts/src/time.rs
-    crates/contracts/tests/hashes.rs
-    crates/contracts/tests/scalars.rs
-    crates/diagnostics/src/lib.rs
-    crates/diagnostics/src/model.rs
-    crates/emit/src/decision_table.rs
-    crates/emit/src/human.rs
-    crates/emit/src/json.rs
-    crates/emit/src/lib.rs
-    crates/engine/Cargo.toml
-    crates/engine/src/evaluator.rs
-    crates/engine/src/lib.rs
-    crates/engine/src/precedence.rs
-    crates/engine/src/predicate.rs
-    crates/engine/src/trace.rs
-    crates/ir/src/lib.rs
-    crates/ir/src/package.rs
-    crates/ir/src/wire.rs
-    crates/scenarios/src/compile.rs
-    crates/store/src/filesystem.rs
-    crates/syntax/src/ast.rs
-    crates/syntax/src/lib.rs
-    crates/syntax/src/yaml/dto.rs
-    crates/syntax/src/yaml/mod.rs
-    crates/vocabulary/src/validate.rs
-    docs/specification.md
-    src/assembly.rs
-    src/facade.rs
-    src/lib.rs
-    src/tool_library.rs
-    tests/conformance.rs
-    tests/conformance/safety.rs
-    tests/conformance/tool_library_cli.rs
-    tests/conformance/wire.rs
-    tests/fixtures/tool-library-explain.txt
-    tests/workspace_scaffold.rs
-    xtask/src/conformance.rs
-    xtask/src/lib.rs
-    xtask/src/model.rs
-    xtask/tests/conformance.rs
-    xtask/tests/verify.rs
-    AGENTS.md
-    crates/analysis/src/extract.rs
-    crates/analysis/src/facts.rs
-    crates/cli/src/dispatch.rs
-    crates/cli/src/error.rs
-    crates/cli/src/facts.rs
-    crates/cli/src/findings.rs
-    crates/cli/src/report.rs
-    crates/cli/src/runtime.rs
-    crates/engine/src/policy_evaluator.rs
-    crates/ir/src/condition.rs
-    docs/designs/2026-09-23-cli-application-integration-design.md
-    docs/designs/2026-09-26-analysis-input-extraction-design.md
-    src/application.rs
-    tests/conformance/tool_library_explain.rs
+  description: 'Closed. The 72 files listed in the 2026-09-27 snapshot are all committed and pushed. The working tree was clean before this handoff run, and 30 commits were pushed to github/main, bringing main level with its upstream at c4facfa. The 30 commits cover the CLI v0.1 work plus the release pipeline: the Cruxfile.release orchestration pipeline, the coverage-gate fix with its *.profraw cleanup and ignore rule, and the expect-clause fix that gives every gate a non-zero exit check.'
+  files: []
+  completed: 2026-09-28
+  extra:
+  - date: 2026-09-28
+    type: resolution
+    field: null
+    value: null
+    reviewed: null
+    note: git status clean at c4facfa; git status --short --branch reports no ahead/behind marker.
+- id: release-0-1-0
+  doob_uuid: null
+  name: release-0-1-0
+  priority: P2
+  status: open
+  title: Cut the v0.1.0 release
+  description: 'The workspace is releasable but uncut. All seven xtask verify gates pass with 120 tests, and the release pipeline now fails honestly on a red gate. Nothing has shipped: there are no git tags, every crate is still at 0.1.0, and the lockstep release policy in .config/rail.toml has never been exercised against a real publish. The known sharp edge is that Crux 0.3.1 renders a step that failed its expect clause with a checkmark and still prints "N/N checks passed" while exiting non-zero, so the pipeline exit code is the only trustworthy signal.'
   files:
-  - .ctx/HANDOFF.rulery.rulery.yaml
-  - .ctx/godmode/memory-bank/active-context.md
-  - .ctx/godmode/tasks.yaml
-  - Cargo.lock
-  - Cargo.toml
-  - README.md
-  - crates/analysis/src/lib.rs
-  - crates/analysis/src/partition.rs
-  - crates/cli/Cargo.toml
-  - crates/cli/src/args.rs
-  - crates/cli/src/artifact.rs
-  - crates/cli/src/lib.rs
-  - crates/cli/src/main.rs
-  - crates/compiler/src/lib.rs
-  - crates/compiler/src/lower.rs
-  - crates/contracts/src/outcome.rs
-  - crates/contracts/src/time.rs
-  - crates/contracts/tests/hashes.rs
-  - crates/contracts/tests/scalars.rs
-  - crates/diagnostics/src/lib.rs
-  - crates/diagnostics/src/model.rs
-  - crates/emit/src/decision_table.rs
-  - crates/emit/src/human.rs
-  - crates/emit/src/json.rs
-  - crates/emit/src/lib.rs
-  - crates/engine/Cargo.toml
-  - crates/engine/src/evaluator.rs
-  - crates/engine/src/lib.rs
-  - crates/engine/src/precedence.rs
-  - crates/engine/src/predicate.rs
-  - crates/engine/src/trace.rs
-  - crates/ir/src/lib.rs
-  - crates/ir/src/package.rs
-  - crates/ir/src/wire.rs
-  - crates/scenarios/src/compile.rs
-  - crates/store/src/filesystem.rs
-  - crates/syntax/src/ast.rs
-  - crates/syntax/src/lib.rs
-  - crates/syntax/src/yaml/dto.rs
-  - crates/syntax/src/yaml/mod.rs
-  - crates/vocabulary/src/validate.rs
-  - docs/specification.md
-  - src/assembly.rs
-  - src/facade.rs
-  - src/lib.rs
-  - src/tool_library.rs
-  - tests/conformance.rs
-  - tests/conformance/safety.rs
-  - tests/conformance/tool_library_cli.rs
-  - tests/conformance/wire.rs
-  - tests/fixtures/tool-library-explain.txt
-  - tests/workspace_scaffold.rs
-  - xtask/src/conformance.rs
-  - xtask/src/lib.rs
-  - xtask/src/model.rs
-  - xtask/tests/conformance.rs
-  - xtask/tests/verify.rs
-  - AGENTS.md
-  - crates/analysis/src/extract.rs
-  - crates/analysis/src/facts.rs
-  - crates/cli/src/dispatch.rs
-  - crates/cli/src/error.rs
-  - crates/cli/src/facts.rs
-  - crates/cli/src/findings.rs
-  - crates/cli/src/report.rs
-  - crates/cli/src/runtime.rs
-  - crates/engine/src/policy_evaluator.rs
-  - crates/ir/src/condition.rs
-  - docs/designs/2026-09-23-cli-application-integration-design.md
-  - docs/designs/2026-09-26-analysis-input-extraction-design.md
-  - src/application.rs
-  - tests/conformance/tool_library_explain.rs
+  - .config/rail.toml
+  - Cruxfile.release
+  - mise.toml
+  completed: null
+  extra:
+  - date: 2026-09-28
+    type: note
+    field: null
+    value: null
+    reviewed: null
+    note: Not started. Needs a decision on whether to cut 0.1.0 now or hold; the gates are green and the only untested path is the mutating publish step.
 log:
+- date: 2026-09-28
+  summary: done=89 running=0 pending=1 blocked=0
+  commits:
+  - sha: c4facfa
+    branch: main
 - date: '20260927.001209'
   summary: done=84 running=0 pending=3 blocked=1
   commits:
