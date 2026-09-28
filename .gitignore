@@ -1,6 +1,7 @@
 /target
 local/
 .kgx/
+*.profraw
 .taskit/telemetry/
 .ctx/godmode/traces/
 .ctx/godmode/sessions/

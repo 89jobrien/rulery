@@ -112,10 +112,14 @@ steps:
       cwd: "{{ input.workspace }}"
     timeout_ms: 1800000
 
+  # --summary-only and --no-report are mutually exclusive; passing both makes
+  # llvm-cov abandon managed mode and drop .profraw files beside each test
+  # binary. The && keeps a coverage failure fatal while still tidying up on
+  # success, so a failed gate can never be masked by the cleanup.
   - step: gate_coverage
     handler: shell::exec
     args:
-      cmd: "cargo llvm-cov --workspace --summary-only --no-report"
+      cmd: "cargo llvm-cov --workspace --summary-only && find . -name '*.profraw' -not -path './target/*' -delete"
       cwd: "{{ input.workspace }}"
     timeout_ms: 1800000
 
