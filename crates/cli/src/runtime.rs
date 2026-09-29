@@ -8,7 +8,7 @@
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use rulery::analysis::{AnalysisCompleteness, AnalysisOptions, AnalysisReport};
+use rulery::analysis::{AnalysisCompleteness, AnalysisOptions, AnalysisReport, analysis_instant};
 use rulery::compiler::{PolicyCompiler, SourceCompilationInput};
 use rulery::contracts::{
     ContentHash, DecisionId, PackagePath, RulebookLock, RulebookLockEnvelope, SourceMap, UtcInstant,
@@ -192,7 +192,7 @@ impl HostWorkflow {
         options: &AnalysisOptions,
     ) -> Result<AnalysisReport, HostError> {
         self.application
-            .analyze(package, options)
+            .analyze(package, options, analysis_instant())
             .map_err(|error| HostError::Internal(error.to_string()))
     }
 
@@ -209,7 +209,7 @@ impl HostWorkflow {
         options: &AnalysisOptions,
     ) -> Result<AnalysisReport, HostError> {
         self.application
-            .diff(before, after, decision, options)
+            .diff(before, after, decision, options, analysis_instant())
             .map_err(|error| HostError::Internal(error.to_string()))
     }
 

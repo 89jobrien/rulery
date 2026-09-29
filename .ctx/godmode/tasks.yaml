@@ -905,11 +905,12 @@ tasks:
     crate_name: rulery
   - id: 2026-09-28-gap-closeout-t1
     title: Assert the analysis instant is configurable at the service boundary
-    status: pending
+    status: running
     depends_on: []
     notes: ""
     crate_name: rulery
     run: cargo nextest run -p rulery analyze_honors_an_explicit_instant
+    started_at: 2026-09-29T00:31:21.674109Z
   - id: 2026-09-28-gap-closeout-t2
     title: Thread the instant through the analyze and diff service methods
     status: pending

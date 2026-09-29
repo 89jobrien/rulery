@@ -13,8 +13,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use rulery_analysis::{
-    AnalysisOptions, AnalysisReport, PackageAnalyzer, PolicyAnalyzer, analysis_instant,
-    build_case_facts,
+    AnalysisOptions, AnalysisReport, PackageAnalyzer, PolicyAnalyzer, build_case_facts,
 };
 use rulery_compiler::{PolicyCompiler, SourceCompilationInput};
 use rulery_contracts::{
@@ -120,6 +119,7 @@ pub trait ApplicationService: Send + Sync {
         &self,
         package: &CompiledPackage,
         options: &AnalysisOptions,
+        at: UtcInstant,
     ) -> Result<AnalysisReport, ApplicationError>;
 
     /// Compares two compiled packages semantically.
@@ -134,6 +134,7 @@ pub trait ApplicationService: Send + Sync {
         after: &CompiledPackage,
         decision: Option<&DecisionId>,
         options: &AnalysisOptions,
+        at: UtcInstant,
     ) -> Result<AnalysisReport, ApplicationError>;
 
     /// Executes compiled scenarios against a package, returning one result per scenario.
@@ -183,8 +184,8 @@ impl ProductionApplication {
     }
 
     /// Creates the analyzer used by the analysis and diff operations.
-    fn analyzer(&self) -> PackageAnalyzer<'_> {
-        PackageAnalyzer::new(&self.time_zones, analysis_instant())
+    fn analyzer(&self, at: UtcInstant) -> PackageAnalyzer<'_> {
+        PackageAnalyzer::new(&self.time_zones, at)
     }
 }
 
@@ -259,8 +260,9 @@ impl ApplicationService for ProductionApplication {
         &self,
         package: &CompiledPackage,
         options: &AnalysisOptions,
+        at: UtcInstant,
     ) -> Result<AnalysisReport, ApplicationError> {
-        Ok(self.analyzer().analyze(package, options))
+        Ok(self.analyzer(at).analyze(package, options))
     }
 
     fn diff(
@@ -269,8 +271,9 @@ impl ApplicationService for ProductionApplication {
         after: &CompiledPackage,
         decision: Option<&DecisionId>,
         options: &AnalysisOptions,
+        at: UtcInstant,
     ) -> Result<AnalysisReport, ApplicationError> {
-        Ok(self.analyzer().diff(before, after, decision, options))
+        Ok(self.analyzer(at).diff(before, after, decision, options))
     }
 
     fn run_scenarios(
@@ -627,6 +630,7 @@ mod tests {
     use rulery_analysis::{
         AnalysisCompleteness, FactPartitionValue, FiniteDomain, OutcomeChangeKind,
         OverlapClassification, ReachabilityStatus, UncoveredCategory, WitnessClaim,
+        analysis_instant,
     };
     use rulery_contracts::{
         EscalationId, FactPath, FactRootId, LanguageVersion, PackageId, PolicyTimeZone,
@@ -711,7 +715,7 @@ mod tests {
         let options = explicit_status_domain();
 
         let report = application
-            .analyze(&package, &options)
+            .analyze(&package, &options, analysis_instant())
             .expect("analysis report")
             .payload()
             .clone();
@@ -859,7 +863,7 @@ mod tests {
         ));
 
         let repeated = application
-            .analyze(&package, &options)
+            .analyze(&package, &options, analysis_instant())
             .expect("analysis report");
         assert_eq!(
             serde_json::to_vec(repeated.payload()).expect("report json"),
@@ -868,12 +872,33 @@ mod tests {
     }
 
     #[test]
+    fn analyze_honors_an_explicit_instant() {
+        let application = ProductionApplication::new();
+        let package = analysis_package();
+        let at = UtcInstant::parse_rfc3339("2026-09-16T16:00:00.000000000Z").expect("instant");
+
+        let report = application
+            .analyze(&package, &AnalysisOptions::default(), at)
+            .expect("analysis report")
+            .payload()
+            .clone();
+
+        assert!(
+            !report.witnesses.is_empty(),
+            "analysis produced no witness to observe the instant on"
+        );
+        for witness in &report.witnesses {
+            assert_eq!(witness.at, at, "witness recorded another instant");
+        }
+    }
+
+    #[test]
     fn analyze_without_explicit_domains_reports_only_presence_states() {
         let application = ProductionApplication::new();
         let package = analysis_package();
 
         let report = application
-            .analyze(&package, &AnalysisOptions::default())
+            .analyze(&package, &AnalysisOptions::default(), analysis_instant())
             .expect("analysis report")
             .payload()
             .clone();
@@ -929,7 +954,7 @@ mod tests {
         let options = explicit_active_domain();
 
         let report = application
-            .diff(&before, &after, None, &options)
+            .diff(&before, &after, None, &options, analysis_instant())
             .expect("diff report")
             .payload()
             .clone();
@@ -953,7 +978,7 @@ mod tests {
         );
 
         let unchanged = application
-            .diff(&before, &before, None, &options)
+            .diff(&before, &before, None, &options, analysis_instant())
             .expect("diff report")
             .payload()
             .clone();
