@@ -382,11 +382,16 @@ fn spec_for(
     vocabulary: &ResolvedVocabulary,
 ) -> PartitionSpec {
     let (kind, malformed) = domain_kind(&path, boundaries, vocabulary);
+    // A record's only absence representation is an absent assignment: the vocabulary expresses
+    // optionality as presence, and a null record cannot be represented as case facts alongside a
+    // valid value on one of its own fields, because nesting a child under a null parent is a
+    // path conflict. Assigning null here used to void the whole decision.
+    let record = matches!(kind, PartitionDomainKind::Record);
     PartitionSpec {
         path,
         kind,
         allow_absent: true,
-        allow_null: true,
+        allow_null: !record,
         allow_malformed: malformed.is_some(),
         forbidden: Vec::new(),
     }
@@ -1669,7 +1674,10 @@ mod tests {
         );
         for spec in &specs {
             assert!(spec.allow_absent, "{}", spec.path);
-            assert!(spec.allow_null, "{}", spec.path);
+            // Every path may be absent. A path may be null only when its domain can hold a
+            // null; a record's absence is expressed by the absent assignment alone.
+            let is_record = matches!(spec.kind, PartitionDomainKind::Record);
+            assert_eq!(spec.allow_null, !is_record, "{}", spec.path);
             assert!(spec.forbidden.is_empty(), "{}", spec.path);
         }
         assert_eq!(analysis_instant().as_nanoseconds(), 0);
@@ -2102,5 +2110,27 @@ mod tests {
             ]),
             terms: BTreeMap::new(),
         }
+    }
+
+    #[test]
+    fn record_typed_paths_are_never_assigned_null() {
+        let vocabulary = vocabulary();
+        let record = FactPath::from_str("member.member").expect("path");
+        let child = FactPath::from_str("member.member.label").expect("path");
+
+        let record_spec = spec_for(record.clone(), &Boundaries::default(), &vocabulary);
+        assert_eq!(record_spec.kind, PartitionDomainKind::Record);
+        assert!(
+            !record_spec.allow_null,
+            "a record is never null; the vocabulary expresses absence as optional presence, and a \
+             null record combined with a valid child path cannot be represented as case facts"
+        );
+
+        let child_spec = spec_for(child, &Boundaries::default(), &vocabulary);
+        assert!(matches!(child_spec.kind, PartitionDomainKind::Text { .. }));
+        assert!(
+            child_spec.allow_null,
+            "a scalar field may still be explicitly null"
+        );
     }
 }

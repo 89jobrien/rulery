@@ -1,84 +1,30 @@
 project: rulery
 id: rulery
-updated: 2026-09-28
+updated: 2026-09-29
 items:
-- id: cli18
-  doob_uuid: null
-  name: define-the-init-scaffold-and-the-fmt-canonical-form
-  priority: P2
-  status: done
-  title: Define the init scaffold and the fmt canonical form
-  description: 'Resolved. The specification was amended with two normative sections under ## CLI, "Scaffolded package" at docs/specification.md:3005 and "Canonical authored form" at docs/specification.md:3074, and both commands are implemented rather than deferred. crates/cli/src/scaffold.rs owns the init template and derives a package identity from the destination name; crates/cli/src/canonical.rs renders it through the emitter, so a fresh scaffold is canonical by construction. Both are covered at the process boundary by init_derives_identity_and_refuses_a_non_empty_destination, init_scaffolds_a_canonical_package_that_checks_clean, fmt_check_reports_every_noncanonical_file, and fmt_of_one_file_reports_bytes_without_rewriting in crates/cli/tests/process_contract.rs, plus unit tests in canonical::tests and scaffold::tests.'
-  files:
-  - crates/cli/src/scaffold.rs
-  - crates/cli/src/canonical.rs
-  - crates/cli/tests/process_contract.rs
-  - docs/specification.md
-  completed: 2026-09-28
-  extra:
-  - date: 2026-09-27
-    type: blocker
-    field: null
-    value: null
-    reviewed: 2026-09-28
-    note: init and fmt are the only two commands the specification does not determine. The spec says init writes one human path line but pins no template bytes and no required-file list, and it defines "canonical" only as JCS JSON for hashed payloads, so a formatter would have to invent the authored-source form it enforces. Both are currently surfaced as an explicit typed unavailable error through the same exit matrix rather than fabricating content, and the rationale constants cite the spec lines at crates/cli/src/dispatch.rs. Needs a specification amendment or an explicit deferral from v0.1 before implementation.
-  - date: 2026-09-28
-    type: resolution
-    field: null
-    value: null
-    reviewed: null
-    note: Spec amended and both commands implemented. The blocker above no longer describes the tree; the unavailable-error path those notes referenced is gone from dispatch.
 - id: uncommitted-work
-  doob_uuid: null
   name: uncommitted-work
   priority: P1
-  status: done
-  title: Uncommitted changes (72 files)
-  description: 'Closed. The 72 files listed in the 2026-09-27 snapshot are all committed and pushed. The working tree was clean before this handoff run, and 30 commits were pushed to github/main, bringing main level with its upstream at c4facfa. The 30 commits cover the CLI v0.1 work plus the release pipeline: the Cruxfile.release orchestration pipeline, the coverage-gate fix with its *.profraw cleanup and ignore rule, and the expect-clause fix that gives every gate a non-zero exit check.'
-  files: []
-  completed: 2026-09-28
-  extra:
-  - date: 2026-09-28
-    type: resolution
-    field: null
-    value: null
-    reviewed: null
-    note: git status clean at c4facfa; git status --short --branch reports no ahead/behind marker.
-- id: release-0-1-0
-  doob_uuid: null
-  name: release-0-1-0
-  priority: P2
   status: open
-  title: Cut the v0.1.0 release
-  description: 'The workspace is releasable but uncut. All seven xtask verify gates pass with 120 tests, and the release pipeline now fails honestly on a red gate. Nothing has shipped: there are no git tags, every crate is still at 0.1.0, and the lockstep release policy in .config/rail.toml has never been exercised against a real publish. The known sharp edge is that Crux 0.3.1 renders a step that failed its expect clause with a checkmark and still prints "N/N checks passed" while exiting non-zero, so the pipeline exit code is the only trustworthy signal.'
+  title: Uncommitted changes (2 files)
+  description: |-
+    Working tree has uncommitted changes:
+    .ctx/HANDOFF.rulery.rulery.yaml
+    .ctx/godmode/tasks.yaml
   files:
-  - .config/rail.toml
-  - Cruxfile.release
-  - mise.toml
-  completed: null
-  extra:
-  - date: 2026-09-28
-    type: note
-    field: null
-    value: null
-    reviewed: null
-    note: Not started. Needs a decision on whether to cut 0.1.0 now or hold; the gates are green and the only untested path is the mutating publish step.
+  - .ctx/HANDOFF.rulery.rulery.yaml
+  - .ctx/godmode/tasks.yaml
 log:
-- date: 2026-09-28
-  summary: done=89 running=0 pending=1 blocked=0
+- date: '20260929.201254'
+  summary: done=107 running=0 pending=18 blocked=0
   commits:
-  - sha: c4facfa
-    branch: main
-- date: '20260927.001209'
-  summary: done=84 running=0 pending=3 blocked=1
-  commits:
-  - 42dc7e0fa8f83630bb0ce073dd70fb249c85a9cf
-  - cf420e6d9e016e6c9b4d1ac285ea35a4dc298a21
-  - c25bb585421dc0f8396ce8c679c2be7724e4a34f
-  - 2c1299e083e5edba52787a6c296af0408c06998d
-  - 4532bbe057c24dfbf80f978f3b9301e633968865
-  - dc41599e56df5a944a785601fb5030a7f95cdbfe
-  - a69aa37c1309a1870a8cff246e7654f7bb083318
-  - 1a74c6536d47ffbbe9096c7352339926bb3c8c53
-  - 456b7ef5442fd1050af8cede30e1e2e2d4bd4bbf
-  - d629660ecf34063c18d828a84bde7211250688a7
+  - f1ad3a0df92d45e94c62fb11414674cdea3d1fe9
+  - dd900347a5feedf299a1d87bc497041bd10f77ea
+  - f9ec9e901656b3300b877dbf4495520c7e39696c
+  - 2d0d010bf11398d995e501d09739491af2439ba2
+  - e9910778d29f9aa47b2cea8f9fbb604af49f9c50
+  - 6597e3dc6ec0c720a92cfee8d39533fcdd204db7
+  - 5224e26d740f8b499016e15fcd9131135cb42dc1
+  - b3bd9e418cbf8e39aa9cf1c52867c6b45c5b5e26
+  - bcda3d88440c32bfef809c49c5b0af0773eea2de
+  - 1ac933354018cc37012098a1bd0a6ea72fcfccf8

@@ -1111,18 +1111,22 @@ tasks:
     completed_at: 2026-09-29T19:06:06.166341Z
   - id: 2026-09-28-gap-closeout-t18b
     title: Make text partition completeness follow the domain the analysis needs
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t18
-    notes: "inferred_domain returns complete=false for every PartitionDomainKind::Text, so any package whose vocabulary has a text field referenced by a presence predicate can never report a complete analysis. rulery analyze and diff both emit RUL254 and diff emits no semantic_diffs for the normative tool-library fixture: tool.reserved-for-member-id is text and is only used with is_absent, so its value space is never inspected, yet the partition is still declared incomplete. Precedent: SMT solvers distinguish sat/unsat/unknown and incompleteness for genuinely undecidable fragments is legitimate, but an unconditional unknown is the implication-incompleteness class catalogued by Bringolf et al. ICSE 2023. Bounded string domains are precedented as decidable (HAMPI, bit-vector string representations), and this codebase already ships UNBOUNDED_REPRESENTATIVE with complete=true for open integer sets. Make completeness follow how the field is used: presence predicates only gives one opaque representative and complete=true; equality against authored literals gives those literals and complete=true; an operator that can distinguish unrepresented values gives the representative and complete=false. RUL254 stays registered for the third case. Spec-visible: the normative fixture stops emitting RUL254, so analyze moves from exit 6 to exit 1 with RUL252 only."
+    notes: "Three-way ValueUsage fix shipped as dd90034. 133/133 tests, verify green. Does not unblock diff on the normative fixture: enumeration rose 150 to 225 cells, proving the fix landed, but a second defect does."
     crate_name: rulery-analysis
+    commit: dd90034
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-analysis text_domain
+    started_at: 2026-09-29T19:52:47.683811Z
+    completed_at: 2026-09-29T19:52:47.693834Z
   - id: 2026-09-28-gap-closeout-t19
     title: Derive an after-package in scratch and assert diff reports an outcome change
-    status: pending
+    status: blocked
     depends_on:
       - 2026-09-28-gap-closeout-t18
-    notes: ""
+    notes: "blocked on t18c: diff emits zero semantic_diffs because a null record assignment voids the whole decision. Unblock once t18c lands."
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli diff_reports_an_outcome_change_between_two_packages
   - id: 2026-09-28-gap-closeout-t20
@@ -1253,6 +1257,15 @@ tasks:
     notes: ""
     crate_name: xtask
     run: cargo xtask verify
+  - id: 2026-09-28-gap-closeout-t18c
+    title: Stop null record assignments from voiding a whole analysis decision
+    status: running
+    depends_on:
+      - 2026-09-28-gap-closeout-t18b
+    notes: "CORRECTED root cause. The earlier note blamed ignored presence: required, which is wrong. BLOCKER, verified: inferred_domain returns an empty domain for PartitionDomainKind::Record, then add_presence_values appends Absent and Null because spec_for hard-codes allow_absent and allow_null true, so a record-typed path has domain {Absent, Null}. A cell pairing member.training = Null with member.training.valid-until = <date> reaches build_case_facts, where Value::Null is not a Value::Record, so facts.rs:99 or facts.rs:104 returns CaseFactsError::PathConflict. pair_outcomes then returns None and extract.rs:947 abandons the entire decision, so PolicyDiffer never runs and diff emits zero semantic_diffs. BTreeMap order makes it deterministic: member.training sorts before member.training.valid-until, so Null is inserted first and the child takes the Occupied branch. The existing test at facts.rs:177-184 already documents the mechanism. The vocabulary has no nullable-record concept: presence optional means absent, never null, so allow_null is simply wrong for PathType::Record and removing it kills the poison for a principled reason. SECOND defect, latent and quieter: at extract.rs:947 one unpairable cell silently voids the whole decision, which is why this produced an inconclusive line and no diff rather than a visible error. NOT the blocker: ignoring presence: required is coverage pollution only, because validate_case_facts returns states and the invalid-facts strategy handles them at policy_evaluator.rs:102. PLAN: set allow_null false for record-typed paths, and stop letting a single unpairable cell abandon the decision, reporting per-cell skip reasons. Hierarchical cell generation is the only option that also makes the coverage denominator honest, but it changes cell counts which feed witness hashes and the frozen BLAKE3 vectors, so it belongs in its own task. SUCCESS CRITERION: the tool-library checkout decision reaches PolicyDiffer and diff reports the outcome change. t19 must not start until this lands."
+    crate_name: rulery-analysis
+    run: cargo nextest run -p rulery-analysis record
+    started_at: 2026-09-29T21:16:02.710915Z
 plan_imports:
   - source: /Users/joe/dev/rulery/.ctx/godmode/plans/2026-09-28-gap-closeout.md
     task_ids:
