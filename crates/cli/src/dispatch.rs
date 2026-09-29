@@ -156,17 +156,34 @@ fn promoted(produced: &Produced, command: &Command) -> bool {
 /// Renders one classified failure that precedes its own artifact.
 fn failure(command: &Command, error: &HostError) -> CommandOutput {
     match error {
-        HostError::Invocation(message) => pre_artifact(ExitStatus::InvalidInvocation, message),
-        HostError::Io(message) => pre_artifact(ExitStatus::IoFailure, message),
-        HostError::Internal(message) => pre_artifact(ExitStatus::InternalFailure, message),
+        HostError::Invocation(message) => {
+            pre_artifact(command, ExitStatus::InvalidInvocation, message)
+        }
+        HostError::Io(message) => pre_artifact(command, ExitStatus::IoFailure, message),
+        HostError::Internal(message) => pre_artifact(command, ExitStatus::InternalFailure, message),
         HostError::Rejected(rejected) => rejected_command(command, rejected),
     }
 }
 
-/// Reports one pre-artifact failure on stderr, which every output format allows.
-fn pre_artifact(status: ExitStatus, message: &str) -> CommandOutput {
+/// Reports one failure that precedes its own artifact.
+///
+/// A machine format still receives exactly one artifact on stdout, which every successful run
+/// already guarantees it. When no diagnostic is constructible that artifact is a well-formed
+/// report carrying no entries, which says so rather than inventing a registry code the
+/// specification does not define.
+///
+/// The reason stays on stderr in every format, including machine ones. A report with no
+/// entries is a valid artifact but says nothing about why, so dropping the reason there would
+/// leave a machine consumer with an empty document and an exit code and no explanation.
+fn pre_artifact(command: &Command, status: ExitStatus, message: &str) -> CommandOutput {
+    let format = format_of(command);
+    let stdout = if format.is_machine() {
+        diagnostic_artifact(&Findings::default(), format).unwrap_or_default()
+    } else {
+        Vec::new()
+    };
     CommandOutput {
-        stdout: Vec::new(),
+        stdout,
         stderr: format!("{message}\n").into_bytes(),
         status,
     }
@@ -175,7 +192,7 @@ fn pre_artifact(status: ExitStatus, message: &str) -> CommandOutput {
 /// Renders a rejected command: a diagnostic report when one is constructible, else plain reasons.
 fn rejected_command(command: &Command, failure: &DiagnosticFailure) -> CommandOutput {
     if failure.diagnostics.is_empty() {
-        return pre_artifact(ExitStatus::DiagnosticsError, &failure.message());
+        return pre_artifact(command, ExitStatus::DiagnosticsError, &failure.message());
     }
     let format = format_of(command);
     let findings = Findings::from_registry(
@@ -192,7 +209,7 @@ fn rejected_command(command: &Command, failure: &DiagnosticFailure) -> CommandOu
             },
             status: ExitStatus::DiagnosticsError,
         },
-        Err(_) => pre_artifact(ExitStatus::DiagnosticsError, &failure.message()),
+        Err(_) => pre_artifact(command, ExitStatus::DiagnosticsError, &failure.message()),
     }
 }
 

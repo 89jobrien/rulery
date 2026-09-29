@@ -1032,21 +1032,25 @@ tasks:
     completed_at: 2026-09-29T17:12:18.777091Z
   - id: 2026-09-28-gap-closeout-t12
     title: Delete the three serialization round trips
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t11
-    notes: ""
+    notes: Three round trips deleted. from_registry and from_analysis became infallible, dropping 9 ? sites in dispatch.rs. 29 insertions / 81 deletions. 126/126 tests, xtask verify green.
     crate_name: rulery-cli
+    commit: "5224e26"
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli
     started_at: 2026-09-29T17:12:18.789329Z
+    completed_at: 2026-09-29T17:17:55.528620Z
   - id: 2026-09-28-gap-closeout-t13
     title: Assert machine formats still receive one stdout artifact
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t12
     notes: ""
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli machine_formats_emit_one_envelope_on_pre_artifact_failure
+    started_at: 2026-09-29T18:05:55.908488Z
   - id: 2026-09-28-gap-closeout-t14
     title: Emit an empty diagnostic envelope in machine modes
     status: pending

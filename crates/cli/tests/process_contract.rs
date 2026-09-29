@@ -365,6 +365,16 @@ fn test_json_emits_the_documented_scenario_result_array() {
 }
 
 #[test]
+fn machine_formats_emit_one_envelope_on_pre_artifact_failure() {
+    let observed = run(&["analyze", "/nonexistent/rulery-fixture", "--format", "json"]);
+    assert_eq!(
+        observed.code, 3,
+        "expected the IoFailure row of the exit matrix"
+    );
+    one_json_value("analyze missing path", &observed.stdout);
+}
+
+#[test]
 fn analyze_at_is_recorded_in_the_report() {
     let copy = package("analyze-at");
     let baseline = run(&["analyze", &path(&copy), "--frozen", "--format", "json"]);
