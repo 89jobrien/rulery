@@ -1,1078 +1,1222 @@
 tasks:
-- id: t1
-  title: workspace exposes approved crate topology
-  status: done
-  depends_on: []
-  notes: Scaffold manifests and minimal entry points only; no domain implementation.
-  started_at: 2026-09-17T00:00:00Z
-  completed_at: 2026-09-17T00:00:00Z
-- id: t2
-  title: xtask exposes complex repository workflows
-  status: done
-  depends_on:
-  - t1
-  notes: Expose bootstrap, conformance, architecture, and verify commands.
-  started_at: 2026-09-17T00:00:00Z
-  completed_at: 2026-09-17T00:00:00Z
-- id: t3
-  title: xtask validates workspace architecture
-  status: done
-  depends_on:
-  - t2
-  notes: Use the declarative workspace model and Cargo metadata.
-  started_at: 2026-09-17T00:00:00Z
-  completed_at: 2026-09-17T00:00:00Z
-- id: t4
-  title: xtask validates normative specification
-  status: done
-  depends_on:
-  - t3
-  notes: Check document structure, registry, envelopes, and BLAKE3 vectors.
-  started_at: 2026-09-17T00:00:00Z
-  completed_at: 2026-09-17T00:00:00Z
-- id: t5
-  title: xtask checks workspace bootstrap drift
-  status: done
-  depends_on:
-  - t4
-  notes: Reconcile missing generated crate manifests and entry points.
-  started_at: 2026-09-17T00:00:00Z
-  completed_at: 2026-09-17T00:00:00Z
-- id: t6
-  title: Reproduce canonical hash and integrity vectors
-  status: done
-  depends_on:
-  - t5
-  notes: Added strict ContentHash parsing, domain-separated framing, EvaluationId, and all four fixed BLAKE3 vectors.
-  crate_name: rulery-contracts
-  commit: d22938b
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-contracts canonical_hash_vectors_match_specification
-  started_at: 2026-09-17T11:07:48.154638Z
-  completed_at: 2026-09-17T11:13:06.365595Z
-- id: t7
-  title: Define lock contracts
-  status: done
-  depends_on:
-  - t6
-  notes: Added sorted duplicate-free RulebookLockV1 payloads and strict versioned envelopes.
-  crate_name: rulery-contracts
-  commit: d629660
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-contracts lock_envelope_requires_sorted_complete_payload
-  started_at: 2026-09-17T11:14:19.236377Z
-  completed_at: 2026-09-17T11:19:24.364692Z
-- id: t8
-  title: Implement diagnostic codes and the 40-code registry
-  status: done
-  depends_on:
-  - t7
-  notes: Added strict diagnostic code parsing, all 40 v0.1 definitions, family fallback, severity, producer, suppression, and evidence metadata.
-  crate_name: rulery-diagnostics
-  commit: 456b7ef
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-diagnostics registry_contains_exact_v01_definitions
-  started_at: 2026-09-17T11:19:39.987471Z
-  completed_at: 2026-09-17T11:28:44.220715Z
-- id: t9
-  title: Validate diagnostics evidence and fixes
-  status: done
-  depends_on:
-  - t8
-  notes: Added validated diagnostic/fix model builders with registry-enforced evidence and deterministic edit ordering, plus invariant contract coverage in diagnostics unit tests.
-  crate_name: rulery-diagnostics
-  run: cargo nextest run -p rulery-diagnostics diagnostic_builder_enforces_registry_invariants
-  started_at: 2026-09-17T11:35:57.863492Z
-  completed_at: 2026-09-17T11:49:08.059748Z
-- id: t10
-  title: Version diagnostic reports
-  status: done
-  depends_on:
-  - t9
-  notes: Added strict DiagnosticReportV1 and envelope wire contracts with deny-unknown-fields, deterministic diagnostic ordering, and conformance tests for schema, required fields, optional omission, and empty collections.
-  crate_name: rulery-diagnostics
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-diagnostics diagnostic_report_envelope_is_strict_v1
-  started_at: 2026-09-17T11:59:13.466896Z
-  completed_at: 2026-09-17T11:59:58.246543Z
-- id: t11
-  title: Define the complete source AST
-  status: done
-  depends_on:
-  - t10
-  notes: Added complete format-neutral source AST declarations, parse error types, and parser trait with span-bearing conditions/effects plus source_ast_represents_every_authored_form contract test.
-  crate_name: rulery-syntax
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-syntax source_ast_represents_every_authored_form
-  started_at: 2026-09-17T12:24:35.132054Z
-  completed_at: 2026-09-17T12:38:34.754888Z
-- id: t12
-  title: Reject unsafe YAML constructs
-  status: done
-  depends_on:
-  - t11
-  notes: Added strict YAML parser modules with forbidden-construct rejection, deny-unknown-field DTO decoding, span mapping, and noncanonical construct contract tests.
-  crate_name: rulery-syntax
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-syntax yaml_parser_rejects_noncanonical_constructs
-  started_at: 2026-09-17T12:38:34.762436Z
-  completed_at: 2026-09-17T12:38:58.487258Z
-- id: t13
-  title: Parse manifest semantics and outcomes
-  status: done
-  depends_on:
-  - t12
-  notes: Implemented manifest DTO conversion and semantic validation for language, timezone, import aliases, outcome-shape constraints, and non-empty decision/rule requirements.
-  crate_name: rulery-syntax
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-syntax manifest_semantics_enforce_exact_shapes
-  started_at: 2026-09-17T12:38:58.492318Z
-  completed_at: 2026-09-17T12:39:04.892589Z
-- id: t14
-  title: Parse vocabulary and actions
-  status: done
-  depends_on:
-  - t13
-  notes: Implemented vocabulary/action DTO validation with defaults and constraints for roots, enums, lists, terms, parameter required defaults, and primitive redeclaration rejection.
-  crate_name: rulery-syntax
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-syntax vocabulary_and_actions_apply_normative_defaults
-  started_at: 2026-09-17T12:39:04.898524Z
-  completed_at: 2026-09-17T12:39:11.243173Z
-- id: t15
-  title: Parse rules operands and scenarios
-  status: done
-  depends_on:
-  - t14
-  notes: Implemented rule and scenario DTO conversion with exhaustive condition-form validation, operator arity checks, operand tagging rules, span preservation, and null literal retention.
-  crate_name: rulery-syntax
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-syntax rules_and_scenarios_enforce_exhaustive_grammar
-  started_at: 2026-09-17T12:39:11.250199Z
-  completed_at: 2026-09-17T12:40:50.020764Z
-- id: t16
-  title: Resolve vocabulary declarations and terms
-  status: done
-  depends_on:
-  - t15
-  notes: Implemented deterministic resolved vocabulary model and resolver with built-in redeclaration guards, reference validation, cycle detection, and term-path checks.
-  crate_name: rulery-vocabulary
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-vocabulary vocabulary_resolution_is_typed_and_deterministic
-  started_at: 2026-09-17T12:40:50.026007Z
-  completed_at: 2026-09-17T12:44:11.206069Z
-- id: t17
-  title: Validate supplied facts structurally
-  status: done
-  depends_on:
-  - t16
-  notes: Implemented structural fact validation preserving absent/null/malformed states with deterministic issue ordering; all workspace gates pass (fmt, clippy -D warnings, nextest workspace).
-  crate_name: rulery-vocabulary
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-vocabulary fact_validation_preserves_absent_null_and_malformed
-  started_at: 2026-09-17T12:44:11.211284Z
-  completed_at: 2026-09-17T12:45:43.605672Z
-- id: t18
-  title: Define checked IR and compiled package wire data
-  status: done
-  depends_on:
-  - t17
-  notes: Defined checked IR expression model, compiled decision/action/package contracts, strict v1 envelope, canonical content hashing, and rejection of duplicate identities/unknown fields/hash mismatch with passing contract and workspace gates.
-  crate_name: rulery-ir
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-ir compiled_package_wrapper_rejects_invalid_payloads
-  started_at: 2026-09-17T12:45:56.178173Z
-  completed_at: 2026-09-17T12:51:21.205426Z
-- id: t19
-  title: Load exact local source bundles
-  status: done
-  depends_on:
-  - t18
-  notes: Implemented filesystem package store with required layout enforcement, deterministic source selection, UTF-8 validation, symlink/root escape rejection, and exact bundle integrity framing; targeted and workspace gates pass.
-  crate_name: rulery-store
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-store filesystem_store_selects_exact_authored_layout
-  started_at: 2026-09-17T12:51:26.964733Z
-  completed_at: 2026-09-17T12:55:03.184996Z
-- id: t20
-  title: Resolve imports and persist locks atomically
-  status: done
-  depends_on:
-  - t19
-  notes: Implemented local-only import resolution, strict lock loading, and atomic lock writes via temporary sibling + rename with injected failure coverage and no partial destination; targeted and workspace gates pass.
-  crate_name: rulery-store
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-store imports_stay_local_and_lock_writes_are_atomic
-  started_at: 2026-09-17T12:55:08.946226Z
-  completed_at: 2026-09-17T15:37:40.535140Z
-- id: t21
-  title: Validate and resolve compiler symbols
-  status: done
-  depends_on:
-  - t20
-  notes: Added compiler symbol resolution/validation pipeline with deterministic diagnostics for duplicate declarations, unknown symbols, invalid fact paths, undefined terms, qualification mismatch, and override rationale requirements; package is None when errors exist; targeted and workspace gates pass.
-  crate_name: rulery-compiler
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-compiler compiler_rejects_duplicate_and_unknown_symbols
-  started_at: 2026-09-17T15:37:45.094131Z
-  completed_at: 2026-09-17T15:40:57.326355Z
-- id: t22
-  title: Type-check operators literals and actions
-  status: done
-  depends_on:
-  - t21
-  notes: Added operator/literal/action typechecking with matrix coverage for equality, ordering, contains, text predicates, temporal operators, reserved today/now typing, enum identity compatibility, and action argument validation; emits RUL005 on mismatches; targeted and workspace gates pass.
-  crate_name: rulery-compiler
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-compiler typechecker_enforces_operator_matrix
-  started_at: 2026-09-17T15:41:03.367902Z
-  completed_at: 2026-09-17T15:43:35.458471Z
-- id: t23
-  title: Normalize conditions and compute specificity
-  status: done
-  depends_on:
-  - t22
-  notes: Implemented canonical condition normalization, empty all/any constant lowering with advisories, duplicate predicate exclusion, exact checked specificity formula, temporal/range weighting, stable child ordering, and overflow errors; targeted and workspace gates pass.
-  crate_name: rulery-compiler
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-compiler specificity_uses_exact_checked_formula
-  started_at: 2026-09-17T15:43:40.321802Z
-  completed_at: 2026-09-17T16:46:02.255294Z
-- id: t24
-  title: Lower and hash deterministic compiled packages
-  status: done
-  depends_on:
-  - t23
-  notes: Implemented deterministic lowering into complete compiled package payloads with retained vocabulary/source map/integrity/compiler/language data, static override rank, canonical hash inputs omitting only package_hash, deterministic bytes across insertion order, and error-gated package output; all gates pass.
-  crate_name: rulery-compiler
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery-compiler compilation_is_byte_deterministic
-  started_at: 2026-09-17T16:46:10.379626Z
-  completed_at: 2026-09-17T16:54:00.382485Z
-- id: t25
-  title: Assemble import graphs and remap spans
-  status: done
-  depends_on:
-  - t24
-  notes: Implemented generic recursive package assembly over store/parser ports with sorted DFS traversal, identical-package deduplication, cycle/ID/version/location/content conflict detection, bounded graph traversal, root-only scenarios, package/path-sorted global source keys from zero, complete AST span remapping, merged source map, and integrity closure; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-17
-  run: cargo nextest run -p rulery assembly_traverses_and_remaps_deterministically
-  started_at: 2026-09-17T16:54:08.043969Z
-  completed_at: 2026-09-17T20:07:02.240765Z
-- id: t26
-  title: Enforce Update and Frozen lock modes
-  status: done
-  depends_on:
-  - t25
-  notes: 'Implemented exact Update/Frozen lock policy: Update accepts absent/stale locks and proposes a complete sorted replacement without writes; Frozen requires locks, accepts only exact closure matches, never proposes writes, and maps missing/stale/import hash failures to RUL502/RUL500/RUL501; all gates pass.'
-  crate_name: rulery
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery assembly_enforces_lock_modes_exactly
-  started_at: 2026-09-17T20:07:08.604073Z
-  completed_at: 2026-09-18T20:10:07.253060Z
-- id: t27
-  title: Implement four-valued logic tables
-  status: done
-  depends_on:
-  - t26
-  notes: Implemented exact four-valued Truth AND/OR/NOT tables across all 36 cells, preserving Unknown versus Invalid and enforcing False/True dominance; all gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine truth_tables_match_all_36_cells
-  started_at: 2026-09-18T20:10:26.433960Z
-  completed_at: 2026-09-18T20:11:47.822064Z
-- id: t28
-  title: Evaluate fact-state predicates
-  status: done
-  depends_on:
-  - t27
-  notes: Implemented fact operand lookup retaining requested paths and malformed validation errors, plus exact unary is_absent/is_present/is_valid/is_invalid behavior across absent/null/malformed/valid states; all gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine presence_predicates_distinguish_all_fact_states
-  started_at: 2026-09-18T20:11:52.318336Z
-  completed_at: 2026-09-18T20:14:18.450048Z
-- id: t29
-  title: Evaluate equality ordering text and list operators
-  status: done
-  depends_on:
-  - t28
-  notes: Implemented type-strict structural equality/inequality, scalar ordering, Unicode text contains/prefix/suffix, typed list containment, non-empty is_one_of, and decisive negated operators preserving Unknown/Invalid; all gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine operators_are_structural_type_strict_and_unicode_based
-  started_at: 2026-09-18T20:14:22.494454Z
-  completed_at: 2026-09-18T20:17:35.668775Z
-- id: t30
-  title: Implement time adapters and temporal predicates
-  status: done
-  depends_on:
-  - t29
-  notes: Implemented SystemClock/FixedClock, Jiff timezone conversion with recorded identity and typed errors, traced now/today clock values, same-type temporal comparisons, inclusive/exclusive expiry, and unexpired negation across DST-local dates; all gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine temporal_predicates_use_policy_local_date
-  started_at: 2026-09-18T20:17:42.771351Z
-  completed_at: 2026-09-18T20:21:31.001769Z
-- id: t31
-  title: Apply missing and invalid strategies
-  status: done
-  depends_on:
-  - t30
-  notes: Implemented missing/invalid strategy handling with ClosedWorldFalse pre-composition adjustment, preserve/reject modes, sorted missing/invalid path aggregation, exact generated reasons/messages, semantic-key candidate aggregation, equal-key destination merging, and strategy trace records; all gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine strategies_create_exact_candidates_and_reasons
-  started_at: 2026-09-18T20:21:35.478502Z
-  completed_at: 2026-09-18T20:25:24.946460Z
-- id: t32
-  title: Select candidates by exact semantic precedence
-  status: done
-  depends_on:
-  - t31
-  notes: Implemented validated explicit outcome ranks, exact SafetyFirst/PriorityFirst/ExplicitOutcome/ExplicitPriority semantic keys, greatest-key selection, override-rank ordering, deterministic determining/superseded presentation, identical-outcome merging, and conflict traces without rule-identity tie-breaking; targeted and workspace gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine precedence_excludes_rule_identity_and_preserves_conflict
-  started_at: 2026-09-18T20:25:33.504871Z
-  completed_at: 2026-09-18T20:39:55.968489Z
-- id: t33
-  title: Compute decision-relevant uncertainty
-  status: done
-  depends_on:
-  - t32
-  notes: Implemented maximum-completion relevance classification against the best decisive semantic key, equal-key outcome compatibility checks, relevant-only strategy observation filtering, trace-preserving classifications, and default eligibility rules; targeted RED/GREEN and workspace gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine unresolved_rules_only_displace_when_completion_can_change_result
-  started_at: 2026-09-18T21:14:37.989250Z
-  completed_at: 2026-09-18T21:16:51.846219Z
-- id: t34
-  title: Build deterministic complete and compact traces
-  status: done
-  depends_on:
-  - t33
-  notes: Implemented strict deterministic decision trace data and envelope, success/conflict invariants, complete logical trace hashing excluding trace_hash, exact five-part evaluation IDs, canonical ordering, explicit null outcome/conflict fields, short-circuit placeholders, and compact projection sharing the complete hash; all gates pass.
-  crate_name: rulery-engine
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-engine trace_modes_share_complete_logical_hash
-  started_at: 2026-09-18T21:28:37.264782Z
-  completed_at: 2026-09-18T21:34:11.639051Z
-- id: t35
-  title: Compile typed scenarios
-  status: done
-  depends_on:
-  - t34
-  notes: Implemented typed root-scenario compilation with decision/rule/fact reference resolution, ergonomic typed facts, complete expected fields, deterministic RUL301/RUL302 diagnostics, invalid-scenario omission, imported-scenario rejection, and IR package query helpers; all gates pass.
-  crate_name: rulery-scenarios
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-scenarios scenario_compiler_resolves_every_expectation_field
-  started_at: 2026-09-18T21:34:29.260296Z
-  completed_at: 2026-09-18T21:40:49.586703Z
-- id: t36
-  title: Run exact scenario comparisons
-  status: done
-  depends_on:
-  - t35
-  notes: Implemented exact scenario execution via evaluator port with scenario-fixed time, four ordered set-exact expectation comparisons and expected/actual JSON, Passed/Failed/Invalid/Error mapping, validated result invariants, and strict scenario-result/v1 envelope; all gates pass.
-  crate_name: rulery-scenarios
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-scenarios scenario_runner_reports_all_exact_mismatches
-  started_at: 2026-09-18T21:41:26.459445Z
-  completed_at: 2026-09-18T21:45:25.541134Z
-- id: t37
-  title: Build finite decision partitions
-  status: done
-  depends_on:
-  - t36
-  notes: Implemented canonical finite decision partitions with AnalysisOptions defaults, Boolean/enum/presence/integer boundary cells, deterministic interval representatives, explicit finite overrides, unsupported-domain incompleteness, vocabulary-unsatisfiable cell removal, and lexicographic Cartesian ordering; all gates pass.
-  crate_name: rulery-analysis
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-analysis partitions_follow_canonical_finite_domain_rules
-  started_at: 2026-09-18T21:45:48.364901Z
-  completed_at: 2026-09-18T21:49:21.557659Z
-- id: t38
-  title: Enforce analysis budgets and minimal witnesses
-  status: done
-  depends_on:
-  - t37
-  notes: Implemented global state budget accounting with immediate zero-budget inconclusive results, zero-cost cache hits, persistent exhaustion, exact examined/limit reporting, and deterministic deletion-minimized synthetic witnesses with fixed replay context and CaseFactsV1 hashing; all gates pass.
-  crate_name: rulery-analysis
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-analysis budgets_stop_before_overrun_and_witnesses_replay
-  started_at: 2026-09-18T21:49:28.173861Z
-  completed_at: 2026-09-18T21:51:34.662965Z
-- id: t39
-  title: Analyze reachability and interactions
-  status: done
-  depends_on:
-  - t38
-  notes: Implemented deterministic reachability and pairwise interaction passes with reachable witnesses, unreachable proof certificates, inconclusive states, precedence-based compatible/conflict/shadowed classifications, redundancy and explicit-override detection, and stable RUL200-RUL204 findings; all gates pass.
-  crate_name: rulery-analysis
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-analysis interaction_findings_are_sound_and_evidenced
-  started_at: 2026-09-18T22:06:00.646403Z
-  completed_at: 2026-09-18T22:11:20.427182Z
-- id: t40
-  title: Compute exact finite coverage
-  status: done
-  depends_on:
-  - t39
-  notes: Implemented exact finite coverage over satisfiable cells, non-default decisive numerator rules, uncertainty/conflict exclusions, zero-denominator 10000 basis points, incomplete percentage suppression, exact per-rule reached/determining counts, uncovered witnesses, and RUL250-RUL254 category diagnostics; all gates pass.
-  crate_name: rulery-analysis
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-analysis coverage_uses_satisfiable_partition_denominator
-  started_at: 2026-09-18T22:11:32.646304Z
-  completed_at: 2026-09-18T22:13:58.096664Z
-- id: t41
-  title: Produce semantic diffs
-  status: done
-  depends_on:
-  - t40
-  notes: Implemented semantic diff classification over paired union-partition evaluations with all seven outcome change kinds, structural evidence across defaults/precedence/strategies/time/vocabulary/imports/reasons/facts/actions, paired witnesses, exact RUL350-RUL354 mapping, and budget-exhaustion incompleteness without unchanged claims; all gates pass.
-  crate_name: rulery-analysis
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-analysis semantic_diff_reports_every_normative_change_class
-  started_at: 2026-09-18T22:29:33.111875Z
-  completed_at: 2026-09-18T22:31:35.499268Z
-- id: t42
-  title: Version complete analysis reports
-  status: done
-  depends_on:
-  - t41
-  notes: Implemented complete deterministic analysis-report/v1 payload and strict envelope with package/options/completeness/diagnostics/reachability/overlaps/coverage/witnesses/diffs always present, canonical section ordering, missing/unknown field rejection, validated wrapper, and analyzer port; all gates pass.
-  crate_name: rulery-analysis
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-analysis analysis_report_envelope_contains_all_sections
-  started_at: 2026-09-18T22:39:40.656238Z
-  completed_at: 2026-09-18T22:39:47.052069Z
-- id: t43
-  title: Render JSON envelopes without semantic drift
-  status: done
-  depends_on:
-  - t42
-  notes: Implemented generic typed ArtifactRenderer and deterministic JsonRenderer that emits exactly one top-level object without progress bytes, preserves explicit null/scalar strings and stable ordering, rejects ordinary arrays, and supports only explicit scenario-result array rendering; all gates pass.
-  crate_name: rulery-emit
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-emit json_renderer_emits_one_strict_typed_artifact
-  started_at: 2026-09-18T22:46:39.596254Z
-  completed_at: 2026-09-18T22:48:36.679Z
-- id: t44
-  title: Render human and Markdown explanations
-  status: done
-  depends_on:
-  - t43
-  notes: Implemented byte-exact canonical human explanation rendering through evidence lines, UTC RFC3339 nanosecond display, policy date/timezone and stable none summaries, generic human diagnostics/analysis/scenario lines, and ascending Markdown truth rendering that preserves Unknown and Invalid; all gates pass.
-  crate_name: rulery-emit
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-emit human_explain_matches_canonical_tool_library_text
-  started_at: 2026-09-18T22:51:07.359665Z
-  completed_at: 2026-09-18T22:54:30.939957Z
-- id: t45
-  title: Render decision tables and SARIF safely
-  status: done
-  depends_on:
-  - t44
-  notes: Implemented strict decision-table/v1 declarations and single-decision lowering with columns/rows/cells/source references, deterministic SARIF 2.1.0 diagnostics and locations, and RUL400/RUL401 semantic-loss detection for unsupported outcomes, uncertainty, actions, and reasons without denial reinterpretation; all gates pass.
-  crate_name: rulery-emit
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-emit projections_reject_semantic_loss
-  started_at: 2026-09-18T22:55:52.758322Z
-  completed_at: 2026-09-18T22:59:27.460854Z
-- id: t46
-  title: Compose facade workflows and complete ports
-  status: done
-  depends_on:
-  - t45
-  notes: Implemented generic facade composition with exact store/parse/assembly/remap/compiler/root-scenario order, compile workflow output, delegated evaluate/analyze/diff/scenario methods that consume compiled packages without reopening files, curated exports, and RUL205 conflict evidence conversion at the boundary; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery facade_composes_exact_v01_workflow_order
-  started_at: 2026-09-18T23:22:32.232777Z
-  completed_at: 2026-09-18T23:26:58.312768Z
-- id: t47
-  title: Add declarative ID and facts macros
-  status: done
-  depends_on:
-  - t46
-  notes: Implemented hygienic validated stable/typed ID and fact-path literal macros plus facts! with null/Boolean/i64/decimal/text/date/date-time/duration/typed-enum/list/record values, optional trailing commas, structured FactBuildError conversion, and hidden $crate::__private expansion surface; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery declarative_literals_use_validated_constructors
-  started_at: 2026-09-19T01:44:53.725369Z
-  completed_at: 2026-09-19T01:50:30.387955Z
-- id: t48
-  title: Add scenario assertion and diagnostic macros
-  status: done
-  depends_on:
-  - t47
-  notes: Implemented scenario! with validated IDs/non-empty titles/caller spans and unexecuted root source scenarios, assert_decision! with exact four-field set comparisons and aggregate panic output, and diagnostic! with registry-derived immutable metadata, caller labels/evidence, and missing-evidence rejection; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery workflow_macros_enforce_exact_contracts
-  started_at: 2026-09-19T03:00:18.795913Z
-  completed_at: 2026-09-19T03:07:17.742502Z
-- id: t49
-  title: Derive RuleFacts hygienically
-  status: done
-  depends_on:
-  - t48
-  notes: Implemented RuleFacts derive parsing with required root/field path attributes, unknown/duplicate/malformed attribute rejection, supported bool/i64/String/Value and Option absence handling, generated TryFrom into nested CaseFacts records, no unsafe expansion, and proc-macro-crate facade resolution for renamed dependencies; all gates pass.
-  crate_name: rulery-macros
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-macros rule_facts_requires_explicit_valid_paths
-  started_at: 2026-09-19T03:41:09.808123Z
-  completed_at: 2026-09-19T03:49:35.121456Z
-- id: t50
-  title: Parse the exact CLI command surface
-  status: done
-  depends_on:
-  - t49
-  notes: Implemented thin clap-backed CLI library and main with exact init/fmt/check/analyze/test/explain/diff/render/lock surfaces, validated IDs/formats, required decision-table decision, path/human/state/witness/system-time defaults, deny/filter/decision fields, explicit Frozen mapping, and environment-independent Update defaults; all gates pass.
-  crate_name: rulery-cli
-  completed: 2026-09-18
-  run: cargo nextest run -p rulery-cli cli_parses_v01_commands_and_defaults
-  started_at: 2026-09-19T03:52:26.758225Z
-  completed_at: 2026-09-19T03:58:02.385109Z
-- id: t51
-  title: Orchestrate init fmt check and lock
-  status: done
-  depends_on:
-  - t50
-  notes: Implemented init/fmt/check/lock orchestration with strict write scope, non-empty init rejection, fmt check/write cardinality and exit behavior, check lock-write prohibition, Update-only validated atomic lock handoff, and stable exit priority mapping including atomic I/O failure; all gates pass.
-  crate_name: rulery-cli
-  completed: 2026-09-19
-  run: cargo nextest run -p rulery-cli write_commands_obey_scope_and_atomicity
-  started_at: 2026-09-19T04:24:22.032828Z
-  completed_at: 2026-09-19T04:29:58.220607Z
-- id: t52
-  title: Orchestrate test explain analyze diff and render
-  status: done
-  depends_on:
-  - t51
-  notes: Implemented read-only test/explain/analyze/diff/render orchestration with scenario filtering handoff, fixed/system-time propagation, exact artifact cardinality, machine stderr suppression except fatal pre-artifact failures, scenario/conflict/projection/budget exits, broken-stdout priority behavior, and deny-warnings promotion limited to unsuppressed Proven/Witnessed findings; all gates pass.
-  crate_name: rulery-cli
-  completed: 2026-09-19
-  run: cargo nextest run -p rulery-cli artifact_commands_match_output_and_exit_matrix
-  started_at: 2026-09-19T08:32:31.086263Z
-  completed_at: 2026-09-19T08:37:51.995262Z
-- id: t53
-  title: Install the canonical tool-library fixture
-  status: done
-  depends_on:
-  - t52
-  notes: Installed the exact five normative tool-library authored YAML listings plus expired-training case, strict no-import rulebook lock with root metadata and recomputed bundle integrity hash, and conformance coverage for metadata/semantics/roots/types/term/actions/rules/scenario/case/lock; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-19
-  run: cargo nextest run -p rulery tool_library_fixture_matches_normative_sources
-  started_at: 2026-09-19T17:08:08.520780Z
-  completed_at: 2026-09-19T17:08:19.969668Z
-- id: t54
-  title: Prove the tool-library end-to-end decision
-  status: done
-  depends_on:
-  - t53
-  notes: Implemented reproducible frozen tool-library check/test/explain composition with source/lock integrity validation, fixed UTC and New York policy date, expired-training deny and determining rule, complete package/facts/trace/timezone identities, deterministic strict JSON, and byte-exact canonical human output fixture; all gates pass.
-  crate_name: rulery-cli
-  completed: 2026-09-19
-  run: cargo nextest run -p rulery tool_library_cli_is_reproducible_end_to_end
-  started_at: 2026-09-19T18:55:03.541932Z
-  completed_at: 2026-09-19T18:58:09.972941Z
-- id: t55
-  title: Round-trip all seven envelopes and validated newtypes
-  status: done
-  depends_on:
-  - t54
-  notes: Added cross-crate conformance round trips for all seven v1 envelopes, constructor-invalid newtype serde rejection, unknown tag/field and missing payload rejection, complete collection presence, explicit trace nulls, canonical set order, omitted absent diagnostic options, and string wire adapters for source/span integer-like values; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-19
-  run: cargo nextest run -p rulery all_v01_wire_contracts_round_trip_strictly
-  started_at: 2026-09-19T21:20:48.160507Z
-  completed_at: 2026-09-19T21:26:07.441112Z
-- id: t56
-  title: Enforce cross-cutting safety properties
-  status: done
-  depends_on:
-  - t55
-  notes: Added cross-pipeline conformance for uncertainty strategy boundaries, null/malformed distinction, default eligibility, outcome invariants, ID/order-independent precedence, complete semantic diff inputs, synthetic witnesses, Unknown/Invalid rendering, projection loss rejection, non-overlapping fixes, root-safe paths, and deterministic resource-limit diagnostics; all gates pass.
-  crate_name: rulery
-  completed: 2026-09-19
-  run: cargo nextest run -p rulery normative_safety_properties_hold_across_pipeline
-  started_at: 2026-09-19T21:35:27.900194Z
-  completed_at: 2026-09-19T21:38:41.858704Z
-- id: t57
-  title: Harden the declarative xtask model
-  status: done
-  depends_on:
-  - t56
-  notes: Replaced parallel xtask constants/matches with one typed WorkspaceModel containing root, thirteen crates, and xtask as exact CrateSpec/TargetKind/DependencyRule entries; architecture/bootstrap manifest, target, membership, scaffold, and dependency queries now derive from that model, with LSP absent; all gates pass.
-  crate_name: xtask
-  completed: 2026-09-19
-  run: cargo nextest run -p xtask workspace_model_is_single_architecture_authority
-  started_at: 2026-09-19T23:14:33.500992Z
-  completed_at: 2026-09-19T23:17:43.098424Z
-- id: t58
-  title: Harden bootstrap reconciliation safety
-  status: done
-  depends_on:
-  - t57
-  notes: Implemented WorkspaceFileSystem/HostFileSystem, typed ordered Create/ReplaceGenerated/EditRootManifest plans, generated ownership markers, non-deleting model reconciliation, Apply atomic sibling-temp sync/rename writes, silent Check drift failure, ordered zero-write DryRun, idempotent second plans, and injected atomic-failure safety; all gates pass.
-  crate_name: xtask
-  completed: 2026-09-19
-  run: cargo nextest run -p xtask bootstrap_is_ordered_idempotent_and_non_destructive
-  started_at: 2026-09-20T02:02:36.918580Z
-  completed_at: 2026-09-20T02:09:57.156853Z
-- id: t59
-  title: Harden xtask specification conformance
-  status: done
-  depends_on:
-  - t58
-  notes: Implemented aggregate ordered specification conformance reporting for Markdown headings/links/incomplete markers, YAML/JSON blocks, Rust rustfmt parsing, registry uniqueness, seven schema tags, and four BLAKE3 vectors; scratch is constrained under .ctx/_WORKING_DIR/xtask-conformance and unreadable/process-start failures remain immediate; all gates pass.
-  crate_name: xtask
-  completed: 2026-09-20
-  run: cargo nextest run -p xtask conformance_report_collects_every_specification_failure
-  started_at: 2026-09-20T05:12:45.084808Z
-  completed_at: 2026-09-20T05:18:31.898563Z
-- id: t60
-  title: Harden architecture and fail-fast verification
-  status: done
-  depends_on:
-  - t59
-  notes: Implemented pure typed architecture validation for missing/unexpected/wrong-path/wrong-target packages, forbidden edges and cycle detection, metadata projection through that validator, and injected exact fail-fast verify gates in bootstrap/conformance/architecture/fmt/Clippy/nextest/rustdoc order with cargo doc --workspace --no-deps; all gates pass.
-  crate_name: xtask
-  completed: 2026-09-20
-  run: cargo nextest run -p xtask verify_runs_exact_fail_fast_gate_order
-  started_at: 2026-09-20T05:50:00.507894Z
-  completed_at: 2026-09-20T05:56:23.499695Z
-- id: t61
-  title: Validate stable and typed IDs
-  status: done
-  depends_on:
-  - t5
-  notes: Validated stable IDs, typed wrappers, fact segments, and qualified rule wire format.
-  crate_name: rulery-contracts
-  commit: 69764bf
-  completed: 2026-09-17
-  started_at: 2026-09-17T10:28:40.245379Z
-  completed_at: 2026-09-17T10:38:41.270938Z
-- id: t62
-  title: Validate fact paths and boundary strings
-  status: done
-  depends_on:
-  - t61
-  notes: Added validated fact paths, normalized source locations, package paths, semantic versions, requirements, and language version.
-  crate_name: rulery-contracts
-  commit: 4f1edfe
-  completed: 2026-09-17
-  started_at: 2026-09-17T10:39:42.146159Z
-  completed_at: 2026-09-17T10:44:20.779517Z
-- id: t63
-  title: Implement exact decimal and temporal scalars
-  status: done
-  depends_on:
-  - t62
-  notes: Added canonical decimal, date, instant, duration, timezone identity, and temporal ports.
-  crate_name: rulery-contracts
-  commit: 81b0453
-  completed: 2026-09-17
-  started_at: 2026-09-17T10:47:07.091034Z
-  completed_at: 2026-09-17T10:52:42.740721Z
-- id: t64
-  title: Enforce source map and span invariants
-  status: done
-  depends_on:
-  - t63
-  notes: Added source keys, UTF-8 spans, source maps, deterministic bundles, and integrity wrappers.
-  crate_name: rulery-contracts
-  commit: 3e7b9f5
-  completed: 2026-09-17
-  started_at: 2026-09-17T10:53:09.873723Z
-  completed_at: 2026-09-17T11:01:11.877768Z
-- id: t65
-  title: Model values facts actions and outcomes
-  status: done
-  depends_on:
-  - t64
-  notes: Added typed values, fact states, declarative actions, non-empty reasons and requested facts, and sum-typed outcomes.
-  crate_name: rulery-contracts
-  commit: 499bb15
-  completed: 2026-09-17
-  started_at: 2026-09-17T11:01:29.874842Z
-  completed_at: 2026-09-17T11:06:52.721577Z
-- id: t66
-  title: Initialize Workspace Changelog
-  status: done
-  depends_on: []
-  notes: Added the workspace changelog with an Unreleased section for cargo-rail maintenance.
-  crate_name: workspace
-  commit: 1a74c65
-  completed: 2026-09-17
-  started_at: 2026-09-17T15:54:42.979250Z
-  completed_at: 2026-09-17T15:58:07.008452Z
-- id: t67
-  title: Configure Cargo-Rail Release Policy
-  status: done
-  depends_on:
-  - t66
-  notes: Added strict cargo-rail lockstep release policy for 14 publishable crates; used the installed 0.17.3 strict-schema keys and excluded xtask.
-  crate_name: workspace
-  commit: a69aa37
-  completed: 2026-09-17
-  started_at: 2026-09-18T02:13:18.459105Z
-  completed_at: 2026-09-18T02:15:32.727517Z
-- id: t68
-  title: Add Release Validation And Planning Tasks
-  status: done
-  depends_on:
-  - t67
-  notes: Added mise release gates, post-bootstrap extended checks, and patch-default release planning with pending-plan exit normalization.
-  crate_name: workspace
-  commit: dc41599
-  completed: 2026-09-17
-  started_at: 2026-09-18T03:10:19.179951Z
-  completed_at: 2026-09-18T03:11:47.092213Z
-- id: t69
-  title: Add Release Execution Tasks
-  status: done
-  depends_on:
-  - t68
-  notes: Added main-branch guard, sequential release preflight, PR preparation, finalization, and immediate release tasks with native cargo-rail prompts.
-  crate_name: workspace
-  commit: 4532bbe
-  completed: 2026-09-17
-  started_at: 2026-09-18T03:11:59.001182Z
-  completed_at: 2026-09-18T03:13:28.579758Z
-- id: t70
-  title: Add Interrupted-Release Recovery Tasks
-  status: done
-  depends_on:
-  - t69
-  notes: Added durable-state resume and interactive pre-side-effect abort tasks with required state path arguments.
-  crate_name: workspace
-  commit: 2c1299e
-  completed: 2026-09-17
-  started_at: 2026-09-18T03:13:38.468246Z
-  completed_at: 2026-09-18T03:14:55.036714Z
-- id: cli1
-  title: Preserve complete authored YAML bundle semantics
-  status: done
-  depends_on: []
-  notes: Implemented strict complete authored bundle parsing with canonical fixture, malformed-document, and duplicate-declaration coverage.
-  crate_name: rulery-syntax
-  completed: 2026-09-26
-  started_at: 2026-09-26T08:31:03.664006Z
-  completed_at: 2026-09-26T08:37:09.115205Z
-- id: cli2
-  title: Retain executable rule semantics in IR
-  status: done
-  depends_on:
-  - cli1
-  notes: Retained executable rule, decision, outcome, priority, and precedence semantics in strict compiled-package/v1 IR.
-  crate_name: rulery-ir
-  completed: 2026-09-26
-  started_at: 2026-09-26T08:37:09.123230Z
-  completed_at: 2026-09-26T08:41:11.619493Z
-- id: cli3
-  title: Implement end-to-end package compiler
-  status: done
-  depends_on:
-  - cli2
-  notes: Lowered complete assembled source bundles into populated executable IR and remapped all expanded AST spans.
-  crate_name: rulery-compiler
-  completed: 2026-09-26
-  started_at: 2026-09-26T08:41:11.627009Z
-  completed_at: 2026-09-26T08:45:42.718271Z
-- id: cli4
-  title: Implement package-level decision evaluation
-  status: done
-  depends_on:
-  - cli3
-  notes: >-
-    Added the PolicyEvaluator port and ProductionPolicyEvaluator in rulery-engine, backed by a
-    versioned time-zone database and four-valued fact-validation strategies; all 36 truth-table
-    cells and the relevance and precedence passes are covered by unit tests.
-  crate_name: rulery-engine
-  started_at: 2026-09-26T08:45:42.726081Z
-  completed_at: 2026-09-26T12:10:00Z
-- id: cli5
-  title: Complete analysis and semantic diff services
-  status: done
-  depends_on:
-  - cli4
-  notes: >-
-    Implemented the missing analysis input-extraction layer, which unblocked the v0.1 requirement
-    gate. New crates/analysis/src/extract.rs derives PartitionSpec, RuleAnalysisInput, and
-    CellEvaluation from a CompiledPackage; new crates/analysis/src/facts.rs performs
-    vocabulary-guided case-fact construction; new crates/ir/src/condition.rs provides condition
-    identity and referenced-path collection, which is the Expr walker that did not previously
-    exist. ApplicationService::analyze and ::diff now return real derived reports instead of
-    ApplicationError::AnalysisUnavailable, and the test that asserted the unavailable behaviour
-    has been replaced by analyze_derives_reachability_interaction_and_coverage_findings,
-    analyze_without_explicit_domains_reports_only_presence_states, and
-    diff_derives_outcome_changes_between_compiled_packages. Finite-domain inference treats
-    boolean, enum, and bounded integer as finite and text, list, and record as inconclusive, and
-    an exhausted state budget reports inconclusive without claiming coverage. Requirements V10
-    and S04 through S07 and S09 are now satisfied, and cargo xtask verify passes all seven gates.
-    Design note: docs/designs/2026-09-26-analysis-input-extraction-design.md.
-  crate_name: rulery-analysis
-  run: cargo nextest run -p rulery-analysis -p rulery
-- id: cli6
-  title: Compile and run authored scenarios
-  status: done
-  depends_on:
-  - cli5
-  notes: ScenarioCompiler and ScenarioRunner are implemented with exact result checking against
-    compiled expectations.
-  crate_name: rulery-scenarios
-- id: cli7
-  title: Expose diagnostics and package renderers
-  status: done
-  depends_on:
-  - cli6
-  notes: Json, human, SARIF, and decision-table renderers are implemented with strict projection
-    validation that rejects semantic loss.
-  crate_name: rulery-emit
-- id: cli8
-  title: Compose shared production application
-  status: done
-  depends_on:
-  - cli7
-  notes: >-
-    Added ApplicationService, ProductionApplication, and ApplicationError in the root rulery
-    crate, closing three composition gaps that did not previously exist: AssemblyCompilationInput
-    to SourceCompilationInput lowering with a canonical lock hash, the SourceScenario to
-    ScenarioSource bridge including type-directed literal resolution and root-keyed fact nesting,
-    and a ScenarioEvaluator over ProductionPolicyEvaluator. analyze and diff are
-    typed-unavailable per cli5. Four unit tests cover fact nesting, conflict rejection, outcome
-    mapping, and explicit analysis failure.
-  crate_name: rulery
-  run: cargo nextest run -p rulery
-- id: cli9
-  title: Implement unified CLI command dispatch
-  status: done
-  depends_on:
-  - cli8
-  notes: >-
-    The binary now executes. New crates/cli/src/runtime.rs supplies the production ArtifactPorts
-    and CommandPorts implementations over the root crate's ApplicationService, and dispatch.rs,
-    report.rs, findings.rs, facts.rs, and error.rs implement the seven fully specified commands
-    with the complete nine-row exit matrix at specification lines 3029-3041, first match wins, and
-    main.rs converts the resolved ExitStatus to a process exit code. Observed: check --format json
-    exits 0 with a DiagnosticReportEnvelope, check --format sarif emits SARIF 2.1.0, explain emits
-    a real human explanation derived from evaluation, render emits markdown, a
-    CompiledPackageEnvelope, and a DecisionTableEnvelope, test emits a scenario-result array,
-    analyze exits 6 when coverage is incomplete, an invalid format or unknown decision exits 2, a
-    missing path exits 3, a stale frozen lock exits 1, and a failing scenario exits 5. Human and
-    JSON formats map the same result to the same code. init and fmt are deferred to cli18 because
-    the specification does not determine them.
-  crate_name: rulery-cli
-  run: cargo nextest run -p rulery-cli
-- id: cli10
-  title: Lock process-level CLI contracts
-  status: done
-  depends_on:
-  - cli9
-  notes: >-
-    Added crates/cli/tests/process_contract.rs, the first suite that observes a finished process
-    rather than a library return value, plus a unit table in crates/cli/src/exit.rs. Nine tests pin
-    the contracts the specification states but no test covered: the exit-condition matrix by
-    observed code for thirteen command and format combinations, including analysis exit 6 and
-    invalid invocation exit 2; stderr-only reporting with an empty stdout for every argument-parse
-    failure; exactly one versioned envelope on stdout with empty stderr for machine formats; the
-    documented ScenarioResultEnvelope array as test's one exception to that rule; one SARIF 2.1.0
-    log that is not a Rulery envelope; the rule that no read-only command writes a file, checked by
-    comparing a sorted path-and-bytes snapshot of the fixture tree before and after each command;
-    the safety requirement that trace persistence is opt-in, checked the same way after explain; and
-    the normative MUST that environment variables must not change lock mode, checked by perturbing
-    a copied lock and running with a cleared environment plus CI, CONTINUOUS_INTEGRATION,
-    RULERY_FROZEN, and RULERY_LOCK_MODE, where Update must still tolerate the stale lock and Frozen
-    must still report it. The new crate tests directory is the first under any workspace member, so
-    CARGO_BIN_EXE_rulery is what makes a real process observable. Also renamed
-    ExitStatus::AnalysisInconclusive to AnalysisIncomplete to match the exit table and the
-    2026-09-23 design note, which both spell it that way. Every lock was mutation-checked on a
-    verified fresh build: breaking one exit code and forcing lock_of to ignore --frozen each fail
-    the suite. Two findings from that check. First, Command::lock_mode in crates/cli/src/args.rs is
-    public but has no production caller; dispatch.rs decides lock mode through its own private
-    lock_of, so the public accessor and the shipped behaviour can drift apart unobserved. Second,
-    target/debug/rulery was stale and did not match the working tree: it flipped Update mode to
-    Frozen whenever CI was present, which looked like a violation of the no-implicit-CI-detection
-    MUST, and cargo clean -p rulery-cli removed the behaviour. The fmt gate was also already red on
-    the untracked dispatch.rs from cli9, so the previous session's clean and passing report did not
-    hold. cargo xtask verify passes all seven gates with 109 tests.
-  crate_name: rulery-cli
-  run: cargo nextest run -p rulery-cli process_contract
-  completed: '2026-09-26'
-- id: cli11
-  title: Update CLI integration documentation
-  status: done
-  depends_on:
-  - cli10
-  notes: >-
-    Four claims in README.md and one in AGENTS.md still described a CLI that only parses
-    arguments, and all five were false as of cli9. README Status said the binary "only parses
-    arguments; command dispatch is not yet connected in main"; the build section called dispatch
-    "a stub"; the quickstart called the CLI "not-yet-wired"; and the whole CLI Surface section was
-    framed as "intended operation" with a bold "Dispatch warning" that the commands "exit without
-    performing their intended operations". All four README claims are replaced with what the binary
-    does. The CLI Surface section is rewritten as actual behavior: a per-command table with the
-    formats each command really emits, the lock-mode rules including that environment variables
-    never change lock mode, the full seven-row exit-status table, and new subsections on scaffolding
-    and formatting. Every command in the rewritten documentation was run before it was written, and
-    the explain, init, check, and fmt --check invocations are transcribed from real output. AGENTS.md
-    had the same staleness in its Gotchas section as a hard instruction not to assume CLI commands
-    execute, which would have actively misled the next agent; it now records that dispatch is wired,
-    that process_contract.rs is where a process-boundary change belongs, and three further gotchas
-    discovered while implementing cli10 and cli18: that the fmt emitter is defined over the parsed
-    document rather than the lowered AST, that target/debug/rulery can be stale enough to report a
-    spec violation that does not exist, and that Command::lock_mode is public with no production
-    caller. The Tests section now documents the crate-level integration suite and its env_clear
-    requirement. A repo-wide search for the stale phrasings returns nothing.
-  crate_name: rulery
-  completed: '2026-09-26'
-- id: cli12
-  title: Run full repository verification
-  status: done
-  depends_on:
-  - cli11
-  notes: >-
-    cargo xtask verify passes all seven gates in order, with 120 tests across 32 binaries and no
-    failures: bootstrap check, conformance, architecture, fmt, clippy with warnings denied,
-    nextest, and rustdoc. This run is the final state including the cli11 documentation changes, so
-    it covers every edit from cli10, cli18, and cli11. The only warning is the pre-existing cargo
-    doc output-filename collision between the rulery lib target and the rulery-cli bin target,
-    which is cargo issue 6313 and not a gate failure. Nothing is committed; the working tree holds
-    the full v0.1 CLI work uncommitted.
-  crate_name: rulery
-  run: cargo xtask verify
-  completed: '2026-09-26'
-- id: cli13
-  title: Cover the evaluation path with real tests
-  status: done
-  depends_on:
-  - cli8
-  notes: >-
-    Added five engine-level tests in crates/engine/src/policy_evaluator.rs covering a decisive
-    rule, default fallback, unknown-decision rejection, invalid-fact strategy application, and
-    reproducibility for one instant and database identity, plus five application-level tests in
-    src/application.rs driving evaluate_at and run_scenarios through the trait and asserting real
-    outcome, trace, reason, and scenario-status content. A fixed timezone database fake and a
-    fixed UtcInstant keep every assertion deterministic. This is the gate named by requirement V05
-    in the specification traceability table.
-  crate_name: rulery-engine
-  run: cargo nextest run -p rulery-engine -p rulery
-- id: cli14
-  title: Resolve the two unimplemented static checks
-  status: done
-  depends_on:
-  - cli8
-  notes: >-
-    Investigated and closed without implementation, because neither code has a reachable trigger.
-    RUL151 DEFAULT_OUTCOME_MISSING: a decision default is required by the authored grammar and is
-    non-optional in both SourceDecision and CompiledDecision; crates/syntax/src/yaml/dto.rs:78
-    declares it without serde(default), so an absent default is already reported as RUL001 at
-    parse time and a malformed one as RUL001 via crates/syntax/src/yaml/mod.rs:747-755.
-    RUL150 UNKNOWN_FACT_POLICY_UNHANDLED: the spec gives only a registry row at
-    docs/specification.md:2420 and no normative definition. Reading it as an unapplied policy is
-    unreachable because MissingFactStrategy is a closed four-variant enum, and reading it as an
-    unhandled fact duplicates RUL252, which the analyzer already emits. Both codes are now
-    documented as reserved in the specification. The two requirement bullets are satisfied by
-    RUL001 and RUL252 respectively, so requirement S08 is satisfied and S04 remains blocked only
-    on the cli5 analysis bridge.
-  crate_name: rulery-analysis
-- id: cli16
-  title: Gate the v0.1 requirement list in the specification
-  status: done
-  depends_on:
-  - cli13
-  notes: >-
-    Added the normative twelve-requirement list and two traceability tables to
-    docs/specification.md under "Versioned requirement traceability", and xtask::check_requirements
-    in xtask/src/conformance.rs, which runs inside the existing conformance gate. The gate rejects
-    a specification that omits any of V01-V12 or S01-S09, names a verification test that does not
-    exist in the workspace, or leaves any row not satisfied. Three unit tests cover the accept,
-    reject, and real-specification paths. The gate is red on exactly six rows, V10 and
-    S04/S05/S06/S07/S09, all of which trace to the cli5 analysis input-extraction gap; every other
-    row is satisfied and every named test exists.
-  crate_name: xtask
-  run: cargo nextest run -p xtask
-- id: cli17
-  title: Support record-valued authored literals in scenario facts
-  status: done
-  depends_on:
-  - cli15
-  notes: >-
-    Fixed by making the authored literal structure-preserving instead of flattening it to text.
-    SourceOperand::Literal now carries a new SourceValue in crates/syntax/src/ast.rs with Scalar,
-    Null, Sequence, and Mapping variants, and the parser builds it from the authored YAML instead
-    of calling render. The compiler's literal() and the scenario bridge's new recursive decode()
-    in src/application.rs both consume it. The bridge now handles records and lists by resolving
-    each nested entry against the declared vocabulary type, and resolve() synthesizes
-    TypeDeclaration::Primitive for the eleven built-in identities, which are named by identity and
-    never declared, so date, integer, and text leaves resolve. The compiler decoder was also
-    extended to the full scalar set and lists; a record literal remains unsupported there because
-    CheckedType has no record variant, which is a type-system boundary rather than a literal gap.
-    Locked in by canonical_scenario_compiles_and_passes_with_record_facts, and `rulery test
-    examples/tool-library --frozen` now emits a passing ScenarioResultEnvelope whose trace shows
-    the nested member.training record decoded.
-  crate_name: rulery-syntax
-  run: cargo nextest run -p rulery-syntax -p rulery
-- id: cli18
-  title: Define the init scaffold and the fmt canonical form
-  status: done
-  depends_on:
-  - cli9
-  notes: >-
-    Unblocked by amending the specification rather than deferring, and both commands are now
-    implemented. Two new sections under ## CLI: "Scaffolded package" and "Canonical authored
-    form", plus two entries in the table of contents and one added bullet in the conformance gate
-    list. The registry stays at exactly 40 codes, so fmt reports a comment removal as a change
-    through the existing fmt --check row of the exit matrix rather than through a diagnostic.
-    Scaffolded package: init writes exactly the five paths Exact file layout already required,
-    never a lock, refuses a non-empty destination, and derives the package identity from the
-    destination directory name by lowercasing, collapsing rejected-character and hyphen runs to a
-    single -, trimming boundary hyphens, and falling back to package. The scaffold is a valid
-    package: rulery check on a fresh destination reports no diagnostic. Canonical authored form is
-    defined over the parsed document rather than over the lowered source AST, so a document that
-    omits a defaulted field keeps omitting it and fmt never inserts a field the author did not
-    author; keys are sorted into ascending canonical-text order; indentation is two spaces with
-    block sequences aligned to their owning key; typed booleans and numbers render unquoted while
-    only strings that the core schema would retype are quoted; empty collections use flow form;
-    comments are dropped, which is a change and not an error; the form is idempotent.
-    Implementation: new crates/cli/src/canonical.rs is the emitter, new crates/cli/src/scaffold.rs
-    holds the templates, and HostWorkflow gains scaffold, source_files, canonicalize_sources,
-    canonicalize_file, and write_source. Scaffold templates are written in a readable order and
-    rendered through the emitter, so a fresh scaffold is canonical by construction rather than by
-    hand-ordering. The two rationale constants are deleted and the CommandPorts stubs now
-    implement both commands, so run_write_command no longer reports them unavailable. fmt FILE
-    reports canonical bytes on stdout and leaves the file untouched, matching the pre-existing
-    output-contract table; fmt PACKAGE rewrites in place; fmt --check writes nothing and exits 1
-    on any difference. Two design corrections found while implementing. Authored key order was
-    rejected because SourceValue::Mapping is a BTreeMap and has already discarded key order, so
-    preserving it would have meant an AST change reaching rulery-syntax, rulery-compiler, and
-    src/application.rs; sorted order is the order the AST already stores. The spec text first said
-    canonical form was defined over the source AST, which would have forced fmt to fill in
-    defaulted fields, so it was corrected to the parsed document before implementation. Twelve new
-    tests, including four process-level ones that spawn the binary. cargo xtask verify passes all
-    seven gates with 120 tests.
-  crate_name: rulery-cli
-  run: cargo nextest run -p rulery-cli
-  completed: '2026-09-26'
-- id: cli15
-  title: Make the tool-library conformance test actually evaluate
-  status: done
-  depends_on:
-  - cli13
-  notes: >-
-    rulery::tool_library_explain now drives a real pipeline: PackageAssembler with Frozen lock
-    mode, PolicyCompiler::compile_source, vocabulary-guided conversion of the case file into
-    typed CaseFacts, and ProductionPolicyEvaluator over a pinned policy calendar. Outcome,
-    determining rule, policy date, hashes, reasons, conditions, and superseded rules are all read
-    back from the returned DecisionTraceV1 rather than authored as literals, and the authored
-    scenario expectation is compared structurally instead of by substring. The test was renamed to
-    tool_library_explain_is_reproducible_end_to_end and its file to
-    tests/conformance/tool_library_explain.rs because it never touched the CLI. The canonical
-    explanation fixture, the human.rs canonical-text assertion, the specification's normative text
-    block, and README.md were regenerated together. crates/emit/src/lib.rs:3 no longer claims the
-    crate renders traces when it imports nothing from rulery-engine except Truth.
-  crate_name: rulery
+  - id: t1
+    title: workspace exposes approved crate topology
+    status: done
+    depends_on: []
+    notes: Scaffold manifests and minimal entry points only; no domain implementation.
+    started_at: 2026-09-17T00:00:00Z
+    completed_at: 2026-09-17T00:00:00Z
+  - id: t2
+    title: xtask exposes complex repository workflows
+    status: done
+    depends_on:
+      - t1
+    notes: Expose bootstrap, conformance, architecture, and verify commands.
+    started_at: 2026-09-17T00:00:00Z
+    completed_at: 2026-09-17T00:00:00Z
+  - id: t3
+    title: xtask validates workspace architecture
+    status: done
+    depends_on:
+      - t2
+    notes: Use the declarative workspace model and Cargo metadata.
+    started_at: 2026-09-17T00:00:00Z
+    completed_at: 2026-09-17T00:00:00Z
+  - id: t4
+    title: xtask validates normative specification
+    status: done
+    depends_on:
+      - t3
+    notes: Check document structure, registry, envelopes, and BLAKE3 vectors.
+    started_at: 2026-09-17T00:00:00Z
+    completed_at: 2026-09-17T00:00:00Z
+  - id: t5
+    title: xtask checks workspace bootstrap drift
+    status: done
+    depends_on:
+      - t4
+    notes: Reconcile missing generated crate manifests and entry points.
+    started_at: 2026-09-17T00:00:00Z
+    completed_at: 2026-09-17T00:00:00Z
+  - id: t6
+    title: Reproduce canonical hash and integrity vectors
+    status: done
+    depends_on:
+      - t5
+    notes: Added strict ContentHash parsing, domain-separated framing, EvaluationId, and all four fixed BLAKE3 vectors.
+    crate_name: rulery-contracts
+    commit: d22938b
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-contracts canonical_hash_vectors_match_specification
+    started_at: 2026-09-17T11:07:48.154638Z
+    completed_at: 2026-09-17T11:13:06.365595Z
+  - id: t7
+    title: Define lock contracts
+    status: done
+    depends_on:
+      - t6
+    notes: Added sorted duplicate-free RulebookLockV1 payloads and strict versioned envelopes.
+    crate_name: rulery-contracts
+    commit: d629660
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-contracts lock_envelope_requires_sorted_complete_payload
+    started_at: 2026-09-17T11:14:19.236377Z
+    completed_at: 2026-09-17T11:19:24.364692Z
+  - id: t8
+    title: Implement diagnostic codes and the 40-code registry
+    status: done
+    depends_on:
+      - t7
+    notes: Added strict diagnostic code parsing, all 40 v0.1 definitions, family fallback, severity, producer, suppression, and evidence metadata.
+    crate_name: rulery-diagnostics
+    commit: 456b7ef
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-diagnostics registry_contains_exact_v01_definitions
+    started_at: 2026-09-17T11:19:39.987471Z
+    completed_at: 2026-09-17T11:28:44.220715Z
+  - id: t9
+    title: Validate diagnostics evidence and fixes
+    status: done
+    depends_on:
+      - t8
+    notes: Added validated diagnostic/fix model builders with registry-enforced evidence and deterministic edit ordering, plus invariant contract coverage in diagnostics unit tests.
+    crate_name: rulery-diagnostics
+    run: cargo nextest run -p rulery-diagnostics diagnostic_builder_enforces_registry_invariants
+    started_at: 2026-09-17T11:35:57.863492Z
+    completed_at: 2026-09-17T11:49:08.059748Z
+  - id: t10
+    title: Version diagnostic reports
+    status: done
+    depends_on:
+      - t9
+    notes: Added strict DiagnosticReportV1 and envelope wire contracts with deny-unknown-fields, deterministic diagnostic ordering, and conformance tests for schema, required fields, optional omission, and empty collections.
+    crate_name: rulery-diagnostics
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-diagnostics diagnostic_report_envelope_is_strict_v1
+    started_at: 2026-09-17T11:59:13.466896Z
+    completed_at: 2026-09-17T11:59:58.246543Z
+  - id: t11
+    title: Define the complete source AST
+    status: done
+    depends_on:
+      - t10
+    notes: Added complete format-neutral source AST declarations, parse error types, and parser trait with span-bearing conditions/effects plus source_ast_represents_every_authored_form contract test.
+    crate_name: rulery-syntax
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-syntax source_ast_represents_every_authored_form
+    started_at: 2026-09-17T12:24:35.132054Z
+    completed_at: 2026-09-17T12:38:34.754888Z
+  - id: t12
+    title: Reject unsafe YAML constructs
+    status: done
+    depends_on:
+      - t11
+    notes: Added strict YAML parser modules with forbidden-construct rejection, deny-unknown-field DTO decoding, span mapping, and noncanonical construct contract tests.
+    crate_name: rulery-syntax
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-syntax yaml_parser_rejects_noncanonical_constructs
+    started_at: 2026-09-17T12:38:34.762436Z
+    completed_at: 2026-09-17T12:38:58.487258Z
+  - id: t13
+    title: Parse manifest semantics and outcomes
+    status: done
+    depends_on:
+      - t12
+    notes: Implemented manifest DTO conversion and semantic validation for language, timezone, import aliases, outcome-shape constraints, and non-empty decision/rule requirements.
+    crate_name: rulery-syntax
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-syntax manifest_semantics_enforce_exact_shapes
+    started_at: 2026-09-17T12:38:58.492318Z
+    completed_at: 2026-09-17T12:39:04.892589Z
+  - id: t14
+    title: Parse vocabulary and actions
+    status: done
+    depends_on:
+      - t13
+    notes: Implemented vocabulary/action DTO validation with defaults and constraints for roots, enums, lists, terms, parameter required defaults, and primitive redeclaration rejection.
+    crate_name: rulery-syntax
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-syntax vocabulary_and_actions_apply_normative_defaults
+    started_at: 2026-09-17T12:39:04.898524Z
+    completed_at: 2026-09-17T12:39:11.243173Z
+  - id: t15
+    title: Parse rules operands and scenarios
+    status: done
+    depends_on:
+      - t14
+    notes: Implemented rule and scenario DTO conversion with exhaustive condition-form validation, operator arity checks, operand tagging rules, span preservation, and null literal retention.
+    crate_name: rulery-syntax
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-syntax rules_and_scenarios_enforce_exhaustive_grammar
+    started_at: 2026-09-17T12:39:11.250199Z
+    completed_at: 2026-09-17T12:40:50.020764Z
+  - id: t16
+    title: Resolve vocabulary declarations and terms
+    status: done
+    depends_on:
+      - t15
+    notes: Implemented deterministic resolved vocabulary model and resolver with built-in redeclaration guards, reference validation, cycle detection, and term-path checks.
+    crate_name: rulery-vocabulary
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-vocabulary vocabulary_resolution_is_typed_and_deterministic
+    started_at: 2026-09-17T12:40:50.026007Z
+    completed_at: 2026-09-17T12:44:11.206069Z
+  - id: t17
+    title: Validate supplied facts structurally
+    status: done
+    depends_on:
+      - t16
+    notes: Implemented structural fact validation preserving absent/null/malformed states with deterministic issue ordering; all workspace gates pass (fmt, clippy -D warnings, nextest workspace).
+    crate_name: rulery-vocabulary
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-vocabulary fact_validation_preserves_absent_null_and_malformed
+    started_at: 2026-09-17T12:44:11.211284Z
+    completed_at: 2026-09-17T12:45:43.605672Z
+  - id: t18
+    title: Define checked IR and compiled package wire data
+    status: done
+    depends_on:
+      - t17
+    notes: Defined checked IR expression model, compiled decision/action/package contracts, strict v1 envelope, canonical content hashing, and rejection of duplicate identities/unknown fields/hash mismatch with passing contract and workspace gates.
+    crate_name: rulery-ir
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-ir compiled_package_wrapper_rejects_invalid_payloads
+    started_at: 2026-09-17T12:45:56.178173Z
+    completed_at: 2026-09-17T12:51:21.205426Z
+  - id: t19
+    title: Load exact local source bundles
+    status: done
+    depends_on:
+      - t18
+    notes: Implemented filesystem package store with required layout enforcement, deterministic source selection, UTF-8 validation, symlink/root escape rejection, and exact bundle integrity framing; targeted and workspace gates pass.
+    crate_name: rulery-store
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-store filesystem_store_selects_exact_authored_layout
+    started_at: 2026-09-17T12:51:26.964733Z
+    completed_at: 2026-09-17T12:55:03.184996Z
+  - id: t20
+    title: Resolve imports and persist locks atomically
+    status: done
+    depends_on:
+      - t19
+    notes: Implemented local-only import resolution, strict lock loading, and atomic lock writes via temporary sibling + rename with injected failure coverage and no partial destination; targeted and workspace gates pass.
+    crate_name: rulery-store
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-store imports_stay_local_and_lock_writes_are_atomic
+    started_at: 2026-09-17T12:55:08.946226Z
+    completed_at: 2026-09-17T15:37:40.535140Z
+  - id: t21
+    title: Validate and resolve compiler symbols
+    status: done
+    depends_on:
+      - t20
+    notes: Added compiler symbol resolution/validation pipeline with deterministic diagnostics for duplicate declarations, unknown symbols, invalid fact paths, undefined terms, qualification mismatch, and override rationale requirements; package is None when errors exist; targeted and workspace gates pass.
+    crate_name: rulery-compiler
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-compiler compiler_rejects_duplicate_and_unknown_symbols
+    started_at: 2026-09-17T15:37:45.094131Z
+    completed_at: 2026-09-17T15:40:57.326355Z
+  - id: t22
+    title: Type-check operators literals and actions
+    status: done
+    depends_on:
+      - t21
+    notes: Added operator/literal/action typechecking with matrix coverage for equality, ordering, contains, text predicates, temporal operators, reserved today/now typing, enum identity compatibility, and action argument validation; emits RUL005 on mismatches; targeted and workspace gates pass.
+    crate_name: rulery-compiler
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-compiler typechecker_enforces_operator_matrix
+    started_at: 2026-09-17T15:41:03.367902Z
+    completed_at: 2026-09-17T15:43:35.458471Z
+  - id: t23
+    title: Normalize conditions and compute specificity
+    status: done
+    depends_on:
+      - t22
+    notes: Implemented canonical condition normalization, empty all/any constant lowering with advisories, duplicate predicate exclusion, exact checked specificity formula, temporal/range weighting, stable child ordering, and overflow errors; targeted and workspace gates pass.
+    crate_name: rulery-compiler
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-compiler specificity_uses_exact_checked_formula
+    started_at: 2026-09-17T15:43:40.321802Z
+    completed_at: 2026-09-17T16:46:02.255294Z
+  - id: t24
+    title: Lower and hash deterministic compiled packages
+    status: done
+    depends_on:
+      - t23
+    notes: Implemented deterministic lowering into complete compiled package payloads with retained vocabulary/source map/integrity/compiler/language data, static override rank, canonical hash inputs omitting only package_hash, deterministic bytes across insertion order, and error-gated package output; all gates pass.
+    crate_name: rulery-compiler
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery-compiler compilation_is_byte_deterministic
+    started_at: 2026-09-17T16:46:10.379626Z
+    completed_at: 2026-09-17T16:54:00.382485Z
+  - id: t25
+    title: Assemble import graphs and remap spans
+    status: done
+    depends_on:
+      - t24
+    notes: Implemented generic recursive package assembly over store/parser ports with sorted DFS traversal, identical-package deduplication, cycle/ID/version/location/content conflict detection, bounded graph traversal, root-only scenarios, package/path-sorted global source keys from zero, complete AST span remapping, merged source map, and integrity closure; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-17
+    run: cargo nextest run -p rulery assembly_traverses_and_remaps_deterministically
+    started_at: 2026-09-17T16:54:08.043969Z
+    completed_at: 2026-09-17T20:07:02.240765Z
+  - id: t26
+    title: Enforce Update and Frozen lock modes
+    status: done
+    depends_on:
+      - t25
+    notes: "Implemented exact Update/Frozen lock policy: Update accepts absent/stale locks and proposes a complete sorted replacement without writes; Frozen requires locks, accepts only exact closure matches, never proposes writes, and maps missing/stale/import hash failures to RUL502/RUL500/RUL501; all gates pass."
+    crate_name: rulery
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery assembly_enforces_lock_modes_exactly
+    started_at: 2026-09-17T20:07:08.604073Z
+    completed_at: 2026-09-18T20:10:07.253060Z
+  - id: t27
+    title: Implement four-valued logic tables
+    status: done
+    depends_on:
+      - t26
+    notes: Implemented exact four-valued Truth AND/OR/NOT tables across all 36 cells, preserving Unknown versus Invalid and enforcing False/True dominance; all gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine truth_tables_match_all_36_cells
+    started_at: 2026-09-18T20:10:26.433960Z
+    completed_at: 2026-09-18T20:11:47.822064Z
+  - id: t28
+    title: Evaluate fact-state predicates
+    status: done
+    depends_on:
+      - t27
+    notes: Implemented fact operand lookup retaining requested paths and malformed validation errors, plus exact unary is_absent/is_present/is_valid/is_invalid behavior across absent/null/malformed/valid states; all gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine presence_predicates_distinguish_all_fact_states
+    started_at: 2026-09-18T20:11:52.318336Z
+    completed_at: 2026-09-18T20:14:18.450048Z
+  - id: t29
+    title: Evaluate equality ordering text and list operators
+    status: done
+    depends_on:
+      - t28
+    notes: Implemented type-strict structural equality/inequality, scalar ordering, Unicode text contains/prefix/suffix, typed list containment, non-empty is_one_of, and decisive negated operators preserving Unknown/Invalid; all gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine operators_are_structural_type_strict_and_unicode_based
+    started_at: 2026-09-18T20:14:22.494454Z
+    completed_at: 2026-09-18T20:17:35.668775Z
+  - id: t30
+    title: Implement time adapters and temporal predicates
+    status: done
+    depends_on:
+      - t29
+    notes: Implemented SystemClock/FixedClock, Jiff timezone conversion with recorded identity and typed errors, traced now/today clock values, same-type temporal comparisons, inclusive/exclusive expiry, and unexpired negation across DST-local dates; all gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine temporal_predicates_use_policy_local_date
+    started_at: 2026-09-18T20:17:42.771351Z
+    completed_at: 2026-09-18T20:21:31.001769Z
+  - id: t31
+    title: Apply missing and invalid strategies
+    status: done
+    depends_on:
+      - t30
+    notes: Implemented missing/invalid strategy handling with ClosedWorldFalse pre-composition adjustment, preserve/reject modes, sorted missing/invalid path aggregation, exact generated reasons/messages, semantic-key candidate aggregation, equal-key destination merging, and strategy trace records; all gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine strategies_create_exact_candidates_and_reasons
+    started_at: 2026-09-18T20:21:35.478502Z
+    completed_at: 2026-09-18T20:25:24.946460Z
+  - id: t32
+    title: Select candidates by exact semantic precedence
+    status: done
+    depends_on:
+      - t31
+    notes: Implemented validated explicit outcome ranks, exact SafetyFirst/PriorityFirst/ExplicitOutcome/ExplicitPriority semantic keys, greatest-key selection, override-rank ordering, deterministic determining/superseded presentation, identical-outcome merging, and conflict traces without rule-identity tie-breaking; targeted and workspace gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine precedence_excludes_rule_identity_and_preserves_conflict
+    started_at: 2026-09-18T20:25:33.504871Z
+    completed_at: 2026-09-18T20:39:55.968489Z
+  - id: t33
+    title: Compute decision-relevant uncertainty
+    status: done
+    depends_on:
+      - t32
+    notes: Implemented maximum-completion relevance classification against the best decisive semantic key, equal-key outcome compatibility checks, relevant-only strategy observation filtering, trace-preserving classifications, and default eligibility rules; targeted RED/GREEN and workspace gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine unresolved_rules_only_displace_when_completion_can_change_result
+    started_at: 2026-09-18T21:14:37.989250Z
+    completed_at: 2026-09-18T21:16:51.846219Z
+  - id: t34
+    title: Build deterministic complete and compact traces
+    status: done
+    depends_on:
+      - t33
+    notes: Implemented strict deterministic decision trace data and envelope, success/conflict invariants, complete logical trace hashing excluding trace_hash, exact five-part evaluation IDs, canonical ordering, explicit null outcome/conflict fields, short-circuit placeholders, and compact projection sharing the complete hash; all gates pass.
+    crate_name: rulery-engine
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-engine trace_modes_share_complete_logical_hash
+    started_at: 2026-09-18T21:28:37.264782Z
+    completed_at: 2026-09-18T21:34:11.639051Z
+  - id: t35
+    title: Compile typed scenarios
+    status: done
+    depends_on:
+      - t34
+    notes: Implemented typed root-scenario compilation with decision/rule/fact reference resolution, ergonomic typed facts, complete expected fields, deterministic RUL301/RUL302 diagnostics, invalid-scenario omission, imported-scenario rejection, and IR package query helpers; all gates pass.
+    crate_name: rulery-scenarios
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-scenarios scenario_compiler_resolves_every_expectation_field
+    started_at: 2026-09-18T21:34:29.260296Z
+    completed_at: 2026-09-18T21:40:49.586703Z
+  - id: t36
+    title: Run exact scenario comparisons
+    status: done
+    depends_on:
+      - t35
+    notes: Implemented exact scenario execution via evaluator port with scenario-fixed time, four ordered set-exact expectation comparisons and expected/actual JSON, Passed/Failed/Invalid/Error mapping, validated result invariants, and strict scenario-result/v1 envelope; all gates pass.
+    crate_name: rulery-scenarios
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-scenarios scenario_runner_reports_all_exact_mismatches
+    started_at: 2026-09-18T21:41:26.459445Z
+    completed_at: 2026-09-18T21:45:25.541134Z
+  - id: t37
+    title: Build finite decision partitions
+    status: done
+    depends_on:
+      - t36
+    notes: Implemented canonical finite decision partitions with AnalysisOptions defaults, Boolean/enum/presence/integer boundary cells, deterministic interval representatives, explicit finite overrides, unsupported-domain incompleteness, vocabulary-unsatisfiable cell removal, and lexicographic Cartesian ordering; all gates pass.
+    crate_name: rulery-analysis
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-analysis partitions_follow_canonical_finite_domain_rules
+    started_at: 2026-09-18T21:45:48.364901Z
+    completed_at: 2026-09-18T21:49:21.557659Z
+  - id: t38
+    title: Enforce analysis budgets and minimal witnesses
+    status: done
+    depends_on:
+      - t37
+    notes: Implemented global state budget accounting with immediate zero-budget inconclusive results, zero-cost cache hits, persistent exhaustion, exact examined/limit reporting, and deterministic deletion-minimized synthetic witnesses with fixed replay context and CaseFactsV1 hashing; all gates pass.
+    crate_name: rulery-analysis
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-analysis budgets_stop_before_overrun_and_witnesses_replay
+    started_at: 2026-09-18T21:49:28.173861Z
+    completed_at: 2026-09-18T21:51:34.662965Z
+  - id: t39
+    title: Analyze reachability and interactions
+    status: done
+    depends_on:
+      - t38
+    notes: Implemented deterministic reachability and pairwise interaction passes with reachable witnesses, unreachable proof certificates, inconclusive states, precedence-based compatible/conflict/shadowed classifications, redundancy and explicit-override detection, and stable RUL200-RUL204 findings; all gates pass.
+    crate_name: rulery-analysis
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-analysis interaction_findings_are_sound_and_evidenced
+    started_at: 2026-09-18T22:06:00.646403Z
+    completed_at: 2026-09-18T22:11:20.427182Z
+  - id: t40
+    title: Compute exact finite coverage
+    status: done
+    depends_on:
+      - t39
+    notes: Implemented exact finite coverage over satisfiable cells, non-default decisive numerator rules, uncertainty/conflict exclusions, zero-denominator 10000 basis points, incomplete percentage suppression, exact per-rule reached/determining counts, uncovered witnesses, and RUL250-RUL254 category diagnostics; all gates pass.
+    crate_name: rulery-analysis
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-analysis coverage_uses_satisfiable_partition_denominator
+    started_at: 2026-09-18T22:11:32.646304Z
+    completed_at: 2026-09-18T22:13:58.096664Z
+  - id: t41
+    title: Produce semantic diffs
+    status: done
+    depends_on:
+      - t40
+    notes: Implemented semantic diff classification over paired union-partition evaluations with all seven outcome change kinds, structural evidence across defaults/precedence/strategies/time/vocabulary/imports/reasons/facts/actions, paired witnesses, exact RUL350-RUL354 mapping, and budget-exhaustion incompleteness without unchanged claims; all gates pass.
+    crate_name: rulery-analysis
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-analysis semantic_diff_reports_every_normative_change_class
+    started_at: 2026-09-18T22:29:33.111875Z
+    completed_at: 2026-09-18T22:31:35.499268Z
+  - id: t42
+    title: Version complete analysis reports
+    status: done
+    depends_on:
+      - t41
+    notes: Implemented complete deterministic analysis-report/v1 payload and strict envelope with package/options/completeness/diagnostics/reachability/overlaps/coverage/witnesses/diffs always present, canonical section ordering, missing/unknown field rejection, validated wrapper, and analyzer port; all gates pass.
+    crate_name: rulery-analysis
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-analysis analysis_report_envelope_contains_all_sections
+    started_at: 2026-09-18T22:39:40.656238Z
+    completed_at: 2026-09-18T22:39:47.052069Z
+  - id: t43
+    title: Render JSON envelopes without semantic drift
+    status: done
+    depends_on:
+      - t42
+    notes: Implemented generic typed ArtifactRenderer and deterministic JsonRenderer that emits exactly one top-level object without progress bytes, preserves explicit null/scalar strings and stable ordering, rejects ordinary arrays, and supports only explicit scenario-result array rendering; all gates pass.
+    crate_name: rulery-emit
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-emit json_renderer_emits_one_strict_typed_artifact
+    started_at: 2026-09-18T22:46:39.596254Z
+    completed_at: 2026-09-18T22:48:36.679Z
+  - id: t44
+    title: Render human and Markdown explanations
+    status: done
+    depends_on:
+      - t43
+    notes: Implemented byte-exact canonical human explanation rendering through evidence lines, UTC RFC3339 nanosecond display, policy date/timezone and stable none summaries, generic human diagnostics/analysis/scenario lines, and ascending Markdown truth rendering that preserves Unknown and Invalid; all gates pass.
+    crate_name: rulery-emit
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-emit human_explain_matches_canonical_tool_library_text
+    started_at: 2026-09-18T22:51:07.359665Z
+    completed_at: 2026-09-18T22:54:30.939957Z
+  - id: t45
+    title: Render decision tables and SARIF safely
+    status: done
+    depends_on:
+      - t44
+    notes: Implemented strict decision-table/v1 declarations and single-decision lowering with columns/rows/cells/source references, deterministic SARIF 2.1.0 diagnostics and locations, and RUL400/RUL401 semantic-loss detection for unsupported outcomes, uncertainty, actions, and reasons without denial reinterpretation; all gates pass.
+    crate_name: rulery-emit
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-emit projections_reject_semantic_loss
+    started_at: 2026-09-18T22:55:52.758322Z
+    completed_at: 2026-09-18T22:59:27.460854Z
+  - id: t46
+    title: Compose facade workflows and complete ports
+    status: done
+    depends_on:
+      - t45
+    notes: Implemented generic facade composition with exact store/parse/assembly/remap/compiler/root-scenario order, compile workflow output, delegated evaluate/analyze/diff/scenario methods that consume compiled packages without reopening files, curated exports, and RUL205 conflict evidence conversion at the boundary; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery facade_composes_exact_v01_workflow_order
+    started_at: 2026-09-18T23:22:32.232777Z
+    completed_at: 2026-09-18T23:26:58.312768Z
+  - id: t47
+    title: Add declarative ID and facts macros
+    status: done
+    depends_on:
+      - t46
+    notes: Implemented hygienic validated stable/typed ID and fact-path literal macros plus facts! with null/Boolean/i64/decimal/text/date/date-time/duration/typed-enum/list/record values, optional trailing commas, structured FactBuildError conversion, and hidden $crate::__private expansion surface; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery declarative_literals_use_validated_constructors
+    started_at: 2026-09-19T01:44:53.725369Z
+    completed_at: 2026-09-19T01:50:30.387955Z
+  - id: t48
+    title: Add scenario assertion and diagnostic macros
+    status: done
+    depends_on:
+      - t47
+    notes: Implemented scenario! with validated IDs/non-empty titles/caller spans and unexecuted root source scenarios, assert_decision! with exact four-field set comparisons and aggregate panic output, and diagnostic! with registry-derived immutable metadata, caller labels/evidence, and missing-evidence rejection; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery workflow_macros_enforce_exact_contracts
+    started_at: 2026-09-19T03:00:18.795913Z
+    completed_at: 2026-09-19T03:07:17.742502Z
+  - id: t49
+    title: Derive RuleFacts hygienically
+    status: done
+    depends_on:
+      - t48
+    notes: Implemented RuleFacts derive parsing with required root/field path attributes, unknown/duplicate/malformed attribute rejection, supported bool/i64/String/Value and Option absence handling, generated TryFrom into nested CaseFacts records, no unsafe expansion, and proc-macro-crate facade resolution for renamed dependencies; all gates pass.
+    crate_name: rulery-macros
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-macros rule_facts_requires_explicit_valid_paths
+    started_at: 2026-09-19T03:41:09.808123Z
+    completed_at: 2026-09-19T03:49:35.121456Z
+  - id: t50
+    title: Parse the exact CLI command surface
+    status: done
+    depends_on:
+      - t49
+    notes: Implemented thin clap-backed CLI library and main with exact init/fmt/check/analyze/test/explain/diff/render/lock surfaces, validated IDs/formats, required decision-table decision, path/human/state/witness/system-time defaults, deny/filter/decision fields, explicit Frozen mapping, and environment-independent Update defaults; all gates pass.
+    crate_name: rulery-cli
+    completed: 2026-09-18
+    run: cargo nextest run -p rulery-cli cli_parses_v01_commands_and_defaults
+    started_at: 2026-09-19T03:52:26.758225Z
+    completed_at: 2026-09-19T03:58:02.385109Z
+  - id: t51
+    title: Orchestrate init fmt check and lock
+    status: done
+    depends_on:
+      - t50
+    notes: Implemented init/fmt/check/lock orchestration with strict write scope, non-empty init rejection, fmt check/write cardinality and exit behavior, check lock-write prohibition, Update-only validated atomic lock handoff, and stable exit priority mapping including atomic I/O failure; all gates pass.
+    crate_name: rulery-cli
+    completed: 2026-09-19
+    run: cargo nextest run -p rulery-cli write_commands_obey_scope_and_atomicity
+    started_at: 2026-09-19T04:24:22.032828Z
+    completed_at: 2026-09-19T04:29:58.220607Z
+  - id: t52
+    title: Orchestrate test explain analyze diff and render
+    status: done
+    depends_on:
+      - t51
+    notes: Implemented read-only test/explain/analyze/diff/render orchestration with scenario filtering handoff, fixed/system-time propagation, exact artifact cardinality, machine stderr suppression except fatal pre-artifact failures, scenario/conflict/projection/budget exits, broken-stdout priority behavior, and deny-warnings promotion limited to unsuppressed Proven/Witnessed findings; all gates pass.
+    crate_name: rulery-cli
+    completed: 2026-09-19
+    run: cargo nextest run -p rulery-cli artifact_commands_match_output_and_exit_matrix
+    started_at: 2026-09-19T08:32:31.086263Z
+    completed_at: 2026-09-19T08:37:51.995262Z
+  - id: t53
+    title: Install the canonical tool-library fixture
+    status: done
+    depends_on:
+      - t52
+    notes: Installed the exact five normative tool-library authored YAML listings plus expired-training case, strict no-import rulebook lock with root metadata and recomputed bundle integrity hash, and conformance coverage for metadata/semantics/roots/types/term/actions/rules/scenario/case/lock; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-19
+    run: cargo nextest run -p rulery tool_library_fixture_matches_normative_sources
+    started_at: 2026-09-19T17:08:08.520780Z
+    completed_at: 2026-09-19T17:08:19.969668Z
+  - id: t54
+    title: Prove the tool-library end-to-end decision
+    status: done
+    depends_on:
+      - t53
+    notes: Implemented reproducible frozen tool-library check/test/explain composition with source/lock integrity validation, fixed UTC and New York policy date, expired-training deny and determining rule, complete package/facts/trace/timezone identities, deterministic strict JSON, and byte-exact canonical human output fixture; all gates pass.
+    crate_name: rulery-cli
+    completed: 2026-09-19
+    run: cargo nextest run -p rulery tool_library_cli_is_reproducible_end_to_end
+    started_at: 2026-09-19T18:55:03.541932Z
+    completed_at: 2026-09-19T18:58:09.972941Z
+  - id: t55
+    title: Round-trip all seven envelopes and validated newtypes
+    status: done
+    depends_on:
+      - t54
+    notes: Added cross-crate conformance round trips for all seven v1 envelopes, constructor-invalid newtype serde rejection, unknown tag/field and missing payload rejection, complete collection presence, explicit trace nulls, canonical set order, omitted absent diagnostic options, and string wire adapters for source/span integer-like values; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-19
+    run: cargo nextest run -p rulery all_v01_wire_contracts_round_trip_strictly
+    started_at: 2026-09-19T21:20:48.160507Z
+    completed_at: 2026-09-19T21:26:07.441112Z
+  - id: t56
+    title: Enforce cross-cutting safety properties
+    status: done
+    depends_on:
+      - t55
+    notes: Added cross-pipeline conformance for uncertainty strategy boundaries, null/malformed distinction, default eligibility, outcome invariants, ID/order-independent precedence, complete semantic diff inputs, synthetic witnesses, Unknown/Invalid rendering, projection loss rejection, non-overlapping fixes, root-safe paths, and deterministic resource-limit diagnostics; all gates pass.
+    crate_name: rulery
+    completed: 2026-09-19
+    run: cargo nextest run -p rulery normative_safety_properties_hold_across_pipeline
+    started_at: 2026-09-19T21:35:27.900194Z
+    completed_at: 2026-09-19T21:38:41.858704Z
+  - id: t57
+    title: Harden the declarative xtask model
+    status: done
+    depends_on:
+      - t56
+    notes: Replaced parallel xtask constants/matches with one typed WorkspaceModel containing root, thirteen crates, and xtask as exact CrateSpec/TargetKind/DependencyRule entries; architecture/bootstrap manifest, target, membership, scaffold, and dependency queries now derive from that model, with LSP absent; all gates pass.
+    crate_name: xtask
+    completed: 2026-09-19
+    run: cargo nextest run -p xtask workspace_model_is_single_architecture_authority
+    started_at: 2026-09-19T23:14:33.500992Z
+    completed_at: 2026-09-19T23:17:43.098424Z
+  - id: t58
+    title: Harden bootstrap reconciliation safety
+    status: done
+    depends_on:
+      - t57
+    notes: Implemented WorkspaceFileSystem/HostFileSystem, typed ordered Create/ReplaceGenerated/EditRootManifest plans, generated ownership markers, non-deleting model reconciliation, Apply atomic sibling-temp sync/rename writes, silent Check drift failure, ordered zero-write DryRun, idempotent second plans, and injected atomic-failure safety; all gates pass.
+    crate_name: xtask
+    completed: 2026-09-19
+    run: cargo nextest run -p xtask bootstrap_is_ordered_idempotent_and_non_destructive
+    started_at: 2026-09-20T02:02:36.918580Z
+    completed_at: 2026-09-20T02:09:57.156853Z
+  - id: t59
+    title: Harden xtask specification conformance
+    status: done
+    depends_on:
+      - t58
+    notes: Implemented aggregate ordered specification conformance reporting for Markdown headings/links/incomplete markers, YAML/JSON blocks, Rust rustfmt parsing, registry uniqueness, seven schema tags, and four BLAKE3 vectors; scratch is constrained under .ctx/_WORKING_DIR/xtask-conformance and unreadable/process-start failures remain immediate; all gates pass.
+    crate_name: xtask
+    completed: 2026-09-20
+    run: cargo nextest run -p xtask conformance_report_collects_every_specification_failure
+    started_at: 2026-09-20T05:12:45.084808Z
+    completed_at: 2026-09-20T05:18:31.898563Z
+  - id: t60
+    title: Harden architecture and fail-fast verification
+    status: done
+    depends_on:
+      - t59
+    notes: Implemented pure typed architecture validation for missing/unexpected/wrong-path/wrong-target packages, forbidden edges and cycle detection, metadata projection through that validator, and injected exact fail-fast verify gates in bootstrap/conformance/architecture/fmt/Clippy/nextest/rustdoc order with cargo doc --workspace --no-deps; all gates pass.
+    crate_name: xtask
+    completed: 2026-09-20
+    run: cargo nextest run -p xtask verify_runs_exact_fail_fast_gate_order
+    started_at: 2026-09-20T05:50:00.507894Z
+    completed_at: 2026-09-20T05:56:23.499695Z
+  - id: t61
+    title: Validate stable and typed IDs
+    status: done
+    depends_on:
+      - t5
+    notes: Validated stable IDs, typed wrappers, fact segments, and qualified rule wire format.
+    crate_name: rulery-contracts
+    commit: 69764bf
+    completed: 2026-09-17
+    started_at: 2026-09-17T10:28:40.245379Z
+    completed_at: 2026-09-17T10:38:41.270938Z
+  - id: t62
+    title: Validate fact paths and boundary strings
+    status: done
+    depends_on:
+      - t61
+    notes: Added validated fact paths, normalized source locations, package paths, semantic versions, requirements, and language version.
+    crate_name: rulery-contracts
+    commit: 4f1edfe
+    completed: 2026-09-17
+    started_at: 2026-09-17T10:39:42.146159Z
+    completed_at: 2026-09-17T10:44:20.779517Z
+  - id: t63
+    title: Implement exact decimal and temporal scalars
+    status: done
+    depends_on:
+      - t62
+    notes: Added canonical decimal, date, instant, duration, timezone identity, and temporal ports.
+    crate_name: rulery-contracts
+    commit: 81b0453
+    completed: 2026-09-17
+    started_at: 2026-09-17T10:47:07.091034Z
+    completed_at: 2026-09-17T10:52:42.740721Z
+  - id: t64
+    title: Enforce source map and span invariants
+    status: done
+    depends_on:
+      - t63
+    notes: Added source keys, UTF-8 spans, source maps, deterministic bundles, and integrity wrappers.
+    crate_name: rulery-contracts
+    commit: 3e7b9f5
+    completed: 2026-09-17
+    started_at: 2026-09-17T10:53:09.873723Z
+    completed_at: 2026-09-17T11:01:11.877768Z
+  - id: t65
+    title: Model values facts actions and outcomes
+    status: done
+    depends_on:
+      - t64
+    notes: Added typed values, fact states, declarative actions, non-empty reasons and requested facts, and sum-typed outcomes.
+    crate_name: rulery-contracts
+    commit: 499bb15
+    completed: 2026-09-17
+    started_at: 2026-09-17T11:01:29.874842Z
+    completed_at: 2026-09-17T11:06:52.721577Z
+  - id: t66
+    title: Initialize Workspace Changelog
+    status: done
+    depends_on: []
+    notes: Added the workspace changelog with an Unreleased section for cargo-rail maintenance.
+    crate_name: workspace
+    commit: 1a74c65
+    completed: 2026-09-17
+    started_at: 2026-09-17T15:54:42.979250Z
+    completed_at: 2026-09-17T15:58:07.008452Z
+  - id: t67
+    title: Configure Cargo-Rail Release Policy
+    status: done
+    depends_on:
+      - t66
+    notes: Added strict cargo-rail lockstep release policy for 14 publishable crates; used the installed 0.17.3 strict-schema keys and excluded xtask.
+    crate_name: workspace
+    commit: a69aa37
+    completed: 2026-09-17
+    started_at: 2026-09-18T02:13:18.459105Z
+    completed_at: 2026-09-18T02:15:32.727517Z
+  - id: t68
+    title: Add Release Validation And Planning Tasks
+    status: done
+    depends_on:
+      - t67
+    notes: Added mise release gates, post-bootstrap extended checks, and patch-default release planning with pending-plan exit normalization.
+    crate_name: workspace
+    commit: dc41599
+    completed: 2026-09-17
+    started_at: 2026-09-18T03:10:19.179951Z
+    completed_at: 2026-09-18T03:11:47.092213Z
+  - id: t69
+    title: Add Release Execution Tasks
+    status: done
+    depends_on:
+      - t68
+    notes: Added main-branch guard, sequential release preflight, PR preparation, finalization, and immediate release tasks with native cargo-rail prompts.
+    crate_name: workspace
+    commit: 4532bbe
+    completed: 2026-09-17
+    started_at: 2026-09-18T03:11:59.001182Z
+    completed_at: 2026-09-18T03:13:28.579758Z
+  - id: t70
+    title: Add Interrupted-Release Recovery Tasks
+    status: done
+    depends_on:
+      - t69
+    notes: Added durable-state resume and interactive pre-side-effect abort tasks with required state path arguments.
+    crate_name: workspace
+    commit: 2c1299e
+    completed: 2026-09-17
+    started_at: 2026-09-18T03:13:38.468246Z
+    completed_at: 2026-09-18T03:14:55.036714Z
+  - id: cli1
+    title: Preserve complete authored YAML bundle semantics
+    status: done
+    depends_on: []
+    notes: Implemented strict complete authored bundle parsing with canonical fixture, malformed-document, and duplicate-declaration coverage.
+    crate_name: rulery-syntax
+    completed: 2026-09-26
+    started_at: 2026-09-26T08:31:03.664006Z
+    completed_at: 2026-09-26T08:37:09.115205Z
+  - id: cli2
+    title: Retain executable rule semantics in IR
+    status: done
+    depends_on:
+      - cli1
+    notes: Retained executable rule, decision, outcome, priority, and precedence semantics in strict compiled-package/v1 IR.
+    crate_name: rulery-ir
+    completed: 2026-09-26
+    started_at: 2026-09-26T08:37:09.123230Z
+    completed_at: 2026-09-26T08:41:11.619493Z
+  - id: cli3
+    title: Implement end-to-end package compiler
+    status: done
+    depends_on:
+      - cli2
+    notes: Lowered complete assembled source bundles into populated executable IR and remapped all expanded AST spans.
+    crate_name: rulery-compiler
+    completed: 2026-09-26
+    started_at: 2026-09-26T08:41:11.627009Z
+    completed_at: 2026-09-26T08:45:42.718271Z
+  - id: cli4
+    title: Implement package-level decision evaluation
+    status: done
+    depends_on:
+      - cli3
+    notes: Added the PolicyEvaluator port and ProductionPolicyEvaluator in rulery-engine, backed by a versioned time-zone database and four-valued fact-validation strategies; all 36 truth-table cells and the relevance and precedence passes are covered by unit tests.
+    crate_name: rulery-engine
+    started_at: 2026-09-26T08:45:42.726081Z
+    completed_at: 2026-09-26T12:10:00Z
+  - id: cli5
+    title: Complete analysis and semantic diff services
+    status: done
+    depends_on:
+      - cli4
+    notes: "Implemented the missing analysis input-extraction layer, which unblocked the v0.1 requirement gate. New crates/analysis/src/extract.rs derives PartitionSpec, RuleAnalysisInput, and CellEvaluation from a CompiledPackage; new crates/analysis/src/facts.rs performs vocabulary-guided case-fact construction; new crates/ir/src/condition.rs provides condition identity and referenced-path collection, which is the Expr walker that did not previously exist. ApplicationService::analyze and ::diff now return real derived reports instead of ApplicationError::AnalysisUnavailable, and the test that asserted the unavailable behaviour has been replaced by analyze_derives_reachability_interaction_and_coverage_findings, analyze_without_explicit_domains_reports_only_presence_states, and diff_derives_outcome_changes_between_compiled_packages. Finite-domain inference treats boolean, enum, and bounded integer as finite and text, list, and record as inconclusive, and an exhausted state budget reports inconclusive without claiming coverage. Requirements V10 and S04 through S07 and S09 are now satisfied, and cargo xtask verify passes all seven gates. Design note: docs/designs/2026-09-26-analysis-input-extraction-design.md."
+    crate_name: rulery-analysis
+    run: cargo nextest run -p rulery-analysis -p rulery
+  - id: cli6
+    title: Compile and run authored scenarios
+    status: done
+    depends_on:
+      - cli5
+    notes: ScenarioCompiler and ScenarioRunner are implemented with exact result checking against compiled expectations.
+    crate_name: rulery-scenarios
+  - id: cli7
+    title: Expose diagnostics and package renderers
+    status: done
+    depends_on:
+      - cli6
+    notes: Json, human, SARIF, and decision-table renderers are implemented with strict projection validation that rejects semantic loss.
+    crate_name: rulery-emit
+  - id: cli8
+    title: Compose shared production application
+    status: done
+    depends_on:
+      - cli7
+    notes: "Added ApplicationService, ProductionApplication, and ApplicationError in the root rulery crate, closing three composition gaps that did not previously exist: AssemblyCompilationInput to SourceCompilationInput lowering with a canonical lock hash, the SourceScenario to ScenarioSource bridge including type-directed literal resolution and root-keyed fact nesting, and a ScenarioEvaluator over ProductionPolicyEvaluator. analyze and diff are typed-unavailable per cli5. Four unit tests cover fact nesting, conflict rejection, outcome mapping, and explicit analysis failure."
+    crate_name: rulery
+    run: cargo nextest run -p rulery
+  - id: cli9
+    title: Implement unified CLI command dispatch
+    status: done
+    depends_on:
+      - cli8
+    notes: "The binary now executes. New crates/cli/src/runtime.rs supplies the production ArtifactPorts and CommandPorts implementations over the root crate's ApplicationService, and dispatch.rs, report.rs, findings.rs, facts.rs, and error.rs implement the seven fully specified commands with the complete nine-row exit matrix at specification lines 3029-3041, first match wins, and main.rs converts the resolved ExitStatus to a process exit code. Observed: check --format json exits 0 with a DiagnosticReportEnvelope, check --format sarif emits SARIF 2.1.0, explain emits a real human explanation derived from evaluation, render emits markdown, a CompiledPackageEnvelope, and a DecisionTableEnvelope, test emits a scenario-result array, analyze exits 6 when coverage is incomplete, an invalid format or unknown decision exits 2, a missing path exits 3, a stale frozen lock exits 1, and a failing scenario exits 5. Human and JSON formats map the same result to the same code. init and fmt are deferred to cli18 because the specification does not determine them."
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli
+  - id: cli10
+    title: Lock process-level CLI contracts
+    status: done
+    depends_on:
+      - cli9
+    notes: "Added crates/cli/tests/process_contract.rs, the first suite that observes a finished process rather than a library return value, plus a unit table in crates/cli/src/exit.rs. Nine tests pin the contracts the specification states but no test covered: the exit-condition matrix by observed code for thirteen command and format combinations, including analysis exit 6 and invalid invocation exit 2; stderr-only reporting with an empty stdout for every argument-parse failure; exactly one versioned envelope on stdout with empty stderr for machine formats; the documented ScenarioResultEnvelope array as test's one exception to that rule; one SARIF 2.1.0 log that is not a Rulery envelope; the rule that no read-only command writes a file, checked by comparing a sorted path-and-bytes snapshot of the fixture tree before and after each command; the safety requirement that trace persistence is opt-in, checked the same way after explain; and the normative MUST that environment variables must not change lock mode, checked by perturbing a copied lock and running with a cleared environment plus CI, CONTINUOUS_INTEGRATION, RULERY_FROZEN, and RULERY_LOCK_MODE, where Update must still tolerate the stale lock and Frozen must still report it. The new crate tests directory is the first under any workspace member, so CARGO_BIN_EXE_rulery is what makes a real process observable. Also renamed ExitStatus::AnalysisInconclusive to AnalysisIncomplete to match the exit table and the 2026-09-23 design note, which both spell it that way. Every lock was mutation-checked on a verified fresh build: breaking one exit code and forcing lock_of to ignore --frozen each fail the suite. Two findings from that check. First, Command::lock_mode in crates/cli/src/args.rs is public but has no production caller; dispatch.rs decides lock mode through its own private lock_of, so the public accessor and the shipped behaviour can drift apart unobserved. Second, target/debug/rulery was stale and did not match the working tree: it flipped Update mode to Frozen whenever CI was present, which looked like a violation of the no-implicit-CI-detection MUST, and cargo clean -p rulery-cli removed the behaviour. The fmt gate was also already red on the untracked dispatch.rs from cli9, so the previous session's clean and passing report did not hold. cargo xtask verify passes all seven gates with 109 tests."
+    crate_name: rulery-cli
+    completed: 2026-09-26
+    run: cargo nextest run -p rulery-cli process_contract
+  - id: cli11
+    title: Update CLI integration documentation
+    status: done
+    depends_on:
+      - cli10
+    notes: 'Four claims in README.md and one in AGENTS.md still described a CLI that only parses arguments, and all five were false as of cli9. README Status said the binary "only parses arguments; command dispatch is not yet connected in main"; the build section called dispatch "a stub"; the quickstart called the CLI "not-yet-wired"; and the whole CLI Surface section was framed as "intended operation" with a bold "Dispatch warning" that the commands "exit without performing their intended operations". All four README claims are replaced with what the binary does. The CLI Surface section is rewritten as actual behavior: a per-command table with the formats each command really emits, the lock-mode rules including that environment variables never change lock mode, the full seven-row exit-status table, and new subsections on scaffolding and formatting. Every command in the rewritten documentation was run before it was written, and the explain, init, check, and fmt --check invocations are transcribed from real output. AGENTS.md had the same staleness in its Gotchas section as a hard instruction not to assume CLI commands execute, which would have actively misled the next agent; it now records that dispatch is wired, that process_contract.rs is where a process-boundary change belongs, and three further gotchas discovered while implementing cli10 and cli18: that the fmt emitter is defined over the parsed document rather than the lowered AST, that target/debug/rulery can be stale enough to report a spec violation that does not exist, and that Command::lock_mode is public with no production caller. The Tests section now documents the crate-level integration suite and its env_clear requirement. A repo-wide search for the stale phrasings returns nothing.'
+    crate_name: rulery
+    completed: 2026-09-26
+  - id: cli12
+    title: Run full repository verification
+    status: done
+    depends_on:
+      - cli11
+    notes: "cargo xtask verify passes all seven gates in order, with 120 tests across 32 binaries and no failures: bootstrap check, conformance, architecture, fmt, clippy with warnings denied, nextest, and rustdoc. This run is the final state including the cli11 documentation changes, so it covers every edit from cli10, cli18, and cli11. The only warning is the pre-existing cargo doc output-filename collision between the rulery lib target and the rulery-cli bin target, which is cargo issue 6313 and not a gate failure. Nothing is committed; the working tree holds the full v0.1 CLI work uncommitted."
+    crate_name: rulery
+    completed: 2026-09-26
+    run: cargo xtask verify
+  - id: cli13
+    title: Cover the evaluation path with real tests
+    status: done
+    depends_on:
+      - cli8
+    notes: Added five engine-level tests in crates/engine/src/policy_evaluator.rs covering a decisive rule, default fallback, unknown-decision rejection, invalid-fact strategy application, and reproducibility for one instant and database identity, plus five application-level tests in src/application.rs driving evaluate_at and run_scenarios through the trait and asserting real outcome, trace, reason, and scenario-status content. A fixed timezone database fake and a fixed UtcInstant keep every assertion deterministic. This is the gate named by requirement V05 in the specification traceability table.
+    crate_name: rulery-engine
+    run: cargo nextest run -p rulery-engine -p rulery
+  - id: cli14
+    title: Resolve the two unimplemented static checks
+    status: done
+    depends_on:
+      - cli8
+    notes: "Investigated and closed without implementation, because neither code has a reachable trigger. RUL151 DEFAULT_OUTCOME_MISSING: a decision default is required by the authored grammar and is non-optional in both SourceDecision and CompiledDecision; crates/syntax/src/yaml/dto.rs:78 declares it without serde(default), so an absent default is already reported as RUL001 at parse time and a malformed one as RUL001 via crates/syntax/src/yaml/mod.rs:747-755. RUL150 UNKNOWN_FACT_POLICY_UNHANDLED: the spec gives only a registry row at docs/specification.md:2420 and no normative definition. Reading it as an unapplied policy is unreachable because MissingFactStrategy is a closed four-variant enum, and reading it as an unhandled fact duplicates RUL252, which the analyzer already emits. Both codes are now documented as reserved in the specification. The two requirement bullets are satisfied by RUL001 and RUL252 respectively, so requirement S08 is satisfied and S04 remains blocked only on the cli5 analysis bridge."
+    crate_name: rulery-analysis
+  - id: cli16
+    title: Gate the v0.1 requirement list in the specification
+    status: done
+    depends_on:
+      - cli13
+    notes: Added the normative twelve-requirement list and two traceability tables to docs/specification.md under "Versioned requirement traceability", and xtask::check_requirements in xtask/src/conformance.rs, which runs inside the existing conformance gate. The gate rejects a specification that omits any of V01-V12 or S01-S09, names a verification test that does not exist in the workspace, or leaves any row not satisfied. Three unit tests cover the accept, reject, and real-specification paths. The gate is red on exactly six rows, V10 and S04/S05/S06/S07/S09, all of which trace to the cli5 analysis input-extraction gap; every other row is satisfied and every named test exists.
+    crate_name: xtask
+    run: cargo nextest run -p xtask
+  - id: cli17
+    title: Support record-valued authored literals in scenario facts
+    status: done
+    depends_on:
+      - cli15
+    notes: Fixed by making the authored literal structure-preserving instead of flattening it to text. SourceOperand::Literal now carries a new SourceValue in crates/syntax/src/ast.rs with Scalar, Null, Sequence, and Mapping variants, and the parser builds it from the authored YAML instead of calling render. The compiler's literal() and the scenario bridge's new recursive decode() in src/application.rs both consume it. The bridge now handles records and lists by resolving each nested entry against the declared vocabulary type, and resolve() synthesizes TypeDeclaration::Primitive for the eleven built-in identities, which are named by identity and never declared, so date, integer, and text leaves resolve. The compiler decoder was also extended to the full scalar set and lists; a record literal remains unsupported there because CheckedType has no record variant, which is a type-system boundary rather than a literal gap. Locked in by canonical_scenario_compiles_and_passes_with_record_facts, and `rulery test examples/tool-library --frozen` now emits a passing ScenarioResultEnvelope whose trace shows the nested member.training record decoded.
+    crate_name: rulery-syntax
+    run: cargo nextest run -p rulery-syntax -p rulery
+  - id: cli18
+    title: Define the init scaffold and the fmt canonical form
+    status: done
+    depends_on:
+      - cli9
+    notes: 'Unblocked by amending the specification rather than deferring, and both commands are now implemented. Two new sections under ## CLI: "Scaffolded package" and "Canonical authored form", plus two entries in the table of contents and one added bullet in the conformance gate list. The registry stays at exactly 40 codes, so fmt reports a comment removal as a change through the existing fmt --check row of the exit matrix rather than through a diagnostic. Scaffolded package: init writes exactly the five paths Exact file layout already required, never a lock, refuses a non-empty destination, and derives the package identity from the destination directory name by lowercasing, collapsing rejected-character and hyphen runs to a single -, trimming boundary hyphens, and falling back to package. The scaffold is a valid package: rulery check on a fresh destination reports no diagnostic. Canonical authored form is defined over the parsed document rather than over the lowered source AST, so a document that omits a defaulted field keeps omitting it and fmt never inserts a field the author did not author; keys are sorted into ascending canonical-text order; indentation is two spaces with block sequences aligned to their owning key; typed booleans and numbers render unquoted while only strings that the core schema would retype are quoted; empty collections use flow form; comments are dropped, which is a change and not an error; the form is idempotent. Implementation: new crates/cli/src/canonical.rs is the emitter, new crates/cli/src/scaffold.rs holds the templates, and HostWorkflow gains scaffold, source_files, canonicalize_sources, canonicalize_file, and write_source. Scaffold templates are written in a readable order and rendered through the emitter, so a fresh scaffold is canonical by construction rather than by hand-ordering. The two rationale constants are deleted and the CommandPorts stubs now implement both commands, so run_write_command no longer reports them unavailable. fmt FILE reports canonical bytes on stdout and leaves the file untouched, matching the pre-existing output-contract table; fmt PACKAGE rewrites in place; fmt --check writes nothing and exits 1 on any difference. Two design corrections found while implementing. Authored key order was rejected because SourceValue::Mapping is a BTreeMap and has already discarded key order, so preserving it would have meant an AST change reaching rulery-syntax, rulery-compiler, and src/application.rs; sorted order is the order the AST already stores. The spec text first said canonical form was defined over the source AST, which would have forced fmt to fill in defaulted fields, so it was corrected to the parsed document before implementation. Twelve new tests, including four process-level ones that spawn the binary. cargo xtask verify passes all seven gates with 120 tests.'
+    crate_name: rulery-cli
+    completed: 2026-09-26
+    run: cargo nextest run -p rulery-cli
+  - id: cli15
+    title: Make the tool-library conformance test actually evaluate
+    status: done
+    depends_on:
+      - cli13
+    notes: "rulery::tool_library_explain now drives a real pipeline: PackageAssembler with Frozen lock mode, PolicyCompiler::compile_source, vocabulary-guided conversion of the case file into typed CaseFacts, and ProductionPolicyEvaluator over a pinned policy calendar. Outcome, determining rule, policy date, hashes, reasons, conditions, and superseded rules are all read back from the returned DecisionTraceV1 rather than authored as literals, and the authored scenario expectation is compared structurally instead of by substring. The test was renamed to tool_library_explain_is_reproducible_end_to_end and its file to tests/conformance/tool_library_explain.rs because it never touched the CLI. The canonical explanation fixture, the human.rs canonical-text assertion, the specification's normative text block, and README.md were regenerated together. crates/emit/src/lib.rs:3 no longer claims the crate renders traces when it imports nothing from rulery-engine except Truth."
+    crate_name: rulery
+  - id: 2026-09-28-gap-closeout-t1
+    title: Assert the analysis instant is configurable at the service boundary
+    status: pending
+    depends_on: []
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery analyze_honors_an_explicit_instant
+  - id: 2026-09-28-gap-closeout-t2
+    title: Thread the instant through the analyze and diff service methods
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t1
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery
+  - id: 2026-09-28-gap-closeout-t3
+    title: Assert the CLI accepts an analysis instant
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t2
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli cli_parses_the_analysis_instant_flag
+  - id: 2026-09-28-gap-closeout-t4
+    title: Add the --at flag to analyze and diff
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t3
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli
+  - id: 2026-09-28-gap-closeout-t5
+    title: Assert the reported instant follows the flag
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t4
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli analyze_at_is_recorded_in_the_report
+  - id: 2026-09-28-gap-closeout-t6
+    title: Allow a caller to inject the time-zone database
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t5
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery analyze_records_the_injected_database_identity
+  - id: 2026-09-28-gap-closeout-t7
+    title: Run the full gate for gap1
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t6
+    notes: ""
+    crate_name: xtask
+    run: cargo xtask verify
+  - id: 2026-09-28-gap-closeout-t8
+    title: Assert the clippy gate names every target
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t7
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask clippy_gate_lints_every_target
+  - id: 2026-09-28-gap-closeout-t9
+    title: Extract the gate commands and add the flag
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t8
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask
+  - id: 2026-09-28-gap-closeout-t10
+    title: Assert the diagnostics crate exposes the fields the CLI needs
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t9
+    notes: ""
+    crate_name: rulery-diagnostics
+    run: cargo nextest run -p rulery-diagnostics diagnostics_expose_labels_confidence_and_report_contents
+  - id: 2026-09-28-gap-closeout-t11
+    title: Add the three accessors
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t10
+    notes: ""
+    crate_name: rulery-diagnostics
+    run: cargo nextest run -p rulery-diagnostics
+  - id: 2026-09-28-gap-closeout-t12
+    title: Delete the three serialization round trips
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t11
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli
+  - id: 2026-09-28-gap-closeout-t13
+    title: Assert machine formats still receive one stdout artifact
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t12
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli machine_formats_emit_one_envelope_on_pre_artifact_failure
+  - id: 2026-09-28-gap-closeout-t14
+    title: Emit an empty diagnostic envelope in machine modes
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t13
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli
+  - id: 2026-09-28-gap-closeout-t15
+    title: Scaffold the imported fixture package and assert the graph assembles
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t14
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery real_import_graph_assembles_from_disk
+  - id: 2026-09-28-gap-closeout-t16
+    title: Freeze the fixture lock and assert frozen agreement
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t15
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery real_import_graph_freezes_and_reassembles_identically
+  - id: 2026-09-28-gap-closeout-t17
+    title: Assert the CLI resolves the closure end to end
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t16
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli check_frozen_accepts_the_import_graph_fixture
+  - id: 2026-09-28-gap-closeout-t18
+    title: Run the full gate for gap6
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t17
+    notes: ""
+    crate_name: xtask
+    run: cargo xtask verify
+  - id: 2026-09-28-gap-closeout-t19
+    title: Derive an after-package in scratch and assert diff reports an outcome change
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t18
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli diff_reports_an_outcome_change_between_two_packages
+  - id: 2026-09-28-gap-closeout-t20
+    title: Assert a structural-only change is classified as structural
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t19
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli diff_reports_a_structural_change_without_an_outcome_change
+  - id: 2026-09-28-gap-closeout-t21
+    title: Close the diff gap if either test exposed a defect
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t20
+    notes: ""
+    crate_name: rulery-cli
+    run: cargo nextest run -p rulery-cli diff
+  - id: 2026-09-28-gap-closeout-t22
+    title: Run the full gate for gap7
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t21
+    notes: ""
+    crate_name: xtask
+    run: cargo xtask verify
+  - id: 2026-09-28-gap-closeout-t23
+    title: Assert the test gate builds with every feature
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t22
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask nextest_gate_builds_every_feature
+  - id: 2026-09-28-gap-closeout-t24
+    title: Add --all-features to the test gate
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t23
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask
+  - id: 2026-09-28-gap-closeout-t25
+    title: Assert the derive produces a working conversion
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t24
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery --features macros rule_facts_derive_converts_a_record_into_case_facts
+  - id: 2026-09-28-gap-closeout-t26
+    title: Add the renamed-dependency hygiene fixture crate
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t25
+    notes: ""
+    crate_name: rulery-macros
+    run: cargo check --manifest-path examples/macro-hygiene/Cargo.toml
+  - id: 2026-09-28-gap-closeout-t27
+    title: Assert a record literal typechecks in a condition
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t26
+    notes: ""
+    crate_name: rulery-compiler
+    run: cargo nextest run -p rulery-compiler record_literals_typecheck_against_record_typed_operands
+  - id: 2026-09-28-gap-closeout-t28
+    title: Add the variant and the literal decode
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t27
+    notes: ""
+    crate_name: rulery-compiler
+    run: cargo nextest run -p rulery-compiler
+  - id: 2026-09-28-gap-closeout-t29
+    title: Assert a real package compiles a record-valued condition
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t28
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery tool_library_explain_is_reproducible_end_to_end
+  - id: 2026-09-28-gap-closeout-t30
+    title: Assert the license files exist and name the declared licence
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t29
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery license_files_back_the_declared_dual_licence
+  - id: 2026-09-28-gap-closeout-t31
+    title: Write both license files
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t30
+    notes: ""
+    crate_name: rulery
+    run: cargo nextest run -p rulery license_files_back_the_declared_dual_licence
+  - id: 2026-09-28-gap-closeout-t32
+    title: Assert the gate rejects a specification missing a required bullet
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t31
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask conformance_gate_rejects_a_missing_required_bullet
+  - id: 2026-09-28-gap-closeout-t33
+    title: Implement the bullet check
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t32
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask
+  - id: 2026-09-28-gap-closeout-t34
+    title: Wire the check into the conformance gate
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t33
+    notes: ""
+    crate_name: xtask
+    run: cargo nextest run -p xtask conformance_accepts_normative_specification
+  - id: 2026-09-28-gap-closeout-t35
+    title: Run the full gate for the plan
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t34
+    notes: ""
+    crate_name: xtask
+    run: cargo xtask verify
+plan_imports:
+  - source: /Users/joe/dev/rulery/.ctx/godmode/plans/2026-09-28-gap-closeout.md
+    task_ids:
+      - 2026-09-28-gap-closeout-t1
+      - 2026-09-28-gap-closeout-t2
+      - 2026-09-28-gap-closeout-t3
+      - 2026-09-28-gap-closeout-t4
+      - 2026-09-28-gap-closeout-t5
+      - 2026-09-28-gap-closeout-t6
+      - 2026-09-28-gap-closeout-t7
+      - 2026-09-28-gap-closeout-t8
+      - 2026-09-28-gap-closeout-t9
+      - 2026-09-28-gap-closeout-t10
+      - 2026-09-28-gap-closeout-t11
+      - 2026-09-28-gap-closeout-t12
+      - 2026-09-28-gap-closeout-t13
+      - 2026-09-28-gap-closeout-t14
+      - 2026-09-28-gap-closeout-t15
+      - 2026-09-28-gap-closeout-t16
+      - 2026-09-28-gap-closeout-t17
+      - 2026-09-28-gap-closeout-t18
+      - 2026-09-28-gap-closeout-t19
+      - 2026-09-28-gap-closeout-t20
+      - 2026-09-28-gap-closeout-t21
+      - 2026-09-28-gap-closeout-t22
+      - 2026-09-28-gap-closeout-t23
+      - 2026-09-28-gap-closeout-t24
+      - 2026-09-28-gap-closeout-t25
+      - 2026-09-28-gap-closeout-t26
+      - 2026-09-28-gap-closeout-t27
+      - 2026-09-28-gap-closeout-t28
+      - 2026-09-28-gap-closeout-t29
+      - 2026-09-28-gap-closeout-t30
+      - 2026-09-28-gap-closeout-t31
+      - 2026-09-28-gap-closeout-t32
+      - 2026-09-28-gap-closeout-t33
+      - 2026-09-28-gap-closeout-t34
+      - 2026-09-28-gap-closeout-t35
