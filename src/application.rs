@@ -856,7 +856,6 @@ mod tests {
                 "RUL203".to_owned(),
                 "RUL250".to_owned(),
                 "RUL252".to_owned(),
-                "RUL254".to_owned(),
             ])
         );
 
@@ -896,16 +895,13 @@ mod tests {
             .expect("notes coverage")
             .report
             .clone();
-        assert!(matches!(
-            notes.completeness,
-            AnalysisCompleteness::Inconclusive { .. }
-        ));
-        assert_eq!(notes.percent_basis_points, None);
-        assert!(notes.diagnostics.contains("RUL254"));
-        assert!(matches!(
-            report.completeness,
-            AnalysisCompleteness::Inconclusive { .. }
-        ));
+        // `decision.notes` reads a text field only through presence predicates, so its value
+        // space cannot change any outcome. It now reports a real coverage percentage instead of
+        // refusing to claim completeness, and the only finding left is its own partial coverage.
+        assert_eq!(notes.completeness, AnalysisCompleteness::Complete);
+        assert_eq!(notes.percent_basis_points, Some(6666));
+        assert_eq!(notes.diagnostics, BTreeSet::from(["RUL250".to_owned()]));
+        assert_eq!(report.completeness, AnalysisCompleteness::Complete);
 
         let repeated = application
             .analyze(&package, &options, analysis_instant())

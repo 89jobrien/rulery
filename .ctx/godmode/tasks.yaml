@@ -1089,21 +1089,34 @@ tasks:
     completed_at: 2026-09-29T18:33:33.648409Z
   - id: 2026-09-28-gap-closeout-t17
     title: Assert the CLI resolves the closure end to end
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t16
-    notes: ""
+    notes: "Passes on first write (fixture+lock landed in t15/t16), so it is coverage not red-green. Hardened: also proves frozen mode rejects drift via RUL501. Two vacuity risks found by hand: EOF append gives a parse error not a lock mismatch, and machine-mode rejections land in the stdout envelope not stderr. 130/130."
     crate_name: rulery-cli
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli check_frozen_accepts_the_import_graph_fixture
     started_at: 2026-09-29T18:53:23.152857Z
+    completed_at: 2026-09-29T19:01:01.557296Z
   - id: 2026-09-28-gap-closeout-t18
     title: Run the full gate for gap6
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t17
-    notes: ""
+    notes: "All seven gates green: fmt 0, clippy 0, xtask verify 0, 130/130 tests. workspace_contains_approved_crates and the architecture checks both pass; the scaffold test asserts directory presence, not absence, so the new fixture cannot violate it. No commit, as planned."
     crate_name: xtask
+    completed: 2026-09-29
     run: cargo xtask verify
+    started_at: 2026-09-29T19:05:10.553280Z
+    completed_at: 2026-09-29T19:06:06.166341Z
+  - id: 2026-09-28-gap-closeout-t18b
+    title: Make text partition completeness follow the domain the analysis needs
+    status: pending
+    depends_on:
+      - 2026-09-28-gap-closeout-t18
+    notes: "inferred_domain returns complete=false for every PartitionDomainKind::Text, so any package whose vocabulary has a text field referenced by a presence predicate can never report a complete analysis. rulery analyze and diff both emit RUL254 and diff emits no semantic_diffs for the normative tool-library fixture: tool.reserved-for-member-id is text and is only used with is_absent, so its value space is never inspected, yet the partition is still declared incomplete. Precedent: SMT solvers distinguish sat/unsat/unknown and incompleteness for genuinely undecidable fragments is legitimate, but an unconditional unknown is the implication-incompleteness class catalogued by Bringolf et al. ICSE 2023. Bounded string domains are precedented as decidable (HAMPI, bit-vector string representations), and this codebase already ships UNBOUNDED_REPRESENTATIVE with complete=true for open integer sets. Make completeness follow how the field is used: presence predicates only gives one opaque representative and complete=true; equality against authored literals gives those literals and complete=true; an operator that can distinguish unrepresented values gives the representative and complete=false. RUL254 stays registered for the third case. Spec-visible: the normative fixture stops emitting RUL254, so analyze moves from exit 6 to exit 1 with RUL252 only."
+    crate_name: rulery-analysis
+    run: cargo nextest run -p rulery-analysis text_domain
   - id: 2026-09-28-gap-closeout-t19
     title: Derive an after-package in scratch and assert diff reports an outcome change
     status: pending

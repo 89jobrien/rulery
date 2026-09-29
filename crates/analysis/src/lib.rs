@@ -37,7 +37,7 @@ pub use interaction::{
 };
 pub use partition::{
     AnalysisCompleteness, AnalysisOptions, DecisionPartition, FactPartitionValue, FiniteDomain,
-    PartitionCell, PartitionDomainKind, PartitionSpec, build_partition,
+    PartitionCell, PartitionDomainKind, PartitionSpec, ValueUsage, build_partition,
 };
 pub use reachability::{ProofCertificate, ReachabilityStatus, RuleReachability};
 pub use wire::{

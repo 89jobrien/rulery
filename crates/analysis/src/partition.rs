@@ -81,6 +81,24 @@ impl Default for AnalysisOptions {
     }
 }
 
+/// How a decision's conditions use a fact path's value, which decides whether the path's domain
+/// can be fully enumerated.
+///
+/// The distinction matters because a value no condition inspects cannot change any outcome, so
+/// representing it with one value is exact rather than an approximation. This is the same argument
+/// that lets [`PartitionDomainKind::Unbounded`] stand in for an open set of integers.
+#[derive(Clone, Copy, Debug, Default, Eq, Ord, PartialEq, PartialOrd, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ValueUsage {
+    /// Only presence predicates reference the path, so its value space is never inspected.
+    #[default]
+    PresenceOnly,
+    /// Conditions compare the path for equality against authored literals, which bound the domain.
+    BoundedByLiterals,
+    /// An operator can distinguish values this domain does not represent, so the domain is partial.
+    UnrepresentableValues,
+}
+
 /// Declared domain shape and authored scalar boundaries for one fact path.
 #[derive(Clone, Debug, Eq, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "kind", content = "boundaries", rename_all = "snake_case")]
@@ -92,7 +110,12 @@ pub enum PartitionDomainKind {
     /// Authored integer boundaries.
     Integer(Vec<i64>),
     /// Authored text boundaries; non-literal intervals are unsupported.
-    Text(Vec<String>),
+    Text {
+        /// Text literals a condition compares this path against.
+        values: Vec<String>,
+        /// How conditions use the value, which decides whether the domain is complete.
+        usage: ValueUsage,
+    },
     /// List value domain (presence cells only without override).
     List,
     /// Record value domain (presence cells only without override).
@@ -225,6 +248,9 @@ pub fn build_partition(
 /// of its values.
 const UNBOUNDED_REPRESENTATIVE: i64 = 0;
 
+/// The text stand-in for values no condition inspects or no authored literal separates.
+const UNBOUNDED_TEXT_REPRESENTATIVE: &str = "";
+
 fn inferred_domain(spec: &PartitionSpec) -> (Vec<FactPartitionValue>, bool) {
     match &spec.kind {
         PartitionDomainKind::Boolean => (
@@ -243,14 +269,20 @@ fn inferred_domain(spec: &PartitionSpec) -> (Vec<FactPartitionValue>, bool) {
             true,
         ),
         PartitionDomainKind::Integer(boundaries) => (integer_domain(boundaries), true),
-        PartitionDomainKind::Text(boundaries) => (
-            boundaries
-                .iter()
-                .cloned()
-                .map(Value::Text)
-                .map(FactPartitionValue::Valid)
-                .collect(),
-            false,
+        PartitionDomainKind::Text { values, usage } => (
+            if values.is_empty() || *usage == ValueUsage::UnrepresentableValues {
+                vec![FactPartitionValue::Valid(Value::Text(
+                    UNBOUNDED_TEXT_REPRESENTATIVE.to_owned(),
+                ))]
+            } else {
+                values
+                    .iter()
+                    .cloned()
+                    .map(Value::Text)
+                    .map(FactPartitionValue::Valid)
+                    .collect()
+            },
+            *usage != ValueUsage::UnrepresentableValues,
         ),
         PartitionDomainKind::Unbounded => (
             vec![FactPartitionValue::Valid(Value::Integer(
@@ -387,7 +419,10 @@ mod tests {
             vec![
                 PartitionSpec {
                     path: text.clone(),
-                    kind: PartitionDomainKind::Text(vec!["a".to_owned(), "z".to_owned()]),
+                    kind: PartitionDomainKind::Text {
+                        values: vec!["a".to_owned(), "z".to_owned()],
+                        usage: ValueUsage::BoundedByLiterals,
+                    },
                     allow_absent: true,
                     allow_null: false,
                     allow_malformed: false,
@@ -428,7 +463,10 @@ mod tests {
             vec![
                 PartitionSpec {
                     path: text,
-                    kind: PartitionDomainKind::Text(Vec::new()),
+                    kind: PartitionDomainKind::Text {
+                        values: Vec::new(),
+                        usage: ValueUsage::PresenceOnly,
+                    },
                     allow_absent: false,
                     allow_null: false,
                     allow_malformed: false,
@@ -456,5 +494,69 @@ mod tests {
         assert_eq!(canonical, sorted);
         assert_eq!(options.max_states, 100_000);
         assert_eq!(options.max_witnesses, 1_000);
+    }
+
+    fn text_spec(values: Vec<String>, usage: ValueUsage) -> PartitionSpec {
+        PartitionSpec {
+            path: FactPath::from_str("tool.serial").expect("path"),
+            kind: PartitionDomainKind::Text { values, usage },
+            allow_absent: true,
+            allow_null: true,
+            allow_malformed: false,
+            forbidden: Vec::new(),
+        }
+    }
+
+    #[test]
+    fn text_domain_is_complete_when_only_presence_predicates_reference_it() {
+        let spec = text_spec(Vec::new(), ValueUsage::PresenceOnly);
+        let (values, complete) = inferred_domain(&spec);
+
+        assert!(
+            complete,
+            "a value no rule inspects cannot make the partition incomplete"
+        );
+        assert_eq!(
+            values.len(),
+            1,
+            "an unrepresented value still needs one representative: {values:?}"
+        );
+    }
+
+    #[test]
+    fn text_domain_is_complete_when_equality_bounds_it_to_authored_literals() {
+        let spec = text_spec(
+            vec!["active".to_owned(), "suspended".to_owned()],
+            ValueUsage::BoundedByLiterals,
+        );
+        let (values, complete) = inferred_domain(&spec);
+
+        assert!(
+            complete,
+            "a domain bounded by authored literals is fully enumerated"
+        );
+        assert_eq!(
+            values,
+            vec![
+                FactPartitionValue::Valid(Value::Text("active".to_owned())),
+                FactPartitionValue::Valid(Value::Text("suspended".to_owned())),
+            ]
+        );
+    }
+
+    #[test]
+    fn text_domain_stays_incomplete_when_an_operator_distinguishes_unrepresented_values() {
+        let spec = text_spec(vec!["m-1".to_owned()], ValueUsage::UnrepresentableValues);
+        let (values, complete) = inferred_domain(&spec);
+
+        assert!(
+            !complete,
+            "a partial or ordered operator can distinguish values the domain omits"
+        );
+        assert_eq!(
+            values.len(),
+            1,
+            "an unrepresented value still needs one representative: {values:?}"
+        );
     }
 }

@@ -27,8 +27,8 @@ use rulery_engine::{
     ProductionPolicyEvaluator, StrategyKind, TimeZoneDatabase, TraceDetail, Truth,
 };
 use rulery_ir::{
-    CompiledDecision, CompiledPackage, DecisionPrecedence, Expr, ExprOperand, PrecedenceDimension,
-    ResolvedType, TypeDeclaration, canonical_condition, referenced_fact_paths,
+    CompiledDecision, CompiledPackage, DecisionPrecedence, Expr, ExprOperand, Operator,
+    PrecedenceDimension, ResolvedType, TypeDeclaration, canonical_condition, referenced_fact_paths,
 };
 use rulery_vocabulary::ResolvedVocabulary;
 
@@ -37,7 +37,7 @@ use crate::{
     AnalysisReportV1 as ReportV1, BudgetResult, CellEvaluation, CoverageReport, DecisionCoverage,
     DecisionPartition, DiffCell, FactPartitionValue, InteractionAnalysis, OutcomeChangeKind,
     PartitionCell, PartitionDomainKind, PartitionSpec, PolicyAnalyzer, PolicyDiff, PolicyDiffer,
-    RuleAnalysisInput, StructuralChange, UncoveredCategory, WitnessCase, WitnessClaim,
+    RuleAnalysisInput, StructuralChange, UncoveredCategory, ValueUsage, WitnessCase, WitnessClaim,
     analyze_interactions, build_case_facts, build_partition, compute_coverage, minimize_witness,
 };
 
@@ -297,21 +297,28 @@ struct Boundaries {
     integers: Vec<i64>,
     /// Authored text literals compared against the path.
     texts: Vec<String>,
+    /// How the decision's conditions use the path's value.
+    usage: ValueUsage,
 }
 
 fn collect_boundaries(expression: &Expr, boundaries: &mut BTreeMap<FactPath, Boundaries>) {
     match expression {
         Expr::Constant { .. } => {}
         Expr::Predicate(predicate) => {
-            if let (ExprOperand::Fact(path), Some(literal)) = (&predicate.left, &predicate.right)
+            let usage = usage_of(predicate.operator);
+            if let ExprOperand::Fact(path) = &predicate.left
                 && let Some(collected) = boundaries.get_mut(path)
             {
-                collect_literal(literal, collected);
+                collected.usage = collected.usage.max(usage);
+                if let Some(literal) = &predicate.right {
+                    collect_literal(literal, collected);
+                }
             }
             if let (Some(ExprOperand::Fact(path)), ExprOperand::Literal(literal)) =
                 (&predicate.right, &predicate.left)
                 && let Some(collected) = boundaries.get_mut(path)
             {
+                collected.usage = collected.usage.max(usage);
                 collect_literal(&ExprOperand::Literal(literal.clone()), collected);
             }
         }
@@ -321,6 +328,35 @@ fn collect_boundaries(expression: &Expr, boundaries: &mut BTreeMap<FactPath, Bou
             }
         }
         Expr::Not { expression, .. } => collect_boundaries(expression, boundaries),
+    }
+}
+
+/// Classifies what an operator does to a fact path's value.
+///
+/// Presence predicates leave the value uninspected. Equality against an authored literal bounds the
+/// domain to that literal set. A partial or ordered match can distinguish values the domain omits,
+/// which is the only case where a text domain stays partial.
+fn usage_of(operator: Operator) -> ValueUsage {
+    match operator {
+        Operator::Exists | Operator::Missing => ValueUsage::PresenceOnly,
+        Operator::Equals
+        | Operator::NotEquals
+        | Operator::IsOneOf
+        | Operator::IsTrue
+        | Operator::IsFalse => ValueUsage::BoundedByLiterals,
+        Operator::Contains
+        | Operator::StartsWith
+        | Operator::EndsWith
+        | Operator::Matches
+        | Operator::LessThan
+        | Operator::LessOrEqual
+        | Operator::GreaterThan
+        | Operator::GreaterOrEqual
+        | Operator::Before
+        | Operator::After
+        | Operator::Between
+        | Operator::OnOrBefore
+        | Operator::OnOrAfter => ValueUsage::UnrepresentableValues,
     }
 }
 
@@ -383,7 +419,10 @@ fn primitive_kind(name: &str, boundaries: &Boundaries) -> PartitionDomainKind {
         "bool" | "boolean" => PartitionDomainKind::Boolean,
         "int" | "integer" if boundaries.integers.is_empty() => PartitionDomainKind::Unbounded,
         "int" | "integer" => PartitionDomainKind::Integer(boundaries.integers.clone()),
-        "string" | "text" => PartitionDomainKind::Text(boundaries.texts.clone()),
+        "string" | "text" => PartitionDomainKind::Text {
+            values: boundaries.texts.clone(),
+            usage: boundaries.usage,
+        },
         _ => PartitionDomainKind::Unsupported,
     }
 }
@@ -1120,10 +1159,22 @@ fn merge_kinds(left: &PartitionDomainKind, right: &PartitionDomainKind) -> Parti
             boundaries.extend(right.iter().copied());
             PartitionDomainKind::Integer(boundaries)
         }
-        (PartitionDomainKind::Text(left), PartitionDomainKind::Text(right)) => {
+        (
+            PartitionDomainKind::Text {
+                values: left,
+                usage: left_usage,
+            },
+            PartitionDomainKind::Text {
+                values: right,
+                usage: right_usage,
+            },
+        ) => {
             let mut boundaries = left.clone();
             boundaries.extend(right.iter().cloned());
-            PartitionDomainKind::Text(boundaries)
+            PartitionDomainKind::Text {
+                values: boundaries,
+                usage: (*left_usage).max(*right_usage),
+            }
         }
         (PartitionDomainKind::Unbounded, PartitionDomainKind::Unbounded) => {
             PartitionDomainKind::Unbounded
@@ -1588,7 +1639,10 @@ mod tests {
                 ),
                 (
                     "member.label".to_owned(),
-                    &PartitionDomainKind::Text(vec!["blue".to_owned()]),
+                    &PartitionDomainKind::Text {
+                        values: vec!["blue".to_owned()],
+                        usage: ValueUsage::UnrepresentableValues,
+                    },
                     false
                 ),
                 (
