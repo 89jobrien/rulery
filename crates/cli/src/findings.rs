@@ -48,15 +48,8 @@ pub struct Findings {
 
 impl Findings {
     /// Summarizes already-built registry diagnostics.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`HostError::Internal`] when a diagnostic's registry-derived confidence cannot be
-    /// read back from its strict wire form, which is a serialization invariant failure.
-    pub fn from_registry(
-        diagnostics: &[Diagnostic],
-        source_map: &SourceMap,
-    ) -> Result<Self, HostError> {
+    #[must_use]
+    pub fn from_registry(diagnostics: &[Diagnostic], source_map: &SourceMap) -> Self {
         let mut findings = Self {
             diagnostics: diagnostics.to_vec(),
             ..Self::default()
@@ -66,13 +59,13 @@ impl Findings {
             if diagnostic.severity() == Severity::Warning {
                 findings.warnings.push(WarningFinding {
                     suppressed: false,
-                    confidence: confidence_of(diagnostic)?,
+                    confidence: confidence_of(diagnostic),
                 });
             }
             findings.lines.push(line_of(diagnostic));
             findings.sarif.push(sarif_of(diagnostic, source_map));
         }
-        Ok(findings)
+        findings
     }
 
     /// Summarizes plain reasons that have no constructible registry diagnostic.
@@ -86,31 +79,9 @@ impl Findings {
     }
 
     /// Summarizes the diagnostics an analysis or semantic-diff report retained.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`HostError::Internal`] when the retained report's diagnostics cannot be read back
-    /// through the strict wire form the analyzer serialized.
-    pub fn from_analysis(
-        report: &AnalysisReport,
-        source_map: &SourceMap,
-    ) -> Result<Self, HostError> {
-        let retained = serde_json::to_value(&report.payload().diagnostics)
-            .map_err(|error| HostError::Internal(error.to_string()))?;
-        let entries = retained
-            .get("diagnostics")
-            .and_then(serde_json::Value::as_array)
-            .ok_or_else(|| {
-                HostError::Internal("analysis report retained no diagnostic collection".to_owned())
-            })?;
-        let diagnostics = entries
-            .iter()
-            .map(|entry| {
-                serde_json::from_value::<Diagnostic>(entry.clone())
-                    .map_err(|error| HostError::Internal(error.to_string()))
-            })
-            .collect::<Result<Vec<_>, _>>()?;
-        Self::from_registry(&diagnostics, source_map)
+    #[must_use]
+    pub fn from_analysis(report: &AnalysisReport, source_map: &SourceMap) -> Self {
+        Self::from_registry(report.payload().diagnostics.diagnostics(), source_map)
     }
 }
 
@@ -212,23 +183,8 @@ fn line_of(diagnostic: &Diagnostic) -> String {
 }
 
 /// Reads the registry-derived confidence of one warning for `--deny-warnings` promotion.
-///
-/// [`Diagnostic`] and `DiagnosticProperties` both keep their fields private and neither exposes a
-/// confidence accessor, so the strict wire form is the only public view of the confidence the
-/// registry and builder agreed on.
-fn confidence_of(diagnostic: &Diagnostic) -> Result<WarningConfidence, HostError> {
-    let value =
-        serde_json::to_value(diagnostic).map_err(|error| HostError::Internal(error.to_string()))?;
-    let confidence = value
-        .get("properties")
-        .and_then(|properties| properties.get("confidence"))
-        .cloned()
-        .ok_or_else(|| {
-            HostError::Internal("diagnostic confidence is missing from its wire form".to_owned())
-        })?;
-    serde_json::from_value::<FindingConfidence>(confidence)
-        .map(WarningConfidence::from)
-        .map_err(|error| HostError::Internal(error.to_string()))
+fn confidence_of(diagnostic: &Diagnostic) -> WarningConfidence {
+    WarningConfidence::from(diagnostic.properties().confidence())
 }
 
 /// Projects one diagnostic into the minimal SARIF result shape.
@@ -263,18 +219,8 @@ fn location_of(span: Option<Span>, source_map: &SourceMap) -> SarifLocation {
 
 /// Returns the span a diagnostic's first source label records.
 ///
-/// `Diagnostic` keeps `labels` private and exposes no label accessor, so the strict wire form is the
-/// only public view of a diagnostic's source span. A diagnostic without labels is a legitimate
-/// absence rather than a failure, so decoding is best effort here.
+/// A diagnostic without labels is a legitimate absence rather than a failure, so this is best
+/// effort.
 fn first_label_span(diagnostic: &Diagnostic) -> Option<Span> {
-    serde_json::to_value(diagnostic)
-        .ok()
-        .and_then(|value| {
-            value
-                .get("labels")
-                .and_then(|labels| labels.get(0))
-                .cloned()
-        })
-        .and_then(|label| serde_json::from_value::<DiagnosticLabel>(label).ok())
-        .map(|label| label.span())
+    diagnostic.labels().first().map(DiagnosticLabel::span)
 }

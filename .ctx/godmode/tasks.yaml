@@ -1020,21 +1020,25 @@ tasks:
     completed_at: 2026-09-29T17:10:53.496408Z
   - id: 2026-09-28-gap-closeout-t11
     title: Add the three accessors
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t10
-    notes: ""
+    notes: "Three #[must_use] accessors added; the first two are const fn matching the existing producer()/suppressibility(). No field visibility change, wire form untouched."
     crate_name: rulery-diagnostics
+    commit: b3bd9e4
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-diagnostics
     started_at: 2026-09-29T17:10:53.502825Z
+    completed_at: 2026-09-29T17:12:18.777091Z
   - id: 2026-09-28-gap-closeout-t12
     title: Delete the three serialization round trips
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t11
     notes: ""
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli
+    started_at: 2026-09-29T17:12:18.789329Z
   - id: 2026-09-28-gap-closeout-t13
     title: Assert machine formats still receive one stdout artifact
     status: pending

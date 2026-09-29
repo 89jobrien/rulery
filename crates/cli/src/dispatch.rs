@@ -178,12 +178,10 @@ fn rejected_command(command: &Command, failure: &DiagnosticFailure) -> CommandOu
         return pre_artifact(ExitStatus::DiagnosticsError, &failure.message());
     }
     let format = format_of(command);
-    let Ok(findings) = Findings::from_registry(
+    let findings = Findings::from_registry(
         &failure.diagnostics,
         &rulery::contracts::SourceMap::default(),
-    ) else {
-        return pre_artifact(ExitStatus::DiagnosticsError, &failure.message());
-    };
+    );
     match diagnostic_artifact(&findings, format) {
         Ok(artifact) => CommandOutput {
             stdout: artifact,
@@ -381,7 +379,7 @@ fn check(
     format: Format,
 ) -> Result<Produced, HostError> {
     let compiled = workflow.compile(path, mode)?;
-    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map)?;
+    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map);
     Ok(Produced::new(
         diagnostic_artifact(&findings, format)?,
         &findings,
@@ -400,14 +398,14 @@ fn analyze(
     format: Format,
 ) -> Result<Produced, HostError> {
     let compiled = workflow.compile(path, mode)?;
-    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map)?;
+    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map);
     if findings.has_error {
         return rejected_execution(&findings, format);
     }
     let at = workflow.resolve_analysis_instant(at)?;
     let package = compiled_package(&compiled)?;
     let analysis = workflow.analyze(&package, &options(max_states, max_witnesses), at)?;
-    let reported = Findings::from_analysis(&analysis, &compiled.source_map)?;
+    let reported = Findings::from_analysis(&analysis, &compiled.source_map);
     let artifact = match format {
         Format::Human => report::human_lines(&report::analysis_lines(&analysis, &reported)),
         Format::Json => report::analysis_json(&analysis)?,
@@ -472,7 +470,7 @@ fn explain(
     format: Format,
 ) -> Result<Produced, HostError> {
     let compiled = workflow.compile(path, mode)?;
-    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map)?;
+    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map);
     if findings.has_error {
         return rejected_execution(&findings, format);
     }
@@ -509,7 +507,7 @@ fn diff(
         .chain(right.diagnostics.iter())
         .cloned()
         .collect::<Vec<_>>();
-    let findings = Findings::from_registry(&combined, &right.source_map)?;
+    let findings = Findings::from_registry(&combined, &right.source_map);
     if findings.has_error {
         return rejected_execution(&findings, format);
     }
@@ -523,7 +521,7 @@ fn diff(
         &options(max_states, max_witnesses),
         at,
     )?;
-    let reported = Findings::from_analysis(&comparison, &right.source_map)?;
+    let reported = Findings::from_analysis(&comparison, &right.source_map);
     let artifact = match format {
         Format::Human => report::human_lines(&report::diff_lines(&comparison, &reported)),
         Format::Json => report::analysis_json(&comparison)?,
@@ -548,7 +546,7 @@ fn render(
     decision: Option<&DecisionId>,
 ) -> Result<Produced, HostError> {
     let compiled = workflow.compile(path, mode)?;
-    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map)?;
+    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map);
     if findings.has_error {
         return rejected_execution(&findings, format);
     }
@@ -584,7 +582,7 @@ fn decision_table(
 /// Resolves, validates, and atomically writes the complete transitive lock.
 fn lock(workflow: &HostWorkflow, path: &Path) -> Result<Produced, HostError> {
     let compiled = workflow.compile(path, rulery::LockMode::Update)?;
-    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map)?;
+    let findings = Findings::from_registry(&compiled.diagnostics, &compiled.source_map);
     if findings.has_error {
         return rejected_execution(&findings, Format::Human);
     }
