@@ -1135,45 +1135,59 @@ tasks:
     completed_at: 2026-09-29T21:23:38.621619Z
   - id: 2026-09-28-gap-closeout-t20
     title: Assert a structural-only change is classified as structural
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t19
-    notes: ""
+    notes: "Real defect found and fixed: ImportIntegrity is in every edited package's cell structural set, so the filter kept all 600 cells with byte-identical before/after, and ReasonOnly/PrecedenceOnly were unreachable. Spec-neutral fix via cell_classes. Two unit reds pinned it. Test also had to stop targeting deny-expired-training, which rule_coverage shows is reached by 0 of 600 cells."
     crate_name: rulery-cli
+    commit: 0b4b390
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli diff_reports_a_structural_change_without_an_outcome_change
     started_at: 2026-09-29T21:28:42.966481Z
+    completed_at: 2026-09-29T22:27:13.437372Z
   - id: 2026-09-28-gap-closeout-t21
     title: Close the diff gap if either test exposed a defect
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t20
-    notes: ""
+    notes: "Fixing was folded into t20: the defect and its test ship together. Two unit tests plus one process test, all red before."
     crate_name: rulery-cli
+    commit: 0b4b390
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli diff
+    started_at: 2026-09-29T22:27:13.446304Z
+    completed_at: 2026-09-29T22:27:13.453274Z
   - id: 2026-09-28-gap-closeout-t22
     title: Run the full gate for gap7
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t21
-    notes: ""
+    notes: Gap7 boundary. fmt 0, clippy 0, xtask verify 0 across all seven gates, 138/138 workspace tests. process_contract.rs holds 18 process tests, not the 19 the plan estimated; 35 in rulery-cli overall. No commit, as planned for a verification-only task.
     crate_name: xtask
+    completed: 2026-09-29
     run: cargo xtask verify
+    started_at: 2026-09-29T22:28:25.048860Z
+    completed_at: 2026-09-29T22:29:15.816308Z
   - id: 2026-09-28-gap-closeout-t23
     title: Assert the test gate builds with every feature
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t22
-    notes: ""
+    notes: "RED: assertion names the exact gap, args are [nextest, run, --workspace] with no --all-features."
     crate_name: xtask
+    completed: 2026-09-29
     run: cargo nextest run -p xtask nextest_gate_builds_every_feature
+    started_at: 2026-09-29T22:34:55.997512Z
+    completed_at: 2026-09-29T22:36:01.369775Z
   - id: 2026-09-28-gap-closeout-t24
     title: Add --all-features to the test gate
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t23
     notes: ""
     crate_name: xtask
     run: cargo nextest run -p xtask
+    started_at: 2026-09-29T22:36:01.407108Z
   - id: 2026-09-28-gap-closeout-t25
     title: Assert the derive produces a working conversion
     status: pending

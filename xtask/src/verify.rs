@@ -88,7 +88,7 @@ pub const fn gate_command(gate: VerifyGate) -> Option<GateCommand> {
         },
         VerifyGate::Nextest => GateCommand {
             program: "cargo",
-            args: &["nextest", "run", "--workspace"],
+            args: &["nextest", "run", "--workspace", "--all-features"],
         },
         VerifyGate::Rustdoc => GateCommand {
             program: "cargo",

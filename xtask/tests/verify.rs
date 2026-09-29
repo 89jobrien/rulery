@@ -134,6 +134,16 @@ fn clippy_gate_lints_every_target() {
     }
 }
 
+#[test]
+fn nextest_gate_builds_every_feature() {
+    let nextest = xtask::gate_command(VerifyGate::Nextest).expect("nextest command");
+    assert!(
+        nextest.args.contains(&"--all-features"),
+        "the test gate must build optional features, or a feature-gated test is never compiled \
+         or run: {nextest:?}"
+    );
+}
+
 struct RecordingRunner {
     seen: RefCell<Vec<VerifyGate>>,
     fail_at: Option<usize>,
