@@ -21,6 +21,14 @@ pub struct DiagnosticReport {
     payload: DiagnosticReportV1,
 }
 
+impl DiagnosticReportV1 {
+    /// Returns the diagnostics in the report's canonical order.
+    #[must_use]
+    pub fn diagnostics(&self) -> &[Diagnostic] {
+        &self.diagnostics
+    }
+}
+
 impl DiagnosticReport {
     /// Creates a diagnostic report with deterministic diagnostic ordering.
     ///

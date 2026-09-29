@@ -206,6 +206,15 @@ impl DiagnosticProperties {
     pub const fn suppressibility(&self) -> Suppressibility {
         self.suppressibility
     }
+
+    /// Returns the registry-derived confidence of this finding.
+    ///
+    /// The value is agreed between the registry definition and the builder, so reading it back
+    /// here is the same value the wire form carries under `properties.confidence`.
+    #[must_use]
+    pub const fn confidence(&self) -> FindingConfidence {
+        self.confidence
+    }
 }
 
 /// Structured supporting evidence.
@@ -593,6 +602,12 @@ impl Diagnostic {
         &self.title
     }
 
+    /// Returns the source labels in authored order.
+    #[must_use]
+    pub fn labels(&self) -> &[DiagnosticLabel] {
+        &self.labels
+    }
+
     /// Returns immutable registry-constrained properties.
     #[must_use]
     pub fn properties(&self) -> &DiagnosticProperties {
@@ -888,7 +903,9 @@ fn overlaps(left: Span, right: Span) -> bool {
 mod tests {
     use std::{collections::BTreeMap, sync::Arc};
 
-    use rulery_contracts::{SourceFile, SourceId, SourceMap, SourcePath};
+    use rulery_contracts::{LanguageVersion, SourceFile, SourceId, SourceMap, SourcePath};
+
+    use crate::DiagnosticReport;
 
     use super::*;
 
@@ -906,7 +923,7 @@ mod tests {
             "syntax is invalid",
         )
         .expect("builder")
-        .push_label(label)
+        .push_label(label.clone())
         .confidence(FindingConfidence::Proven)
         .build()
         .expect("diagnostic");
