@@ -107,6 +107,33 @@ fn verify_runs_exact_fail_fast_gate_order() {
     }));
 }
 
+#[test]
+fn clippy_gate_lints_every_target() {
+    let clippy = xtask::gate_command(VerifyGate::Clippy).expect("clippy command");
+    assert!(
+        clippy.args.contains(&"--all-targets"),
+        "the clippy gate must lint tests and examples, not only libs and bins: {clippy:?}"
+    );
+
+    for gate in [VerifyGate::Format, VerifyGate::Nextest, VerifyGate::Rustdoc] {
+        assert!(
+            xtask::gate_command(gate).is_some(),
+            "external gate {gate:?} must name a command"
+        );
+    }
+    for gate in [
+        VerifyGate::BootstrapCheck,
+        VerifyGate::Conformance,
+        VerifyGate::Architecture,
+    ] {
+        assert_eq!(
+            xtask::gate_command(gate),
+            None,
+            "in-process gate {gate:?} must not name a shell command"
+        );
+    }
+}
+
 struct RecordingRunner {
     seen: RefCell<Vec<VerifyGate>>,
     fail_at: Option<usize>,

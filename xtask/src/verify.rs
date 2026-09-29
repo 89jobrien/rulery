@@ -55,6 +55,52 @@ pub fn verify_with(runner: &impl VerifyRunner) -> Result<(), XtaskError> {
     Ok(())
 }
 
+/// One external gate's process invocation.
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub struct GateCommand {
+    /// The program the gate executes.
+    pub program: &'static str,
+    /// The arguments, already split, in order.
+    pub args: &'static [&'static str],
+}
+
+/// Returns the process one gate runs, or `None` when the gate runs in process.
+///
+/// The mapping is a single source of truth: the host runner executes what this returns, and the
+/// integration test asserts the arguments, so a gate cannot quietly stop covering a target.
+#[must_use]
+pub const fn gate_command(gate: VerifyGate) -> Option<GateCommand> {
+    let command = match gate {
+        VerifyGate::Format => GateCommand {
+            program: "cargo",
+            args: &["fmt", "--all", "--check"],
+        },
+        VerifyGate::Clippy => GateCommand {
+            program: "cargo",
+            args: &[
+                "clippy",
+                "--workspace",
+                "--all-targets",
+                "--",
+                "-D",
+                "warnings",
+            ],
+        },
+        VerifyGate::Nextest => GateCommand {
+            program: "cargo",
+            args: &["nextest", "run", "--workspace"],
+        },
+        VerifyGate::Rustdoc => GateCommand {
+            program: "cargo",
+            args: &["doc", "--workspace", "--no-deps"],
+        },
+        VerifyGate::BootstrapCheck | VerifyGate::Conformance | VerifyGate::Architecture => {
+            return None;
+        }
+    };
+    Some(command)
+}
+
 pub(crate) fn run(root: &Path) -> Result<(), XtaskError> {
     struct HostRunner<'a> {
         root: &'a Path,
@@ -65,23 +111,18 @@ pub(crate) fn run(root: &Path) -> Result<(), XtaskError> {
                 VerifyGate::BootstrapCheck => bootstrap::check(self.root),
                 VerifyGate::Conformance => conformance::check(self.root),
                 VerifyGate::Architecture => architecture::check(self.root),
-                VerifyGate::Format
-                | VerifyGate::Clippy
-                | VerifyGate::Nextest
-                | VerifyGate::Rustdoc => {
+                _ => {
+                    let Some(GateCommand { program, args }) = gate_command(gate) else {
+                        return Err(XtaskError::Command(format!(
+                            "gate {gate:?} names no command"
+                        )));
+                    };
                     let shell =
                         Shell::new().map_err(|error| XtaskError::Command(error.to_string()))?;
                     shell.change_dir(self.root);
-                    let result = match gate {
-                        VerifyGate::Format => cmd!(shell, "cargo fmt --all --check").run(),
-                        VerifyGate::Clippy => {
-                            cmd!(shell, "cargo clippy --workspace -- -D warnings").run()
-                        }
-                        VerifyGate::Nextest => cmd!(shell, "cargo nextest run --workspace").run(),
-                        VerifyGate::Rustdoc => cmd!(shell, "cargo doc --workspace --no-deps").run(),
-                        _ => unreachable!(),
-                    };
-                    result.map_err(|error| XtaskError::Command(error.to_string()))
+                    cmd!(shell, "{program} {args...}")
+                        .run()
+                        .map_err(|error| XtaskError::Command(error.to_string()))
                 }
             }
         }

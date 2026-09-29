@@ -24,7 +24,7 @@ pub use model::{
     model_target, workspace_model,
 };
 pub use process::{HostProcessRunner, ProcessRunner};
-pub use verify::{VerifyGate, VerifyRunner, verify_with};
+pub use verify::{GateCommand, VerifyGate, VerifyRunner, gate_command, verify_with};
 
 /// Repository automation command line.
 #[derive(Clone, Debug, Eq, PartialEq, Parser)]

@@ -679,7 +679,7 @@ mod tests {
     struct InjectedTimeZoneDatabase;
 
     impl TimeZoneDatabase for InjectedTimeZoneDatabase {
-        fn identity(&self) -> &str {
+        fn identity(&self) -> &'static str {
             "test/injected-tzdb"
         }
 

@@ -962,29 +962,36 @@ tasks:
     completed_at: 2026-09-29T11:08:53.932845Z
   - id: 2026-09-28-gap-closeout-t6
     title: Allow a caller to inject the time-zone database
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t5
-    notes: ""
+    notes: time_zones is Arc<dyn TimeZoneDatabase>; with_time_zones added. ProductionScenarioEvaluator held the concrete type and now holds the port. Hand-written Debug prints the database identity. 124/124 tests.
     crate_name: rulery
+    commit: e450d5a
+    completed: 2026-09-29
     run: cargo nextest run -p rulery analyze_records_the_injected_database_identity
     started_at: 2026-09-29T11:08:53.942874Z
+    completed_at: 2026-09-29T11:13:15.221492Z
   - id: 2026-09-28-gap-closeout-t7
     title: Run the full gate for gap1
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t6
-    notes: ""
+    notes: "cargo xtask verify passes all seven gates: bootstrap, conformance, architecture, fmt, clippy, nextest (124), rustdoc."
     crate_name: xtask
+    completed: 2026-09-29
     run: cargo xtask verify
+    started_at: 2026-09-29T11:13:15.227991Z
+    completed_at: 2026-09-29T11:13:35.293941Z
   - id: 2026-09-28-gap-closeout-t8
     title: Assert the clippy gate names every target
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t7
     notes: ""
     crate_name: xtask
     run: cargo nextest run -p xtask clippy_gate_lints_every_target
+    started_at: 2026-09-29T17:05:10.985157Z
   - id: 2026-09-28-gap-closeout-t9
     title: Extract the gate commands and add the flag
     status: pending
