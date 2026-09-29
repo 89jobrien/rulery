@@ -64,6 +64,9 @@ pub enum Command {
         /// Witness budget.
         #[arg(long, default_value_t = 1_000)]
         max_witnesses: u32,
+        /// Fixed RFC3339 evaluation instant; absent means the analysis epoch.
+        #[arg(long)]
+        at: Option<String>,
         /// Output format.
         #[arg(long, value_enum, default_value_t)]
         format: OutputFormat,
@@ -125,6 +128,9 @@ pub enum Command {
         /// Witness budget.
         #[arg(long, default_value_t = 1_000)]
         max_witnesses: u32,
+        /// Fixed RFC3339 evaluation instant; absent means the analysis epoch.
+        #[arg(long)]
+        at: Option<String>,
         /// Require exact lock agreement.
         #[arg(long)]
         frozen: bool,
@@ -313,5 +319,35 @@ mod tests {
                 2
             );
         }
+    }
+
+    #[test]
+    fn cli_parses_the_analysis_instant_flag() {
+        const INSTANT: &str = "2026-09-16T16:00:00.000000000Z";
+
+        assert!(matches!(
+            Cli::try_parse_from(["rulery", "analyze"])
+                .expect("analyze")
+                .command,
+            Command::Analyze { at: None, .. }
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["rulery", "analyze", "--at", INSTANT])
+                .expect("analyze at")
+                .command,
+            Command::Analyze { at: Some(value), .. } if value == INSTANT
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["rulery", "diff", "before", "after"])
+                .expect("diff")
+                .command,
+            Command::Diff { at: None, .. }
+        ));
+        assert!(matches!(
+            Cli::try_parse_from(["rulery", "diff", "before", "after", "--at", INSTANT])
+                .expect("diff at")
+                .command,
+            Command::Diff { at: Some(value), .. } if value == INSTANT
+        ));
     }
 }

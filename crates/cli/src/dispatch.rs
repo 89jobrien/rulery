@@ -246,6 +246,7 @@ pub(crate) fn execute(workflow: &HostWorkflow, command: &Command) -> Result<Prod
             path,
             max_states,
             max_witnesses,
+            at,
             format,
             ..
         } => analyze(
@@ -254,6 +255,7 @@ pub(crate) fn execute(workflow: &HostWorkflow, command: &Command) -> Result<Prod
             lock_of(command),
             *max_states,
             *max_witnesses,
+            at.as_deref(),
             (*format).into(),
         ),
         Command::Test {
@@ -290,6 +292,7 @@ pub(crate) fn execute(workflow: &HostWorkflow, command: &Command) -> Result<Prod
             decision,
             max_states,
             max_witnesses,
+            at,
             format,
             ..
         } => diff(
@@ -300,6 +303,7 @@ pub(crate) fn execute(workflow: &HostWorkflow, command: &Command) -> Result<Prod
             decision.as_ref(),
             *max_states,
             *max_witnesses,
+            at.as_deref(),
             (*format).into(),
         ),
         Command::Render {
@@ -392,6 +396,7 @@ fn analyze(
     mode: rulery::LockMode,
     max_states: u64,
     max_witnesses: u32,
+    at: Option<&str>,
     format: Format,
 ) -> Result<Produced, HostError> {
     let compiled = workflow.compile(path, mode)?;
@@ -399,8 +404,9 @@ fn analyze(
     if findings.has_error {
         return rejected_execution(&findings, format);
     }
+    let at = workflow.resolve_analysis_instant(at)?;
     let package = compiled_package(&compiled)?;
-    let analysis = workflow.analyze(&package, &options(max_states, max_witnesses))?;
+    let analysis = workflow.analyze(&package, &options(max_states, max_witnesses), at)?;
     let reported = Findings::from_analysis(&analysis, &compiled.source_map)?;
     let artifact = match format {
         Format::Human => report::human_lines(&report::analysis_lines(&analysis, &reported)),
@@ -492,6 +498,7 @@ fn diff(
     decision: Option<&DecisionId>,
     max_states: u64,
     max_witnesses: u32,
+    at: Option<&str>,
     format: Format,
 ) -> Result<Produced, HostError> {
     let left = workflow.compile(before, mode)?;
@@ -506,6 +513,7 @@ fn diff(
     if findings.has_error {
         return rejected_execution(&findings, format);
     }
+    let at = workflow.resolve_analysis_instant(at)?;
     let left_package = compiled_package(&left)?;
     let right_package = compiled_package(&right)?;
     let comparison = workflow.diff(
@@ -513,6 +521,7 @@ fn diff(
         &right_package,
         decision,
         &options(max_states, max_witnesses),
+        at,
     )?;
     let reported = Findings::from_analysis(&comparison, &right.source_map)?;
     let artifact = match format {

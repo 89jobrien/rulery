@@ -190,9 +190,10 @@ impl HostWorkflow {
         &self,
         package: &CompiledPackage,
         options: &AnalysisOptions,
+        at: UtcInstant,
     ) -> Result<AnalysisReport, HostError> {
         self.application
-            .analyze(package, options, analysis_instant())
+            .analyze(package, options, at)
             .map_err(|error| HostError::Internal(error.to_string()))
     }
 
@@ -207,9 +208,10 @@ impl HostWorkflow {
         after: &CompiledPackage,
         decision: Option<&DecisionId>,
         options: &AnalysisOptions,
+        at: UtcInstant,
     ) -> Result<AnalysisReport, HostError> {
         self.application
-            .diff(before, after, decision, options, analysis_instant())
+            .diff(before, after, decision, options, at)
             .map_err(|error| HostError::Internal(error.to_string()))
     }
 
@@ -394,6 +396,22 @@ impl HostWorkflow {
             None => SystemClock
                 .now()
                 .map_err(|error| HostError::Internal(error.to_string())),
+        }
+    }
+
+    /// Returns the instant analysis and diff evaluate at, defaulting to the fixed epoch.
+    ///
+    /// The default is the epoch rather than the system clock, so a report stays byte-identical
+    /// between runs when no flag is supplied.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`HostError::Invocation`] when a supplied value is not RFC 3339.
+    pub fn resolve_analysis_instant(&self, at: Option<&str>) -> Result<UtcInstant, HostError> {
+        match at {
+            Some(value) => UtcInstant::parse_rfc3339(value)
+                .map_err(|error| HostError::Invocation(error.to_string())),
+            None => Ok(analysis_instant()),
         }
     }
 }

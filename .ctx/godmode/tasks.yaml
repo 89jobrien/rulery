@@ -905,44 +905,58 @@ tasks:
     crate_name: rulery
   - id: 2026-09-28-gap-closeout-t1
     title: Assert the analysis instant is configurable at the service boundary
-    status: running
+    status: done
     depends_on: []
-    notes: ""
+    notes: "Red: analyze_honors_an_explicit_instant proved WitnessCase.at recorded the epoch when 2026-09-16 was requested. Paired with t2 as one TDD cycle."
     crate_name: rulery
+    commit: 116622d
+    completed: 2026-09-28
     run: cargo nextest run -p rulery analyze_honors_an_explicit_instant
     started_at: 2026-09-29T00:31:21.674109Z
+    completed_at: 2026-09-29T00:37:41.717837Z
   - id: 2026-09-28-gap-closeout-t2
     title: Thread the instant through the analyze and diff service methods
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t1
-    notes: ""
+    notes: "analyze/diff take at: UtcInstant; analyzer forwards it. HostRuntime still passes analysis_instant() so CLI behaviour is unchanged. 121/121 tests, clippy and fmt clean."
     crate_name: rulery
+    commit: 116622d
+    completed: 2026-09-28
     run: cargo nextest run -p rulery
+    started_at: 2026-09-29T00:37:41.724038Z
+    completed_at: 2026-09-29T00:37:50.419672Z
   - id: 2026-09-28-gap-closeout-t3
     title: Assert the CLI accepts an analysis instant
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t2
-    notes: ""
+    notes: "RED E0026: no field at on Analyze/Diff. Flag added with Explain's grammar; 3 test initializers in artifact.rs given at: None. 30/30 in rulery-cli."
     crate_name: rulery-cli
+    completed: 2026-09-28
     run: cargo nextest run -p rulery-cli cli_parses_the_analysis_instant_flag
+    started_at: 2026-09-29T01:11:45.514746Z
+    completed_at: 2026-09-29T01:14:43.424588Z
   - id: 2026-09-28-gap-closeout-t4
     title: Add the --at flag to analyze and diff
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t3
-    notes: ""
+    notes: Flag parses and is documented; not yet honored by dispatch. Paired with t3 and t5 as one cycle.
     crate_name: rulery-cli
+    completed: 2026-09-28
     run: cargo nextest run -p rulery-cli
+    started_at: 2026-09-29T01:14:43.431037Z
+    completed_at: 2026-09-29T01:14:43.437434Z
   - id: 2026-09-28-gap-closeout-t5
     title: Assert the reported instant follows the flag
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t4
     notes: ""
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli analyze_at_is_recorded_in_the_report
+    started_at: 2026-09-29T01:14:43.443735Z
   - id: 2026-09-28-gap-closeout-t6
     title: Allow a caller to inject the time-zone database
     status: pending

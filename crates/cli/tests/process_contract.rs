@@ -20,6 +20,10 @@ const FIXTURE: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/tool-
 /// The instant at which the tool-library conformance example is specified to be evaluated.
 const INSTANT: &str = "2026-09-16T16:00:00.000000000Z";
 
+/// The wire form of [`INSTANT`], which `UtcInstant` serializes as canonical signed Unix
+/// nanoseconds rather than the RFC 3339 text the flag accepts.
+const INSTANT_NANOSECONDS: &str = "1789574400000000000";
+
 /// The single decision declared by the fixture manifest.
 const DECISION: &str = "checkout";
 
@@ -356,6 +360,47 @@ fn test_json_emits_the_documented_scenario_result_array() {
             result.get("schema").and_then(serde_json::Value::as_str),
             Some("rulery.scenario-result/v1"),
             "array element is not a scenario-result envelope"
+        );
+    }
+}
+
+#[test]
+fn analyze_at_is_recorded_in_the_report() {
+    let copy = package("analyze-at");
+    let baseline = run(&["analyze", &path(&copy), "--frozen", "--format", "json"]);
+    let observed = run(&[
+        "analyze",
+        &path(&copy),
+        "--frozen",
+        "--at",
+        INSTANT,
+        "--format",
+        "json",
+    ]);
+    discard(&copy);
+
+    assert_eq!(
+        observed.code, baseline.code,
+        "--at changed the exit-condition row"
+    );
+    assert!(observed.stderr.is_empty(), "machine mode wrote to stderr");
+    let artifact = one_json_value("analyze --at", &observed.stdout);
+    let Some(witnesses) = artifact
+        .get("payload")
+        .and_then(|payload| payload.get("witnesses"))
+        .and_then(serde_json::Value::as_array)
+    else {
+        panic!("analysis envelope carries no witness array");
+    };
+    assert!(
+        !witnesses.is_empty(),
+        "analysis produced no witness to observe the instant on"
+    );
+    for witness in witnesses {
+        assert_eq!(
+            witness.get("at").and_then(serde_json::Value::as_str),
+            Some(INSTANT_NANOSECONDS),
+            "witness recorded another instant than --at requested"
         );
     }
 }

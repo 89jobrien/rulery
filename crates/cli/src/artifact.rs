@@ -191,6 +191,7 @@ mod tests {
             deny_warnings: false,
             max_states: 0,
             max_witnesses: 1_000,
+            at: None,
             format: OutputFormat::Json,
         };
         assert_eq!(
@@ -207,6 +208,7 @@ mod tests {
             decision: None,
             max_states: 0,
             max_witnesses: 1_000,
+            at: None,
             frozen: false,
             deny_warnings: false,
             format: BasicFormat::Human,
@@ -254,6 +256,7 @@ mod tests {
             deny_warnings: true,
             max_states: 100,
             max_witnesses: 100,
+            at: None,
             format: OutputFormat::Human,
         };
         let warnings = FakePorts::new(ArtifactCondition::Success, b"analysis".to_vec());
