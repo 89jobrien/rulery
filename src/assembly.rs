@@ -673,6 +673,42 @@ mod tests {
     use super::*;
 
     #[test]
+    fn real_import_graph_assembles_from_disk() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("examples")
+            .join("import-graph");
+        let root = PackagePath::new(root).expect("root path");
+        let assembly = PackageAssembler::new(
+            <rulery_store::FilesystemPackageStore as Default>::default(),
+            <rulery_syntax::YamlSourceParser as Default>::default(),
+        )
+        .assemble(&root, LockMode::Update)
+        .expect("assembly");
+
+        assert_eq!(
+            assembly
+                .traversal_order
+                .iter()
+                .map(PackageId::as_str)
+                .collect::<Vec<_>>(),
+            vec!["shared-policies"],
+            "the import was not traversed"
+        );
+        assert_eq!(
+            assembly.input.root.package.metadata.package_id.as_str(),
+            "import-graph",
+            "the root package is not the one under test"
+        );
+        let imported = assembly
+            .input
+            .imports
+            .values()
+            .map(|parsed| parsed.package.metadata.package_id.as_str())
+            .collect::<Vec<_>>();
+        assert_eq!(imported, vec!["shared-policies"]);
+    }
+
+    #[test]
     fn assembly_traverses_and_remaps_deterministically() {
         let log = Arc::new(Mutex::new(Vec::new()));
         let assembler = PackageAssembler::new(

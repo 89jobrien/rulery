@@ -1,0 +1,33 @@
+package:
+  id: import-graph
+  display_name: Import Graph
+  version: 0.1.0
+  language_version: 1
+  description: A root package that imports a second local package.
+  authors:
+    - name: Import Graph
+  tags: [safety, imports]
+semantics:
+  timezone: America/New_York
+  expiry: inclusive
+  missing_facts:
+    kind: request_information
+  invalid_facts:
+    kind: reject_evaluation
+  precedence:
+    kind: safety_first
+imports:
+  - package: shared-policies
+    version: 0.1.0
+    path: imports/shared
+decisions:
+  - id: checkout
+    title: Tool checkout eligibility
+    asks: Can this member borrow this tool now?
+    input_roots: [member, tool]
+    default:
+      kind: deny
+      reasons:
+        - code: no-authorizing-rule
+          message: No rule authorizes this checkout.
+      actions: []

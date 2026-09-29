@@ -1044,29 +1044,36 @@ tasks:
     completed_at: 2026-09-29T17:17:55.528620Z
   - id: 2026-09-28-gap-closeout-t13
     title: Assert machine formats still receive one stdout artifact
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t12
-    notes: ""
+    notes: "RED: stdout is not one JSON value, EOF at line 1 column 0. Exit row assertion (3) passed, so only the artifact was missing."
     crate_name: rulery-cli
+    commit: 6597e3d
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli machine_formats_emit_one_envelope_on_pre_artifact_failure
     started_at: 2026-09-29T18:05:55.908488Z
+    completed_at: 2026-09-29T18:11:27.304005Z
   - id: 2026-09-28-gap-closeout-t14
     title: Emit an empty diagnostic envelope in machine modes
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t13
-    notes: ""
+    notes: pre_artifact takes Command; machine formats emit a zero-entry artifact, reason stays on stderr in every format. Clap-level argument failures are a separate path, so the old test is unaffected. 32/32 CLI, xtask verify green.
     crate_name: rulery-cli
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli
+    started_at: 2026-09-29T18:11:27.311784Z
+    completed_at: 2026-09-29T18:11:27.318096Z
   - id: 2026-09-28-gap-closeout-t15
     title: Scaffold the imported fixture package and assert the graph assembles
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t14
     notes: ""
     crate_name: rulery
     run: cargo nextest run -p rulery real_import_graph_assembles_from_disk
+    started_at: 2026-09-29T18:15:57.485667Z
   - id: 2026-09-28-gap-closeout-t16
     title: Freeze the fixture lock and assert frozen agreement
     status: pending

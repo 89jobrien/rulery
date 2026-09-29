@@ -1,0 +1,30 @@
+package:
+  id: shared-policies
+  display_name: Shared Policies
+  version: 0.1.0
+  language_version: 1
+  description: Policies shared by more than one package.
+  authors:
+    - name: Shared Policies
+  tags: [safety, shared]
+semantics:
+  timezone: America/New_York
+  expiry: inclusive
+  missing_facts:
+    kind: request_information
+  invalid_facts:
+    kind: reject_evaluation
+  precedence:
+    kind: safety_first
+imports: []
+decisions:
+  - id: checkout
+    title: Tool checkout eligibility
+    asks: Can this member borrow this tool now?
+    input_roots: [member, tool]
+    default:
+      kind: deny
+      reasons:
+        - code: no-authorizing-rule
+          message: No rule authorizes this checkout.
+      actions: []
