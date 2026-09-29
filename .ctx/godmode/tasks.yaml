@@ -985,29 +985,36 @@ tasks:
     completed_at: 2026-09-29T11:13:35.293941Z
   - id: 2026-09-28-gap-closeout-t8
     title: Assert the clippy gate names every target
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t7
-    notes: ""
+    notes: "RED E0425: no gate_command in xtask. Test pins the whole gate->command mapping including None for the three in-process gates."
     crate_name: xtask
+    commit: 1ac9333
+    completed: 2026-09-29
     run: cargo nextest run -p xtask clippy_gate_lints_every_target
     started_at: 2026-09-29T17:05:10.985157Z
+    completed_at: 2026-09-29T17:09:06.247537Z
   - id: 2026-09-28-gap-closeout-t9
     title: Extract the gate commands and add the flag
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t8
-    notes: ""
+    notes: GateCommand is program + pre-split args; host runner uses cmd! splat. Widening found a real hidden lint in test code (identity returning &str not &'static str). xtask verify green on all 7 gates.
     crate_name: xtask
+    completed: 2026-09-29
     run: cargo nextest run -p xtask
+    started_at: 2026-09-29T17:09:10.482538Z
+    completed_at: 2026-09-29T17:09:10.488636Z
   - id: 2026-09-28-gap-closeout-t10
     title: Assert the diagnostics crate exposes the fields the CLI needs
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t9
     notes: ""
     crate_name: rulery-diagnostics
     run: cargo nextest run -p rulery-diagnostics diagnostics_expose_labels_confidence_and_report_contents
+    started_at: 2026-09-29T17:09:10.494690Z
   - id: 2026-09-28-gap-closeout-t11
     title: Add the three accessors
     status: pending

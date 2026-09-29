@@ -893,6 +893,41 @@ mod tests {
     use super::*;
 
     #[test]
+    fn diagnostics_expose_labels_confidence_and_report_contents() {
+        let map = build_source_map();
+        let label = DiagnosticLabel::new(
+            span(&map, 1, 1, 4),
+            LabelStyle::Primary,
+            Some("here".to_owned()),
+        )
+        .expect("label");
+        let diagnostic = Diagnostic::builder(
+            DiagnosticCode::new(DiagnosticCode::SYNTAX_INVALID).expect("valid code"),
+            "syntax is invalid",
+        )
+        .expect("builder")
+        .push_label(label)
+        .confidence(FindingConfidence::Proven)
+        .build()
+        .expect("diagnostic");
+
+        assert_eq!(diagnostic.labels(), &[label], "labels are not exposed");
+        assert_eq!(
+            diagnostic.properties().confidence(),
+            FindingConfidence::Proven,
+            "confidence is not exposed"
+        );
+
+        let report = DiagnosticReport::new(vec![diagnostic], "test/producer", LanguageVersion::V1)
+            .expect("report");
+        assert_eq!(
+            report.payload().diagnostics().len(),
+            1,
+            "report contents are not exposed"
+        );
+    }
+
+    #[test]
     fn diagnostic_builder_enforces_registry_invariants() {
         let syntax = Diagnostic::builder(
             DiagnosticCode::new(DiagnosticCode::SYNTAX_INVALID).expect("valid code"),
