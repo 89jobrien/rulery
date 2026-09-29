@@ -950,21 +950,25 @@ tasks:
     completed_at: 2026-09-29T01:14:43.437434Z
   - id: 2026-09-28-gap-closeout-t5
     title: Assert the reported instant follows the flag
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t4
-    notes: ""
+    notes: 'RED: witness at serialized as Some("0") while --at requested 2026-09-16. resolve_analysis_instant defaults to the epoch, not the system clock, so omitted flag stays byte-identical. 123/123 tests.'
     crate_name: rulery-cli
+    commit: 649fb30
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli analyze_at_is_recorded_in_the_report
     started_at: 2026-09-29T01:14:43.443735Z
+    completed_at: 2026-09-29T11:08:53.932845Z
   - id: 2026-09-28-gap-closeout-t6
     title: Allow a caller to inject the time-zone database
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t5
     notes: ""
     crate_name: rulery
     run: cargo nextest run -p rulery analyze_records_the_injected_database_identity
+    started_at: 2026-09-29T11:08:53.942874Z
   - id: 2026-09-28-gap-closeout-t7
     title: Run the full gate for gap1
     status: pending

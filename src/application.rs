@@ -10,7 +10,9 @@
 //! and the fixed analysis instant and delegates; it derives no analysis semantics.
 
 use std::collections::BTreeMap;
+use std::fmt;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use rulery_analysis::{
     AnalysisOptions, AnalysisReport, PackageAnalyzer, PolicyAnalyzer, build_case_facts,
@@ -23,7 +25,7 @@ use rulery_contracts::{
 };
 use rulery_engine::{
     DecisionTrace, DecisionTraceV1, JiffTimeZoneDatabase, PolicyEvaluationError, PolicyEvaluator,
-    ProductionPolicyEvaluator, TraceDetail,
+    ProductionPolicyEvaluator, TimeZoneDatabase, TraceDetail,
 };
 use rulery_ir::CompiledPackage;
 use rulery_scenarios::{
@@ -157,19 +159,31 @@ pub trait ApplicationService: Send + Sync {
 }
 
 /// Production application composing the real workspace adapters.
-#[derive(Clone, Debug)]
+#[derive(Clone)]
 pub struct ProductionApplication {
     store: FilesystemPackageStore,
-    time_zones: JiffTimeZoneDatabase,
+    time_zones: Arc<dyn TimeZoneDatabase>,
     compiler: PolicyCompiler,
     scenarios: ScenarioCompiler,
+}
+
+impl fmt::Debug for ProductionApplication {
+    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+        formatter
+            .debug_struct("ProductionApplication")
+            .field("store", &self.store)
+            .field("time_zones", &self.time_zones.identity())
+            .field("compiler", &self.compiler)
+            .field("scenarios", &self.scenarios)
+            .finish()
+    }
 }
 
 impl Default for ProductionApplication {
     fn default() -> Self {
         Self {
             store: FilesystemPackageStore::default(),
-            time_zones: JiffTimeZoneDatabase::default(),
+            time_zones: Arc::new(JiffTimeZoneDatabase::default()),
             compiler: PolicyCompiler,
             scenarios: ScenarioCompiler,
         }
@@ -183,9 +197,21 @@ impl ProductionApplication {
         Self::default()
     }
 
+    /// Creates the production application with a caller-supplied time-zone database.
+    ///
+    /// Every witness records the database identity that produced it, so an injected database
+    /// changes the report rather than only the internal adapter.
+    #[must_use]
+    pub fn with_time_zones(time_zones: Arc<dyn TimeZoneDatabase>) -> Self {
+        Self {
+            time_zones,
+            ..Self::default()
+        }
+    }
+
     /// Creates the analyzer used by the analysis and diff operations.
     fn analyzer(&self, at: UtcInstant) -> PackageAnalyzer<'_> {
-        PackageAnalyzer::new(&self.time_zones, at)
+        PackageAnalyzer::new(&*self.time_zones, at)
     }
 }
 
@@ -247,7 +273,7 @@ impl ApplicationService for ProductionApplication {
         facts: &CaseFacts,
         at: UtcInstant,
     ) -> Result<DecisionTrace, ApplicationError> {
-        map_evaluation(ProductionPolicyEvaluator::new(&self.time_zones).evaluate(
+        map_evaluation(ProductionPolicyEvaluator::new(&*self.time_zones).evaluate(
             package,
             decision,
             facts,
@@ -283,7 +309,7 @@ impl ApplicationService for ProductionApplication {
     ) -> Result<Vec<ScenarioResult>, ApplicationError> {
         let runner = ScenarioRunner::new(ProductionScenarioEvaluator {
             package,
-            time_zones: &self.time_zones,
+            time_zones: &*self.time_zones,
         });
         let package_hash = package.payload().package_hash();
         Ok(scenarios
@@ -302,7 +328,7 @@ impl ApplicationService for ProductionApplication {
 /// Scenario evaluation bound to one package and time-zone database.
 struct ProductionScenarioEvaluator<'a> {
     package: &'a CompiledPackage,
-    time_zones: &'a JiffTimeZoneDatabase,
+    time_zones: &'a dyn TimeZoneDatabase,
 }
 
 impl ScenarioEvaluator for ProductionScenarioEvaluator<'_> {
@@ -637,6 +663,7 @@ mod tests {
         QualifiedRuleId, Reason, Reasons, RuleId, SourceFile, SourceId, SourceKey, SourceMap,
         SourcePath, Span, Version,
     };
+    use rulery_engine::{TimeZoneDatabase, TimeZoneError};
     use rulery_ir::{
         CompilationInput, CompiledDecision, CompiledEffect, CompiledPackageDraft, CompiledRule,
         DecisionPrecedence, DecisionSemantics, ExpiryPolicy, Expr, ExprOperand, FieldDeclaration,
@@ -646,6 +673,24 @@ mod tests {
     use rulery_scenarios::{ExpectedDecision, ScenarioExpectationField, ScenarioStatus};
 
     use super::*;
+
+    /// Test double whose only purpose is to be identifiable, so a caller can prove the
+    /// application used the database it was given rather than the Jiff default.
+    struct InjectedTimeZoneDatabase;
+
+    impl TimeZoneDatabase for InjectedTimeZoneDatabase {
+        fn identity(&self) -> &str {
+            "test/injected-tzdb"
+        }
+
+        fn local_date(
+            &self,
+            instant: UtcInstant,
+            zone: &PolicyTimeZone,
+        ) -> Result<PolicyDate, TimeZoneError> {
+            JiffTimeZoneDatabase::default().local_date(instant, zone)
+        }
+    }
 
     fn path(value: &str) -> FactPath {
         FactPath::from_str(value).expect("canonical path")
@@ -889,6 +934,37 @@ mod tests {
         );
         for witness in &report.witnesses {
             assert_eq!(witness.at, at, "witness recorded another instant");
+        }
+    }
+
+    #[test]
+    fn analyze_records_the_injected_database_identity() {
+        let application =
+            ProductionApplication::with_time_zones(Arc::new(InjectedTimeZoneDatabase));
+        let package = analysis_package();
+        let at = UtcInstant::parse_rfc3339("2026-09-16T16:00:00.000000000Z").expect("instant");
+
+        let report = application
+            .analyze(&package, &AnalysisOptions::default(), at)
+            .expect("analysis report")
+            .payload()
+            .clone();
+
+        assert!(
+            !report.witnesses.is_empty(),
+            "analysis produced no witness to observe the database on"
+        );
+        for witness in &report.witnesses {
+            assert_eq!(
+                witness.timezone_database.implementation(),
+                "test",
+                "witness recorded another database implementation"
+            );
+            assert_eq!(
+                witness.timezone_database.version(),
+                "injected-tzdb",
+                "witness recorded another database version"
+            );
         }
     }
 
