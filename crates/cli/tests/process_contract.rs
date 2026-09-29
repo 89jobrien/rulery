@@ -458,6 +458,92 @@ fn classifications_of(stdout: &str) -> Vec<String> {
 }
 
 #[test]
+fn diff_reports_a_structural_change_without_an_outcome_change() {
+    let after = package("diff-structural");
+    let after_path = path(&after);
+    let args = [
+        "diff",
+        FIXTURE,
+        &after_path,
+        "--frozen",
+        "--decision",
+        DECISION,
+        "--format",
+        "json",
+    ];
+
+    // Control: the copy is still byte-identical, so the same command must report no change.
+    let control = run(&args);
+
+    // Renaming a reason code leaves the rule's effect, the deciding rule, and the outcome kind
+    // alone. Only the reasons a denial carries differ, which is the structural-only case.
+    //
+    // The target is deny-suspended-member because the fixture's rule coverage shows it reaching
+    // and determining 150 of the 600 partition cells. The temporal rules are reached by none of
+    // them, so renaming one of their reasons would be a no-op and the test would prove nothing.
+    let rules = after.join("rules").join("checkout.yaml");
+    let authored = fs::read_to_string(&rules).expect("readable rules");
+    let mutated = authored.replace(
+        "        - code: suspended-account\n          message: Suspended accounts cannot borrow shared equipment.",
+        "        - code: suspended-member-account\n          message: Suspended accounts cannot borrow shared equipment.",
+    );
+    assert_ne!(
+        mutated, authored,
+        "the fixture rule shape changed; update this test"
+    );
+    fs::write(&rules, mutated).expect("writeable rules");
+
+    let relocked = run(&["lock", &after_path]);
+    assert_eq!(
+        relocked.code, 0,
+        "lock did not regenerate: {}",
+        relocked.stderr
+    );
+
+    let changed = run(&args);
+    discard(&after);
+
+    for observed in [&control, &changed] {
+        assert_eq!(observed.code, 0, "diff failed: {}", observed.stderr);
+        assert!(observed.stderr.is_empty(), "machine mode wrote to stderr");
+    }
+    assert_eq!(
+        classifications_of(&control.stdout),
+        Vec::<String>::new(),
+        "diff reported a change between identical packages"
+    );
+
+    let classifications = classifications_of(&changed.stdout);
+    assert!(
+        classifications.iter().any(|entry| entry == REASON_ONLY),
+        "expected a reason_only change, got: {classifications:?}"
+    );
+
+    // The point of the classification: a renamed reason must not be reported as a change in what
+    // the policy permits. Any outcome-changing classification here means the tool conflated a
+    // cosmetic edit with a semantic one.
+    let outcome_changing: Vec<&String> = classifications
+        .iter()
+        .filter(|entry| OUTCOME_CHANGING_CLASSIFICATIONS.contains(&entry.as_str()))
+        .collect();
+    assert!(
+        outcome_changing.is_empty(),
+        "a structural-only edit was reported as an outcome change: {outcome_changing:?}"
+    );
+}
+
+/// The classification a renamed reason code must produce.
+const REASON_ONLY: &str = "reason_only";
+
+/// Classifications that assert a change in what the policy permits, as opposed to how it says so.
+const OUTCOME_CHANGING_CLASSIFICATIONS: [&str; 4] = [
+    "more_permissive",
+    "more_restrictive",
+    "introduces_escalation",
+    "introduces_information_request",
+];
+
+#[test]
 fn check_frozen_accepts_the_import_graph_fixture() {
     let scratch = scratch("import-graph");
     let copy = scratch.join("import-graph");

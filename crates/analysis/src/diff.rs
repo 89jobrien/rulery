@@ -121,7 +121,7 @@ impl PolicyDiffer {
         let changes = cells
             .into_iter()
             .take(available)
-            .filter(|cell| cell.before != cell.after || !cell.structural.is_empty())
+            .filter(|cell| cell.before != cell.after || !cell_classes(&cell.structural).is_empty())
             .map(|cell| {
                 let classification = classify(&cell);
                 let diagnostic_code = diagnostic_code(classification, &cell.structural);
@@ -152,11 +152,27 @@ impl PolicyDiffer {
     }
 }
 
+/// Returns the structural classes that describe the cell rather than the package.
+///
+/// [`StructuralChange::ImportIntegrity`] compares the two packages' content hashes, so it
+/// accompanies every edited package regardless of what changed for a given cell. Treating it as a
+/// cell class would report every cell of an edited package as changed, and would also mask the
+/// cell's own narrow classification, because the narrow classes are recognised by comparing the
+/// whole set.
+fn cell_classes(structural: &BTreeSet<StructuralChange>) -> BTreeSet<StructuralChange> {
+    structural
+        .iter()
+        .copied()
+        .filter(|change| *change != StructuralChange::ImportIntegrity)
+        .collect()
+}
+
 fn classify(cell: &DiffCell) -> OutcomeChangeKind {
-    if cell.structural == BTreeSet::from([StructuralChange::Precedence]) {
+    let classes = cell_classes(&cell.structural);
+    if classes == BTreeSet::from([StructuralChange::Precedence]) {
         return OutcomeChangeKind::PrecedenceOnly;
     }
-    if cell.structural == BTreeSet::from([StructuralChange::Reasons]) {
+    if classes == BTreeSet::from([StructuralChange::Reasons]) {
         return OutcomeChangeKind::ReasonOnly;
     }
     match (cell.before.kind(), cell.after.kind()) {
@@ -282,6 +298,50 @@ mod tests {
         ));
         assert_eq!(exhausted.unchanged, None);
         assert!(exhausted.changes.is_empty());
+    }
+
+    #[test]
+    fn package_integrity_does_not_mask_a_cell_level_classification() {
+        // Any edit changes the package's content hash, so ImportIntegrity accompanies every real
+        // diff. It describes the package, not the cell, so it must not stop the cell's own narrow
+        // classification from being recognised.
+        let report = PolicyDiffer.diff(
+            DecisionId::new("decision.main").expect("decision"),
+            vec![cell(
+                approve(),
+                approve_other(),
+                BTreeSet::from([StructuralChange::Reasons, StructuralChange::ImportIntegrity]),
+            )],
+            100,
+        );
+
+        assert_eq!(report.changes.len(), 1);
+        assert_eq!(
+            report.changes[0].classification,
+            OutcomeChangeKind::ReasonOnly
+        );
+        assert_eq!(report.changes[0].diagnostic_code, "RUL350");
+    }
+
+    #[test]
+    fn package_integrity_alone_does_not_report_a_cell_as_changed() {
+        // Identical outcomes with only a package-level difference are not a change to this cell.
+        // Reporting them makes every cell in the partition a "change" for any edited package.
+        let report = PolicyDiffer.diff(
+            DecisionId::new("decision.main").expect("decision"),
+            vec![cell(
+                approve(),
+                approve(),
+                BTreeSet::from([StructuralChange::ImportIntegrity]),
+            )],
+            100,
+        );
+
+        assert!(
+            report.changes.is_empty(),
+            "a cell with identical outcomes was reported as changed"
+        );
+        assert_eq!(report.unchanged, Some(true));
     }
 
     fn cell(before: Outcome, after: Outcome, structural: BTreeSet<StructuralChange>) -> DiffCell {

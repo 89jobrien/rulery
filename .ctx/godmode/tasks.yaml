@@ -1123,21 +1123,25 @@ tasks:
     completed_at: 2026-09-29T19:52:47.693834Z
   - id: 2026-09-28-gap-closeout-t19
     title: Derive an after-package in scratch and assert diff reports an outcome change
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t18
-    notes: ""
+    notes: "Passes on first write: the two prior fixes made the planned assertion achievable, verified by hand before writing. Control pair gives it teeth: same command must report zero changes against the unmutated copy and more_permissive after the deny-to-approve edit. 135/135, verify green. No CLI behaviour changed, so t21's conditional defect-fix may find nothing."
     crate_name: rulery-cli
+    commit: d463c48
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-cli diff_reports_an_outcome_change_between_two_packages
     started_at: 2026-09-29T21:21:48.667588Z
+    completed_at: 2026-09-29T21:23:38.621619Z
   - id: 2026-09-28-gap-closeout-t20
     title: Assert a structural-only change is classified as structural
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t19
     notes: ""
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli diff_reports_a_structural_change_without_an_outcome_change
+    started_at: 2026-09-29T21:28:42.966481Z
   - id: 2026-09-28-gap-closeout-t21
     title: Close the diff gap if either test exposed a defect
     status: pending
