@@ -24,6 +24,10 @@ const INSTANT: &str = "2026-09-16T16:00:00.000000000Z";
 /// nanoseconds rather than the RFC 3339 text the flag accepts.
 const INSTANT_NANOSECONDS: &str = "1789574400000000000";
 
+/// The multi-package import fixture, resolved from the workspace root. Its root package imports a
+/// second local package, so resolving it exercises the store, parser, and assembler together.
+const IMPORT_GRAPH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/import-graph");
+
 /// The single decision declared by the fixture manifest.
 const DECISION: &str = "checkout";
 
@@ -362,6 +366,57 @@ fn test_json_emits_the_documented_scenario_result_array() {
             "array element is not a scenario-result envelope"
         );
     }
+}
+
+#[test]
+fn check_frozen_accepts_the_import_graph_fixture() {
+    let scratch = scratch("import-graph");
+    let copy = scratch.join("import-graph");
+    copy_tree(Path::new(IMPORT_GRAPH), &copy);
+    let copy_path = path(&copy);
+
+    let checked = run(&["check", &copy_path, "--frozen", "--format", "json"]);
+    assert_eq!(
+        checked.code, 0,
+        "check --frozen rejected the frozen closure"
+    );
+    assert!(checked.stderr.is_empty(), "machine mode wrote to stderr");
+    one_json_value("check --frozen", &checked.stdout);
+
+    let tested = run(&["test", &copy_path, "--frozen", "--format", "json"]);
+    assert_eq!(tested.code, 0, "test --frozen rejected the frozen closure");
+    assert!(tested.stderr.is_empty(), "machine mode wrote to stderr");
+    one_json_value("test --frozen", &tested.stdout);
+
+    // Frozen mode must actually reject drift, or the two assertions above prove nothing. The
+    // drift has to stay valid YAML: appending a byte at end of file would make it a parse
+    // error, which also exits non-zero but says nothing about the lock. Changing an authored
+    // description is a well-formed edit that moves the imported package's content hash.
+    let shared = copy.join("imports").join("shared").join("actions.yaml");
+    let original = fs::read_to_string(&shared).expect("readable fixture");
+    let drifted = original.replace(
+        "Records an approved checkout obligation.",
+        "Records an approved checkout obligation. ",
+    );
+    assert_ne!(
+        drifted, original,
+        "the fixture wording changed; update this test"
+    );
+    fs::write(&shared, drifted).expect("writeable fixture");
+
+    let rejected = run(&["check", &copy_path, "--frozen", "--format", "json"]);
+    assert_ne!(
+        rejected.code, 0,
+        "frozen mode accepted a closure whose bytes no longer match the lock"
+    );
+    // In machine mode the rejection is a diagnostic envelope on stdout, and stderr stays empty.
+    let envelope = one_json_value("drifted check", &rejected.stdout);
+    assert!(
+        envelope.to_string().contains("RUL501"),
+        "expected a lock-disagreement diagnostic, got: {}",
+        rejected.stdout
+    );
+    discard(&copy);
 }
 
 #[test]

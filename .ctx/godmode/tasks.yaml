@@ -1078,21 +1078,24 @@ tasks:
     completed_at: 2026-09-29T18:23:42.242040Z
   - id: 2026-09-28-gap-closeout-t16
     title: Freeze the fixture lock and assert frozen agreement
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t15
-    notes: ""
+    notes: "Lock frozen; Update/Frozen hashes agree; both digests pinned as constants. Guard verified by hand: a trailing space in an action description tripped the pinned assertion after the lock was regenerated to match. 129/129, verify green."
     crate_name: rulery
+    completed: 2026-09-29
     run: cargo nextest run -p rulery real_import_graph_freezes_and_reassembles_identically
     started_at: 2026-09-29T18:28:09.201705Z
+    completed_at: 2026-09-29T18:33:33.648409Z
   - id: 2026-09-28-gap-closeout-t17
     title: Assert the CLI resolves the closure end to end
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t16
     notes: ""
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli check_frozen_accepts_the_import_graph_fixture
+    started_at: 2026-09-29T18:53:23.152857Z
   - id: 2026-09-28-gap-closeout-t18
     title: Run the full gate for gap6
     status: pending
