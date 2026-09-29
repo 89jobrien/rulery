@@ -369,6 +369,95 @@ fn test_json_emits_the_documented_scenario_result_array() {
 }
 
 #[test]
+fn diff_reports_an_outcome_change_between_two_packages() {
+    let after = package("diff-after");
+    let after_path = path(&after);
+    let args = [
+        "diff",
+        FIXTURE,
+        &after_path,
+        "--frozen",
+        "--decision",
+        DECISION,
+        "--format",
+        "json",
+    ];
+
+    // Control: the mutated copy is still byte-identical to the fixture, so the same command must
+    // report no change at all. Without this the positive assertion would also pass if diff
+    // reported a change for every decision unconditionally.
+    let control = run(&args);
+
+    let rules = after.join("rules").join("checkout.yaml");
+    let authored = fs::read_to_string(&rules).expect("readable rules");
+    let mutated = authored.replace(
+        "      kind: deny\n      reasons:\n        - code: suspended-account",
+        "      kind: approve\n      reasons:\n        - code: suspended-account",
+    );
+    assert_ne!(
+        mutated, authored,
+        "the fixture rule shape changed; update this test"
+    );
+    fs::write(&rules, mutated).expect("writeable rules");
+
+    // The edit moves the package's content hash, so its lock has to be regenerated before the
+    // frozen diff will accept it.
+    let relocked = run(&["lock", &after_path]);
+    assert_eq!(
+        relocked.code, 0,
+        "lock did not regenerate: {}",
+        relocked.stderr
+    );
+
+    let changed = run(&args);
+    discard(&after);
+
+    for observed in [&control, &changed] {
+        assert_eq!(observed.code, 0, "diff failed: {}", observed.stderr);
+        assert!(observed.stderr.is_empty(), "machine mode wrote to stderr");
+    }
+
+    assert_eq!(
+        classifications_of(&control.stdout),
+        Vec::<String>::new(),
+        "diff reported a change between identical packages"
+    );
+
+    let classifications = classifications_of(&changed.stdout);
+    assert!(
+        classifications
+            .iter()
+            .any(|entry| entry == "more_permissive"),
+        "expected a more_permissive outcome change, got: {classifications:?}"
+    );
+}
+
+/// Returns the change classifications a `diff` envelope reports for [`DECISION`].
+fn classifications_of(stdout: &str) -> Vec<String> {
+    let artifact = one_json_value("diff", stdout);
+    let Some(diffs) = artifact
+        .get("payload")
+        .and_then(|payload| payload.get("semantic_diffs"))
+        .and_then(serde_json::Value::as_array)
+    else {
+        panic!("analysis envelope carries no semantic_diffs array");
+    };
+    diffs
+        .iter()
+        .filter(|diff| diff.get("decision").and_then(serde_json::Value::as_str) == Some(DECISION))
+        .filter_map(|diff| diff.get("changes"))
+        .filter_map(serde_json::Value::as_array)
+        .flatten()
+        .filter_map(|change| {
+            change
+                .get("classification")
+                .and_then(serde_json::Value::as_str)
+        })
+        .map(str::to_owned)
+        .collect()
+}
+
+#[test]
 fn check_frozen_accepts_the_import_graph_fixture() {
     let scratch = scratch("import-graph");
     let copy = scratch.join("import-graph");

@@ -1123,12 +1123,13 @@ tasks:
     completed_at: 2026-09-29T19:52:47.693834Z
   - id: 2026-09-28-gap-closeout-t19
     title: Derive an after-package in scratch and assert diff reports an outcome change
-    status: blocked
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t18
-    notes: "blocked on t18c: diff emits zero semantic_diffs because a null record assignment voids the whole decision. Unblock once t18c lands."
+    notes: ""
     crate_name: rulery-cli
     run: cargo nextest run -p rulery-cli diff_reports_an_outcome_change_between_two_packages
+    started_at: 2026-09-29T21:21:48.667588Z
   - id: 2026-09-28-gap-closeout-t20
     title: Assert a structural-only change is classified as structural
     status: pending
@@ -1259,13 +1260,16 @@ tasks:
     run: cargo xtask verify
   - id: 2026-09-28-gap-closeout-t18c
     title: Stop null record assignments from voiding a whole analysis decision
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t18b
-    notes: "CORRECTED root cause. The earlier note blamed ignored presence: required, which is wrong. BLOCKER, verified: inferred_domain returns an empty domain for PartitionDomainKind::Record, then add_presence_values appends Absent and Null because spec_for hard-codes allow_absent and allow_null true, so a record-typed path has domain {Absent, Null}. A cell pairing member.training = Null with member.training.valid-until = <date> reaches build_case_facts, where Value::Null is not a Value::Record, so facts.rs:99 or facts.rs:104 returns CaseFactsError::PathConflict. pair_outcomes then returns None and extract.rs:947 abandons the entire decision, so PolicyDiffer never runs and diff emits zero semantic_diffs. BTreeMap order makes it deterministic: member.training sorts before member.training.valid-until, so Null is inserted first and the child takes the Occupied branch. The existing test at facts.rs:177-184 already documents the mechanism. The vocabulary has no nullable-record concept: presence optional means absent, never null, so allow_null is simply wrong for PathType::Record and removing it kills the poison for a principled reason. SECOND defect, latent and quieter: at extract.rs:947 one unpairable cell silently voids the whole decision, which is why this produced an inconclusive line and no diff rather than a visible error. NOT the blocker: ignoring presence: required is coverage pollution only, because validate_case_facts returns states and the invalid-facts strategy handles them at policy_evaluator.rs:102. PLAN: set allow_null false for record-typed paths, and stop letting a single unpairable cell abandon the decision, reporting per-cell skip reasons. Hierarchical cell generation is the only option that also makes the coverage denominator honest, but it changes cell counts which feed witness hashes and the frozen BLAKE3 vectors, so it belongs in its own task. SUCCESS CRITERION: the tool-library checkout decision reaches PolicyDiffer and diff reports the outcome change. t19 must not start until this lands."
+    notes: "allow_null false for record-typed paths. diff on the normative fixture goes exit 6 / inconclusive / examined 0 / 0 semantic_diffs -> exit 0 / complete / 1 semantic_diff with more_permissive. 134/134, verify green. D deferred: with the poisonous cell removed there is no honest failing test for the one-bad-cell-voids-a-decision robustness gap."
     crate_name: rulery-analysis
+    commit: 5f42fb8
+    completed: 2026-09-29
     run: cargo nextest run -p rulery-analysis record
     started_at: 2026-09-29T21:16:02.710915Z
+    completed_at: 2026-09-29T21:19:25.237201Z
 plan_imports:
   - source: /Users/joe/dev/rulery/.ctx/godmode/plans/2026-09-28-gap-closeout.md
     task_ids:
