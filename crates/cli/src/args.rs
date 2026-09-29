@@ -7,7 +7,7 @@ use rulery::contracts::DecisionId;
 
 /// Rulery command-line parser.
 #[derive(Clone, Debug, Parser, PartialEq)]
-#[command(name = "rulery")]
+#[command(name = "rulery", version)]
 pub struct Cli {
     /// Selected command.
     #[command(subcommand)]
