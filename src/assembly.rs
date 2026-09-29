@@ -672,6 +672,62 @@ mod tests {
 
     use super::*;
 
+    /// Pinned content digests of the import-graph fixture, so an edit fails the test
+    /// rather than silently regenerating the lock.
+    const ROOT_IMPORT_GRAPH_CONTENT_HASH: &str =
+        "blake3:9e3221818505d200a355615b68bca36dcb0dfd66ed6443527d59773d88484d63";
+    const SHARED_POLICIES_CONTENT_HASH: &str =
+        "blake3:785e6ee604c39ec7a47438ce6314786e42d10533fac121bf7f12fe921eace2a6";
+
+    #[test]
+    fn real_import_graph_freezes_and_reassembles_identically() {
+        let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("examples")
+            .join("import-graph");
+        let root = PackagePath::new(root).expect("root path");
+        let assembler = PackageAssembler::new(
+            <rulery_store::FilesystemPackageStore as Default>::default(),
+            <rulery_syntax::YamlSourceParser as Default>::default(),
+        );
+
+        let proposed = assembler
+            .assemble(&root, LockMode::Update)
+            .expect("assembly")
+            .proposed_lock
+            .expect("update mode proposes a lock");
+        let root_hash = proposed.payload().root().content_hash();
+
+        // Assembling in Frozen mode against the checked-in lock must agree exactly.
+        let frozen = assembler
+            .assemble(&root, LockMode::Frozen)
+            .expect("frozen assembly");
+        assert_eq!(frozen.proposed_lock, None, "frozen mode proposed a lock");
+        assert_eq!(
+            integrity_hash(frozen.input.integrity.root),
+            root_hash,
+            "the frozen closure hash differs from the proposed one"
+        );
+
+        // Pinned so an unintended edit to the fixture fails here instead of silently
+        // regenerating the lock. Both digests come from IntegrityCalculator::bundle_frame_bytes.
+        assert_eq!(
+            integrity_hash(frozen.input.integrity.root).to_string(),
+            ROOT_IMPORT_GRAPH_CONTENT_HASH,
+            "the import-graph fixture changed; regenerate the lock deliberately"
+        );
+        assert_eq!(
+            frozen
+                .input
+                .integrity
+                .imports
+                .values()
+                .map(|integrity| integrity_hash(*integrity).to_string())
+                .collect::<Vec<_>>(),
+            vec![SHARED_POLICIES_CONTENT_HASH],
+            "the shared-policies fixture changed; regenerate the lock deliberately"
+        );
+    }
+
     #[test]
     fn real_import_graph_assembles_from_disk() {
         let root = std::path::PathBuf::from(env!("CARGO_MANIFEST_DIR"))

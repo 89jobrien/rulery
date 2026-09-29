@@ -1067,21 +1067,24 @@ tasks:
     completed_at: 2026-09-29T18:11:27.318096Z
   - id: 2026-09-28-gap-closeout-t15
     title: Scaffold the imported fixture package and assert the graph assembles
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t14
-    notes: ""
+    notes: Two-package fixture under examples/import-graph with imports/shared. Seeded from tool-library to inherit known-compiling vocabulary. traversal_order holds imports only; root is in input.root. 128/128, check exits 0.
     crate_name: rulery
+    completed: 2026-09-29
     run: cargo nextest run -p rulery real_import_graph_assembles_from_disk
     started_at: 2026-09-29T18:15:57.485667Z
+    completed_at: 2026-09-29T18:23:42.242040Z
   - id: 2026-09-28-gap-closeout-t16
     title: Freeze the fixture lock and assert frozen agreement
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t15
     notes: ""
     crate_name: rulery
     run: cargo nextest run -p rulery real_import_graph_freezes_and_reassembles_identically
+    started_at: 2026-09-29T18:28:09.201705Z
   - id: 2026-09-28-gap-closeout-t17
     title: Assert the CLI resolves the closure end to end
     status: pending
