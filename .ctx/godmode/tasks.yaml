@@ -1205,21 +1205,24 @@ tasks:
     completed_at: 2026-09-30T09:12:56.056585Z
   - id: 2026-09-28-gap-closeout-t26
     title: Add the renamed-dependency hygiene fixture crate
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t25
     notes: ""
     crate_name: rulery-macros
+    completed: 2026-09-30
     run: cargo check --manifest-path examples/macro-hygiene/Cargo.toml
     started_at: 2026-09-30T09:14:36.295398Z
+    completed_at: 2026-09-30T09:23:42.464591Z
   - id: 2026-09-28-gap-closeout-t27
     title: Assert a record literal typechecks in a condition
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t26
     notes: ""
     crate_name: rulery-compiler
     run: cargo nextest run -p rulery-compiler record_literals_typecheck_against_record_typed_operands
+    started_at: 2026-09-30T09:23:42.472040Z
   - id: 2026-09-28-gap-closeout-t28
     title: Add the variant and the literal decode
     status: pending

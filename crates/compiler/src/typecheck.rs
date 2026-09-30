@@ -24,6 +24,16 @@ pub enum CheckedType {
     Duration,
     /// Enum type id.
     Enum(StableId),
+    /// Record type id.
+    ///
+    /// The payload is the declared type identity, mirroring [`CheckedType::Enum`], so a record
+    /// literal can look its field types up in the vocabulary while it decodes. The variant is
+    /// deliberately *not* a structural field map: a closed record may omit optional fields, so two
+    /// values of the same record type do not necessarily have the same key set, and comparing
+    /// their shapes would reject valid literals. Record shape is the vocabulary layer's
+    /// responsibility, not this one's; what this type must guarantee is that a record is never
+    /// interchangeable with text, which is what collapsing it to [`CheckedType::Text`] did.
+    Record(StableId),
     /// List type.
     List(Box<CheckedType>),
 }
@@ -359,6 +369,44 @@ mod tests {
             args: BTreeMap::from([(StableId::new("channel").expect("channel"), int_lit(1))]),
         };
         assert!(typecheck_action(&params, &wrong_type).is_err());
+    }
+
+    #[test]
+    fn record_operands_are_type_strict_and_never_text() {
+        let record = |name: &str| CheckedType::Record(StableId::new(name).expect("type id"));
+        let record_fact = fact("member.profile", record("type.profile"));
+        let same_type_record = fact("member.shadow-profile", record("type.profile"));
+        let other_type_record = fact("member.address", record("type.address"));
+        let text_fact = fact("member.name", CheckedType::Text);
+
+        assert!(
+            typecheck_predicate(Operator::Equals, &record_fact, Some(&same_type_record)).is_ok(),
+            "the specification allows equality against any declared type"
+        );
+        assert!(
+            typecheck_predicate(Operator::Exists, &record_fact, None).is_ok(),
+            "presence operators accept any path"
+        );
+        assert!(
+            typecheck_predicate(Operator::Equals, &record_fact, Some(&text_lit("Ada"))).is_err(),
+            "a record is not text, so record/text equality must not typecheck"
+        );
+        assert!(
+            typecheck_predicate(Operator::NotEquals, &text_fact, Some(&record_fact)).is_err(),
+            "the mismatch is symmetric"
+        );
+        assert!(
+            typecheck_predicate(Operator::Equals, &record_fact, Some(&other_type_record)).is_err(),
+            "two records of different declared types are not the same type"
+        );
+        assert!(
+            typecheck_predicate(Operator::LessThan, &record_fact, Some(&same_type_record)).is_err(),
+            "the specification makes record ordering Invalid, not merely unequal"
+        );
+        assert!(
+            typecheck_predicate(Operator::Contains, &record_fact, Some(&text_lit("a"))).is_err(),
+            "contains supports text or list operands only"
+        );
     }
 
     fn fact(path: &str, ty: CheckedType) -> OperandSpec {

@@ -473,7 +473,7 @@ fn source_condition(
                 ));
                 return None;
             };
-            let right = predicate
+            let resolved = predicate
                 .value
                 .as_ref()
                 .and_then(|value| {
@@ -489,11 +489,14 @@ fn source_condition(
                         .ok()
                 })
                 .or(match predicate.operator {
-                    SourceOperator::IsExpired | SourceOperator::IsUnexpired => {
-                        Some(ExprOperand::Reserved(ReservedOperand::Today))
-                    }
+                    SourceOperator::IsExpired | SourceOperator::IsUnexpired => Some((
+                        ExprOperand::Reserved(ReservedOperand::Today),
+                        OperandSpec::ReservedToday,
+                    )),
                     _ => None,
                 });
+            let right = resolved.as_ref().map(|(right, _)| right.clone());
+            let right_spec = resolved.map(|(_, spec)| spec);
             if predicate.value.is_some() && right.is_none() {
                 return None;
             }
@@ -508,10 +511,6 @@ fn source_condition(
                 path: predicate.fact.clone(),
                 ty: left_type,
             };
-            let right_spec = expression
-                .right
-                .as_ref()
-                .map(|right| operand_spec(right, vocabulary));
             if let Err(error) = typecheck_predicate(operator, &left, right_spec.as_ref()) {
                 diagnostics.push(source_diagnostic(
                     DiagnosticCode::TYPE_MISMATCH,
@@ -759,7 +758,7 @@ fn source_outcome(
                 ));
                 continue;
             };
-            let Ok(value) = operand(value, &parameter.ty, vocabulary) else {
+            let Ok((value, spec)) = operand(value, &parameter.ty, vocabulary) else {
                 diagnostics.push(source_diagnostic(
                     DiagnosticCode::TYPE_MISMATCH,
                     format!("action argument `{name}` has wrong type"),
@@ -768,8 +767,7 @@ fn source_outcome(
                 ));
                 continue;
             };
-            call.args
-                .insert(name.clone(), operand_spec(&value, vocabulary));
+            call.args.insert(name.clone(), spec);
             if let ExprOperand::Literal(value) = value {
                 values.insert(name.clone(), value);
             } else {
@@ -841,45 +839,32 @@ fn source_operator(operator: &SourceOperator) -> Operator {
     }
 }
 
-fn operand(
-    source: &SourceOperand,
-    expected: &CheckedType,
-    vocabulary: &ResolvedVocabulary,
-) -> Result<ExprOperand, String> {
-    match source {
-        SourceOperand::Fact(path) => {
-            let actual =
-                fact_type(path, vocabulary).ok_or_else(|| format!("unknown fact `{path}`"))?;
-            if &actual != expected {
-                return Err(format!("fact `{path}` has incompatible type"));
-            }
-            Ok(ExprOperand::Fact(path.clone()))
-        }
-        SourceOperand::Reserved(value) => match value.as_str() {
-            "today" => Ok(ExprOperand::Reserved(ReservedOperand::Today)),
-            "now" => Ok(ExprOperand::Reserved(ReservedOperand::Now)),
-            _ => Err(format!("unknown reserved operand `{value}`")),
-        },
-        SourceOperand::Literal(value) => Ok(ExprOperand::Literal(literal(value, expected)?)),
-    }
-}
-
 /// Decodes one authored literal against the type the type checker assigned to it.
 ///
-/// Only the shapes [`CheckedType`] can express are accepted. A record literal has no
-/// representation here because `CheckedType` has no record variant; record-valued authored facts
-/// are resolved by the scenario bridge against the vocabulary instead.
-fn literal(value: &SourceValue, ty: &CheckedType) -> Result<Value, String> {
-    let SourceValue::Scalar(value) = value else {
-        return match (value, ty) {
-            (SourceValue::Null, _) => Ok(Value::Null),
-            (SourceValue::Sequence(items), CheckedType::List(inner)) => items
+/// Only the shapes [`CheckedType`] can express are accepted. The vocabulary is needed to resolve a
+/// record's declared field types, because a record's own checked type carries only its identity.
+fn literal(
+    value: &SourceValue,
+    ty: &CheckedType,
+    vocabulary: &ResolvedVocabulary,
+) -> Result<Value, String> {
+    match (value, ty) {
+        (SourceValue::Null, _) => return Ok(Value::Null),
+        (SourceValue::Mapping(fields), CheckedType::Record(type_id)) => {
+            return record_literal(fields, type_id, vocabulary);
+        }
+        (SourceValue::Sequence(items), CheckedType::List(inner)) => {
+            return items
                 .iter()
-                .map(|item| literal(item, inner))
+                .map(|item| literal(item, inner, vocabulary))
                 .collect::<Result<Vec<_>, _>>()
-                .map(Value::List),
-            _ => Err(format!("literal shape is not valid for `{ty:?}`")),
-        };
+                .map(Value::List);
+        }
+        (SourceValue::Scalar(_), _) => {}
+        _ => return Err(format!("literal shape is not valid for `{ty:?}`")),
+    }
+    let SourceValue::Scalar(value) = value else {
+        return Err(format!("literal shape is not valid for `{ty:?}`"));
     };
     match ty {
         CheckedType::Boolean => value
@@ -907,40 +892,89 @@ fn literal(value: &SourceValue, ty: &CheckedType) -> Result<Value, String> {
             TypeId::new(type_id.as_str()).map_err(|error| error.to_string())?,
             StableId::new(value).map_err(|error| error.to_string())?,
         ))),
+        CheckedType::Record(_) => Err(format!("`{value}` is not a record")),
         CheckedType::List(_) => Err(format!("`{value}` is not a list")),
     }
 }
 
-fn operand_spec(operand: &ExprOperand, vocabulary: &ResolvedVocabulary) -> OperandSpec {
-    match operand {
-        ExprOperand::Fact(path) => OperandSpec::Fact {
-            path: path.clone(),
-            ty: fact_type(path, vocabulary).expect("checked fact exists"),
-        },
-        ExprOperand::Literal(value) => OperandSpec::Literal {
-            value: value.clone(),
-            ty: value_type(value),
-        },
-        ExprOperand::Reserved(ReservedOperand::Today) => OperandSpec::ReservedToday,
-        ExprOperand::Reserved(ReservedOperand::Now) => OperandSpec::ReservedNow,
-    }
+/// Decodes one authored mapping against a declared record type.
+///
+/// Every authored key must be a declared field, and each field decodes against its own declared
+/// type. An undeclared key is an error rather than an implicitly text-typed extra, because the
+/// vocabulary owns the closed/open policy and the engine compares records by identical key sets.
+fn record_literal(
+    fields: &BTreeMap<StableId, SourceValue>,
+    type_id: &StableId,
+    vocabulary: &ResolvedVocabulary,
+) -> Result<Value, String> {
+    let declared_id = TypeId::new(type_id.as_str()).map_err(|error| error.to_string())?;
+    let declaration = vocabulary
+        .types
+        .get(&declared_id)
+        .ok_or_else(|| format!("record type `{type_id}` is not declared"))?;
+    let TypeDeclaration::Record {
+        fields: declared, ..
+    } = &declaration.declaration
+    else {
+        return Err(format!("`{type_id}` is not a record type"));
+    };
+    fields
+        .iter()
+        .map(|(name, value)| {
+            let field = declared
+                .get(name)
+                .ok_or_else(|| format!("`{name}` is not a declared field of `{type_id}`"))?;
+            let field_type = checked_type(field.type_id.as_str(), vocabulary)
+                .ok_or_else(|| format!("field `{name}` has an unsupported type"))?;
+            literal(value, &field_type, vocabulary).map(|value| (name.clone(), value))
+        })
+        .collect::<Result<BTreeMap<_, _>, _>>()
+        .map(Value::Record)
 }
 
-fn value_type(value: &Value) -> CheckedType {
-    match value {
-        Value::Boolean(_) => CheckedType::Boolean,
-        Value::Integer(_) => CheckedType::Integer,
-        Value::Text(_) | Value::Null | Value::Record(_) => CheckedType::Text,
-        Value::Enum(value) => CheckedType::Enum(
-            StableId::new(value.type_id().as_str()).expect("type identifiers are stable ids"),
-        ),
-        Value::Date(_) => CheckedType::Date,
-        Value::DateTime(_) => CheckedType::DateTime,
-        Value::Decimal(_) => CheckedType::Decimal,
-        Value::Duration(_) => CheckedType::Duration,
-        Value::List(values) => CheckedType::List(Box::new(
-            values.first().map_or(CheckedType::Text, value_type),
-        )),
+/// Lowers one source operand, returning its expression form and its checked type.
+///
+/// A literal's checked type is the type it was decoded against, not a type re-derived from the
+/// decoded value. Re-deriving it cannot be right: an empty list and a record both carry no
+/// evidence of the type they were written for, and an explicit `null` carries none at all, so a
+/// re-derived type either widens them to text or rejects them outright.
+fn operand(
+    source: &SourceOperand,
+    expected: &CheckedType,
+    vocabulary: &ResolvedVocabulary,
+) -> Result<(ExprOperand, OperandSpec), String> {
+    match source {
+        SourceOperand::Fact(path) => {
+            let actual =
+                fact_type(path, vocabulary).ok_or_else(|| format!("unknown fact `{path}`"))?;
+            if &actual != expected {
+                return Err(format!("fact `{path}` has incompatible type"));
+            }
+            let spec = OperandSpec::Fact {
+                path: path.clone(),
+                ty: actual,
+            };
+            Ok((ExprOperand::Fact(path.clone()), spec))
+        }
+        SourceOperand::Reserved(value) => match value.as_str() {
+            "today" => Ok((
+                ExprOperand::Reserved(ReservedOperand::Today),
+                OperandSpec::ReservedToday,
+            )),
+            "now" => Ok((
+                ExprOperand::Reserved(ReservedOperand::Now),
+                OperandSpec::ReservedNow,
+            )),
+            _ => Err(format!("unknown reserved operand `{value}`")),
+        },
+        SourceOperand::Literal(value) => {
+            let decoded = literal(value, expected, vocabulary)?;
+            let spec = OperandSpec::Literal {
+                value: decoded.clone(),
+                ty: expected.clone(),
+            };
+            Ok((ExprOperand::Literal(decoded), spec))
+        }
     }
 }
 
@@ -981,7 +1015,9 @@ fn checked_type(name: &str, vocabulary: &ResolvedVocabulary) -> Option<CheckedTy
                 CheckedType::List(Box::new(checked_type(element.as_str(), vocabulary)?))
             }
             TypeDeclaration::Alias { target, .. } => checked_type(target.as_str(), vocabulary)?,
-            TypeDeclaration::Record { .. } => CheckedType::Text,
+            TypeDeclaration::Record { id, .. } => CheckedType::Record(
+                StableId::new(id.as_str()).expect("type IDs satisfy stable ID syntax"),
+            ),
             TypeDeclaration::Primitive => return None,
         },
     })
@@ -1061,6 +1097,7 @@ mod tests {
         SourceDocument, SourceFile, SourceId, SourceKey, SourceMap, SourcePath, StableId, TypeId,
     };
     use rulery_syntax::{SourceParser, YamlSourceParser};
+    use rulery_vocabulary::ResolvedType;
 
     use super::*;
 
@@ -1165,6 +1202,121 @@ mod tests {
     }
 
     #[test]
+    fn record_literals_decode_each_field_against_its_declared_type() {
+        let vocabulary = record_vocabulary();
+        let record = CheckedType::Record(StableId::new("type.profile").expect("type id"));
+
+        let mapping = SourceValue::Mapping(BTreeMap::from([
+            (
+                StableId::new("name").expect("name"),
+                SourceValue::Scalar("Ada".to_owned()),
+            ),
+            (
+                StableId::new("age").expect("age"),
+                SourceValue::Scalar("41".to_owned()),
+            ),
+            (
+                StableId::new("nickname").expect("nickname"),
+                SourceValue::Null,
+            ),
+        ]));
+        let decoded = literal(&mapping, &record, &vocabulary).expect("record literal");
+
+        let Value::Record(fields) = decoded else {
+            panic!("a record literal must decode to a record, not a scalar");
+        };
+        assert_eq!(fields.len(), 3, "unexpected fields: {fields:?}");
+        assert_eq!(
+            fields.get(&StableId::new("name").expect("name")),
+            Some(&Value::Text("Ada".to_owned())),
+            "a text field must not decode as a number just because the scalar looks like one"
+        );
+        assert_eq!(
+            fields.get(&StableId::new("age").expect("age")),
+            Some(&Value::Integer(41)),
+            "an integer field must decode as an integer, not as the text \"41\""
+        );
+        assert_eq!(
+            fields.get(&StableId::new("nickname").expect("nickname")),
+            Some(&Value::Null),
+            "an explicit null stays an explicit null"
+        );
+
+        assert!(
+            literal(&SourceValue::Scalar("Ada".to_owned()), &record, &vocabulary).is_err(),
+            "a bare scalar is not a record literal"
+        );
+        assert!(
+            literal(
+                &SourceValue::Mapping(BTreeMap::from([(
+                    StableId::new("unknown").expect("unknown"),
+                    SourceValue::Scalar("x".to_owned()),
+                )])),
+                &record,
+                &vocabulary
+            )
+            .is_err(),
+            "an undeclared field must be rejected rather than silently typed as text"
+        );
+        assert!(
+            literal(
+                &SourceValue::Mapping(BTreeMap::from([(
+                    StableId::new("age").expect("age"),
+                    SourceValue::Scalar("not-a-number".to_owned()),
+                )])),
+                &record,
+                &vocabulary
+            )
+            .is_err(),
+            "a field that does not parse as its declared type is a type error"
+        );
+    }
+
+    /// A vocabulary whose `member.profile` root is a record of `name`, `age`, and an optional
+    /// `nickname`, so a record literal has both required and optional fields to decode.
+    fn record_vocabulary() -> ResolvedVocabulary {
+        let field = |type_id: &str, presence: FieldPresence| FieldDeclaration {
+            type_id: TypeId::new(type_id).expect("field type"),
+            presence,
+            derived: false,
+        };
+        ResolvedVocabulary {
+            roots: BTreeMap::from([(
+                FactPath::from_str("member.profile").expect("root path"),
+                ResolvedRoot {
+                    path: FactPath::from_str("member.profile").expect("root path"),
+                    type_id: TypeId::new("type.profile").expect("root type"),
+                },
+            )]),
+            types: BTreeMap::from([(
+                TypeId::new("type.profile").expect("record type"),
+                ResolvedType {
+                    id: TypeId::new("type.profile").expect("record type"),
+                    declaration: TypeDeclaration::Record {
+                        id: TypeId::new("type.profile").expect("record type"),
+                        fields: BTreeMap::from([
+                            (
+                                StableId::new("age").expect("age"),
+                                field("int", FieldPresence::Required),
+                            ),
+                            (
+                                StableId::new("name").expect("name"),
+                                field("string", FieldPresence::Required),
+                            ),
+                            (
+                                StableId::new("nickname").expect("nickname"),
+                                field("string", FieldPresence::Optional),
+                            ),
+                        ]),
+                        closed: true,
+                    },
+                },
+            )]),
+            terms: BTreeMap::new(),
+        }
+    }
+
+    #[test]
     fn compiler_lowers_assembled_tool_library_to_executable_package() {
         let root = concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/tool-library");
         let paths = [
@@ -1235,5 +1387,167 @@ mod tests {
         )
         .expect("insert source");
         map
+    }
+
+    /// A minimal authored package whose one rule compares a record-typed fact against a record
+    /// literal, plus a rule that uses the same field with a scalar so the two are distinguishable.
+    ///
+    /// The condition is authored, not hand-built, so this exercises the YAML reader, the
+    /// vocabulary resolver, the type checker, and the record literal decoder in one pass. The
+    /// normative `tool-library` fixture is deliberately not used here: adding a rule to it would
+    /// move every analysis partition count, coverage ratio, and frozen hash with it.
+    fn record_condition_package() -> BTreeMap<&'static str, String> {
+        BTreeMap::from([
+            (
+                "rulery.yaml",
+                "package:\n  id: record-conditions\n  display_name: Record conditions\n  version: 0.1.0\n  language_version: 1\n  description: Compares record-typed facts to record literals.\n  authors:\n    - name: Rulery\n  tags: [records]\nsemantics:\n  timezone: UTC\n  expiry: inclusive\n  missing_facts:\n    kind: request_information\n  invalid_facts:\n    kind: reject_evaluation\n  precedence:\n    kind: safety_first\nimports: []\ndecisions:\n  - id: eligibility\n    title: Record eligibility\n    asks: Does this record match?\n    input_roots: [member]\n    default:\n      kind: deny\n      reasons:\n        - code: no-rule\n          message: No rule authorized the case.\n      actions: []\n"
+                    .to_owned(),
+            ),
+            (
+                "vocabulary.yaml",
+                "types:\n  training:\n    kind: record\n    closed: true\n    fields:\n      completed-at: { type: date, presence: required }\n      valid-until: { type: date, presence: required }\n  member:\n    kind: record\n    closed: true\n    fields:\n      training: { type: training, presence: required }\nroots:\n  member: { type: member }\nterms: {}\n"
+                    .to_owned(),
+            ),
+            (
+                "actions.yaml",
+                "actions: {}\n".to_owned(),
+            ),
+            (
+                "rules/eligibility.yaml",
+                "decision: eligibility\nrules:\n  - id: matches-known-training\n    title: The training record matches a known literal\n    priority: 100\n    when:\n      fact: member.training\n      operator: equal\n      value: { completed-at: 2026-01-01, valid-until: 2026-12-31 }\n    effect:\n      kind: approve\n      reasons:\n        - code: matched\n          message: The training record matched.\n      actions: []\n"
+                    .to_owned(),
+            ),
+        ])
+    }
+
+    fn compile_record_condition_package() -> CompiledPackage {
+        let sources = record_condition_package();
+        let bundle = SourceBundle::new(
+            sources
+                .iter()
+                .map(|(path, content)| {
+                    SourceDocument::new(
+                        SourcePath::new(*path).expect("source path"),
+                        Arc::<str>::from(content.as_str()),
+                    )
+                })
+                .collect(),
+        )
+        .expect("complete source bundle");
+        let root = YamlSourceParser
+            .parse_bundle(&bundle)
+            .expect("parsed record condition package");
+        let output = PolicyCompiler.compile_source(&SourceCompilationInput {
+            source_map: root.source_map.clone(),
+            root,
+            imports: BTreeMap::new(),
+            source_bundle_hash: ContentHash::digest(
+                &bundle
+                    .documents()
+                    .iter()
+                    .flat_map(|document| document.content().bytes())
+                    .collect::<Vec<_>>(),
+            ),
+            lock_hash: None,
+        });
+        assert!(
+            output.diagnostics.is_empty(),
+            "a record-valued condition must compile cleanly: {:?}",
+            output.diagnostics
+        );
+        output.package.expect("compiled package")
+    }
+
+    #[test]
+    fn a_real_package_compiles_a_record_valued_condition() {
+        let package = compile_record_condition_package();
+
+        let rule = package
+            .payload()
+            .decisions()
+            .values()
+            .next()
+            .expect("decision")
+            .rules()
+            .values()
+            .find(|rule| rule.id().as_str() == "matches-known-training")
+            .expect("record rule");
+        let Expr::Predicate(predicate) = rule.condition() else {
+            panic!("a rule condition must be a predicate");
+        };
+        let Some(ExprOperand::Literal(value)) = predicate.right.as_ref() else {
+            panic!("the authored mapping must lower to a literal, not an operand");
+        };
+        let Value::Record(fields) = value else {
+            panic!("the authored mapping must lower to a record, not a scalar: {value:?}");
+        };
+        assert_eq!(
+            fields.get(&StableId::new("valid-until").expect("field")),
+            Some(&Value::Date(
+                PolicyDate::parse("2026-12-31").expect("canonical date")
+            )),
+            "a date field must decode as a date, not as the text \"2026-12-31\""
+        );
+        assert_eq!(fields.len(), 2, "unexpected fields: {fields:?}");
+    }
+
+    #[test]
+    fn a_record_valued_condition_rejects_an_undeclared_field() {
+        let mut sources = record_condition_package();
+        sources.insert(
+            "rules/eligibility.yaml",
+            sources["rules/eligibility.yaml"].replace(
+                "valid-until: 2026-12-31",
+                "not-a-declared-field: 2026-12-31",
+            ),
+        );
+        let bundle = SourceBundle::new(
+            sources
+                .iter()
+                .map(|(path, content)| {
+                    SourceDocument::new(
+                        SourcePath::new(*path).expect("source path"),
+                        Arc::<str>::from(content.as_str()),
+                    )
+                })
+                .collect(),
+        )
+        .expect("complete source bundle");
+        let root = YamlSourceParser
+            .parse_bundle(&bundle)
+            .expect("parsed record condition package");
+        let output = PolicyCompiler.compile_source(&SourceCompilationInput {
+            source_map: root.source_map.clone(),
+            root,
+            imports: BTreeMap::new(),
+            source_bundle_hash: ContentHash::digest(
+                &bundle
+                    .documents()
+                    .iter()
+                    .flat_map(|document| document.content().bytes())
+                    .collect::<Vec<_>>(),
+            ),
+            lock_hash: None,
+        });
+
+        let codes = output
+            .diagnostics
+            .iter()
+            .map(|entry| entry.code.as_str().to_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            codes,
+            vec![DiagnosticCode::TYPE_MISMATCH.to_owned()],
+            "{codes:?}"
+        );
+        assert!(
+            output
+                .diagnostics
+                .iter()
+                .any(|entry| entry.message.contains("not-a-declared-field")),
+            "the diagnostic must name the offending field: {:?}",
+            output.diagnostics
+        );
+        assert!(output.package.is_none());
     }
 }
