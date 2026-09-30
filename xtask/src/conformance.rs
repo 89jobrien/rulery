@@ -2,7 +2,7 @@
 
 use std::{collections::BTreeSet, path::Path};
 
-use crate::{ProcessRunner, XtaskError};
+use crate::{ProcessOutcome, ProcessRunner, XtaskError};
 
 /// One ordered specification conformance failure.
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -198,6 +198,7 @@ pub(crate) fn check(root: &Path) -> Result<(), XtaskError> {
         .map_err(|error| XtaskError::Conformance(format!("{}: {error}", path.display())))?;
 
     check_requirements(root, &specification)?;
+    check_macro_hygiene(root, &crate::HostProcessRunner)?;
 
     let report = validate_specification(
         &specification,
@@ -216,6 +217,49 @@ pub(crate) fn check(root: &Path) -> Result<(), XtaskError> {
                 .join("\n"),
         ))
     }
+}
+
+/// Manifest of the downstream crate that renames its `rulery` dependency.
+const MACRO_HYGIENE_MANIFEST: &str = "examples/macro-hygiene/Cargo.toml";
+
+/// Feature configurations the hygiene fixture must compile under, as the specification's
+/// `Required conformance gates` bullet requires: `renamed-dependency macro hygiene tests with
+/// default features and `macros` enabled`.
+const MACRO_HYGIENE_FEATURE_SETS: &[&str] = &["", "macros"];
+
+/// Compiles the renamed-dependency macro hygiene fixture under every required feature set.
+///
+/// The facade's declarative macros expand through `$crate::__private`, and `rulery-macros` locates
+/// the facade by name, so both only stay hygienic when a downstream crate renames `rulery`. No
+/// in-tree test can observe that: every one of them sees the dependency under its real name. This
+/// check is the only place the claim is actually proven, so a fixture that stops compiling, or a
+/// dependency rename that is quietly reverted, fails the gate rather than rotting unnoticed.
+///
+/// # Errors
+///
+/// Returns [`XtaskError::Conformance`] when the fixture fails to compile under a required feature
+/// set, naming the feature set and quoting cargo's own diagnostics.
+pub fn check_macro_hygiene(root: &Path, runner: &impl ProcessRunner) -> Result<(), XtaskError> {
+    let manifest = root.join(MACRO_HYGIENE_MANIFEST);
+    for features in MACRO_HYGIENE_FEATURE_SETS {
+        let label = if features.is_empty() {
+            "default features".to_owned()
+        } else {
+            format!("features `{features}`")
+        };
+        match runner
+            .cargo_check(&manifest, features)
+            .map_err(XtaskError::Conformance)?
+        {
+            ProcessOutcome::Success => {}
+            ProcessOutcome::Failed(output) => {
+                return Err(XtaskError::Conformance(format!(
+                    "{MACRO_HYGIENE_MANIFEST} does not compile with {label}:\n{output}"
+                )));
+            }
+        }
+    }
+    Ok(())
 }
 
 /// Requirement identifiers the v0.1 specification must declare.

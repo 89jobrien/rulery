@@ -1193,20 +1193,25 @@ tasks:
     completed_at: 2026-09-29T22:40:07.903151Z
   - id: 2026-09-28-gap-closeout-t25
     title: Assert the derive produces a working conversion
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t24
-    notes: ""
+    notes: "Derive is correct; no fix needed. Two conformance tests cover the runtime promises the token-level test cannot reach: every supported field type, and Option::None omitting rather than nulling in both directions. New tests/macros.rs, not workspace_scaffold.rs, which asserts layout. 139 default / 141 all-features."
     crate_name: rulery
+    commit: 6c8a95b
+    completed: 2026-09-30
     run: cargo nextest run -p rulery --features macros rule_facts_derive_converts_a_record_into_case_facts
+    started_at: 2026-09-30T09:12:56.027463Z
+    completed_at: 2026-09-30T09:12:56.056585Z
   - id: 2026-09-28-gap-closeout-t26
     title: Add the renamed-dependency hygiene fixture crate
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t25
     notes: ""
     crate_name: rulery-macros
     run: cargo check --manifest-path examples/macro-hygiene/Cargo.toml
+    started_at: 2026-09-30T09:14:36.295398Z
   - id: 2026-09-28-gap-closeout-t27
     title: Assert a record literal typechecks in a condition
     status: pending

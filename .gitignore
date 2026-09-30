@@ -1,4 +1,7 @@
 /target
+# The hygiene fixture under examples/ is its own workspace and builds into its own target
+# directory, which the anchored /target rule above does not cover.
+**/target/
 local/
 .kgx/
 *.profraw

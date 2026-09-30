@@ -1,0 +1,25 @@
+[package]
+name = "macro-hygiene-fixture"
+version = "0.0.0"
+edition = "2024"
+publish = false
+description = "Proves the Rulery macros expand hygienically under a renamed dependency."
+
+# An empty [workspace] table keeps this package out of the parent workspace. Without it cargo
+# reports that the package sits inside a workspace directory it is not a member of, and the
+# parent's `members = ["crates/*", "xtask"]` glob does not match it in the first place. Being a
+# separate workspace is also what makes this a genuine downstream consumer: proc-macro-crate
+# resolves the facade by name, so the rename below is the whole point of the fixture.
+[workspace]
+
+[features]
+# Mirrors the facade's own `macros` feature so the conformance gate can compile this crate both
+# with default features and with macros enabled, which is what the specification's
+# `Required conformance gates` bullet asks for. The default set is empty, so the first
+# configuration proves declarative hygiene alone: `$crate` paths resolve whether or not the
+# optional procedural crate is present.
+macros = ["rlry/macros"]
+
+[dependencies]
+# The dependency is deliberately not named `rulery`.
+rlry = { package = "rulery", path = "../.." }

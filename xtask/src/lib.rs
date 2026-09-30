@@ -16,14 +16,15 @@ mod verify;
 pub use architecture::{PackageSnapshot, validate_architecture};
 pub use bootstrap::{Change, ChangeSet, ReconcileMode, plan_bootstrap, reconcile};
 pub use conformance::{
-    ConformanceFailure, ConformanceReport, check_requirements, validate_specification,
+    ConformanceFailure, ConformanceReport, check_macro_hygiene, check_requirements,
+    validate_specification,
 };
 pub use fs::{HostFileSystem, WorkspaceFileSystem};
 pub use model::{
     CrateSpec, DependencyRule, TargetKind, WorkspaceModel, model_dependencies, model_manifest,
     model_target, workspace_model,
 };
-pub use process::{HostProcessRunner, ProcessRunner};
+pub use process::{HostProcessRunner, ProcessOutcome, ProcessRunner};
 pub use verify::{GateCommand, VerifyGate, VerifyRunner, gate_command, verify_with};
 
 /// Repository automation command line.

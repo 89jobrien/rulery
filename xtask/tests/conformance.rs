@@ -1,10 +1,10 @@
 //! xtask specification conformance workflow tests.
 
 use std::fmt::Write as _;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
-use xtask::ProcessRunner;
+use xtask::{ProcessOutcome, ProcessRunner};
 
 #[test]
 fn conformance_accepts_normative_specification() {
@@ -87,6 +87,110 @@ impl ProcessRunner for FakeRunner {
     fn rustfmt_check(&self, _: &Path) -> Result<bool, String> {
         self.result.clone()
     }
+
+    fn cargo_check(&self, _: &Path, _: &str) -> Result<ProcessOutcome, String> {
+        Ok(ProcessOutcome::Success)
+    }
+}
+
+/// One `cargo check` request captured by [`RecordingRunner`].
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct CheckRequest {
+    manifest: PathBuf,
+    features: String,
+}
+
+/// Answers each recorded `cargo check` from a scripted outcome.
+struct RecordingRunner {
+    requests: std::sync::Mutex<Vec<CheckRequest>>,
+    outcomes: Vec<Result<ProcessOutcome, String>>,
+}
+
+impl RecordingRunner {
+    fn with_outcomes(outcomes: Vec<Result<ProcessOutcome, String>>) -> Self {
+        Self {
+            requests: std::sync::Mutex::new(Vec::new()),
+            outcomes,
+        }
+    }
+
+    fn requests(&self) -> Vec<CheckRequest> {
+        self.requests.lock().expect("recording lock").clone()
+    }
+}
+
+impl ProcessRunner for RecordingRunner {
+    fn rustfmt_check(&self, _: &Path) -> Result<bool, String> {
+        Ok(true)
+    }
+
+    fn cargo_check(&self, manifest: &Path, features: &str) -> Result<ProcessOutcome, String> {
+        let index = {
+            let mut requests = self.requests.lock().expect("recording lock");
+            let index = requests.len();
+            requests.push(CheckRequest {
+                manifest: manifest.to_path_buf(),
+                features: features.to_owned(),
+            });
+            index
+        };
+        self.outcomes
+            .get(index)
+            .cloned()
+            .unwrap_or(Ok(ProcessOutcome::Success))
+    }
+}
+
+#[test]
+fn macro_hygiene_compiles_the_fixture_with_default_features_and_macros() {
+    let runner = RecordingRunner::with_outcomes(vec![
+        Ok(ProcessOutcome::Success),
+        Ok(ProcessOutcome::Success),
+    ]);
+
+    xtask::check_macro_hygiene(workspace_root(), &runner).expect("hygiene fixture must compile");
+
+    let manifest = workspace_root().join("examples/macro-hygiene/Cargo.toml");
+    assert_eq!(
+        runner.requests(),
+        vec![
+            CheckRequest {
+                manifest: manifest.clone(),
+                features: String::new(),
+            },
+            CheckRequest {
+                manifest,
+                features: "macros".to_owned(),
+            },
+        ],
+        "the specification requires the renamed fixture with default features and with macros"
+    );
+}
+
+#[test]
+fn macro_hygiene_reports_the_feature_set_that_failed_to_compile() {
+    let runner = RecordingRunner::with_outcomes(vec![
+        Ok(ProcessOutcome::Success),
+        Ok(ProcessOutcome::Failed(
+            "error[E0425]: cannot find type `NoSuchType` in module `rlry::__private`".to_owned(),
+        )),
+    ]);
+    let error = xtask::check_macro_hygiene(workspace_root(), &runner)
+        .expect_err("a failing feature set must fail the gate")
+        .to_string();
+    assert!(error.contains("examples/macro-hygiene"), "{error}");
+    assert!(error.contains("features `macros`"), "{error}");
+    assert!(
+        error.contains("E0425"),
+        "cargo's own diagnostics must survive: {error}"
+    );
+
+    let runner = RecordingRunner::with_outcomes(vec![Err("cargo is not installed".to_owned())]);
+    let error = xtask::check_macro_hygiene(workspace_root(), &runner)
+        .expect_err("a runner failure must not be reported as a hygiene failure")
+        .to_string();
+    assert!(error.contains("cargo is not installed"), "{error}");
+    assert!(!error.contains("does not compile"), "{error}");
 }
 
 const REQUIREMENT_IDS: &[&str] = &[
