@@ -1,14 +1,14 @@
 decisions:
-  - asks: Should this case be allowed?
-    default:
-      kind: deny
-      reasons:
-        - code: no_determining_rule
-          message: No rule determined an outcome.
-    id: default
-    input_roots:
-      - input
-    title: Default decision
+- asks: Should this case be allowed?
+  default:
+    kind: deny
+    reasons:
+    - code: no_determining_rule
+      message: No rule determined an outcome.
+  id: default
+  input_roots:
+  - input
+  title: Default decision
 package:
   display_name: scaffolded-package
   id: scaffolded-package

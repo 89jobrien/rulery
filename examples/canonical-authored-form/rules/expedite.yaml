@@ -1,15 +1,15 @@
 decision: eligibility
 rules:
-  - effect:
-      actions: []
-      kind: approve
-      reasons:
-        - code: expedited
-          message: The ticket qualifies for expedited handling.
-    id: expedite-high-priority
-    priority: 100
-    title: A high-priority ticket is expedited
-    when:
-      fact: ticket.priority
-      operator: equal
-      value: high
+- effect:
+    actions: []
+    kind: approve
+    reasons:
+    - code: expedited
+      message: The ticket qualifies for expedited handling.
+  id: expedite-high-priority
+  priority: 100
+  title: A high-priority ticket is expedited
+  when:
+    fact: ticket.priority
+    operator: equal
+    value: high

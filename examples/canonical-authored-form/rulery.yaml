@@ -1,14 +1,14 @@
 decisions:
-  - asks: Is this ticket eligible for expedited handling?
-    default:
-      kind: deny
-      reasons:
-        - code: no_determining_rule
-          message: No rule determined an outcome.
-    id: eligibility
-    input_roots:
-      - ticket
-    title: Expedited handling
+- asks: Is this ticket eligible for expedited handling?
+  default:
+    kind: deny
+    reasons:
+    - code: no_determining_rule
+      message: No rule determined an outcome.
+  id: eligibility
+  input_roots:
+  - ticket
+  title: Expedited handling
 package:
   display_name: canonical-authored-form
   id: canonical-authored-form

@@ -1,0 +1,13 @@
+# Byte-exact output fixtures.
+#
+# `rulery fmt` defines canonical authored form and emits block sequences at their parent's
+# indentation. Prettier indents them instead, so running it over these two directories rewrites a
+# golden that the CLI fixture tests compare byte for byte against what `init` and `fmt` emit.
+#
+# This is the same hazard the pre-commit hook already excludes for `*HANDOFF*.yaml` — a general
+# purpose YAML formatter fighting a serializer's canonical output. The difference is that these
+# fixtures are checked in precisely to be byte-exact, so the fight is not cosmetic here.
+#
+# Canonical form for these files is owned by `cargo run -p rulery-cli -- fmt`, never by prettier.
+examples/scaffolded-package/
+examples/canonical-authored-form/
