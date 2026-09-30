@@ -140,9 +140,9 @@ enums/values, `Hash`/`Ord`/`PartialOrd` for anything used as a `BTreeMap` key. E
 **Collections.** `BTreeMap`/`BTreeSet` universally — never `HashMap`/`HashSet` — so serialization
 is byte-deterministic. Sort keys are always explicitly chained with `.then_with(...)`.
 
-**Naming.** Functions verb-first, snake_case, no abbreviations in public API
+**Naming.** Functions verb-first, snake*case, no abbreviations in public API
 (`validate_architecture`, `parse_bundle`, `minimize_witness`); short names reserved for accessors
-(`as_str`, `code`, `kind`). Error types are `<Subject>Error` and state _what was rejected_
+(`as_str`, `code`, `kind`). Error types are `<Subject>Error` and state \_what was rejected*
 (`StableIdError`, `TimeValueError`, `PrecedenceError`) — never `ParseError`. Error variants are
 PascalCase nouns with structured named fields (`ImportCycle { cycle: Vec<PackageId> }`); unit
 variants only when the message alone is diagnostic. Consts are `SCREAMING_SNAKE` and their value is
@@ -180,8 +180,7 @@ no mocking crate in the dependency tree.
   locates the fixture with `concat!(env!("CARGO_MANIFEST_DIR"), "/../../examples/tool-library")`
   and copies it into a per-test scratch directory under `std::env::temp_dir()` before anything that
   writes. Run commands with `Command::env_clear()` so an ambient `CI` cannot leak into the result.
-- Plain `#[test] fn` only. **No `insta`, no snapshots, no `rstest`, no `proptest`, no benches.**
-- Names are `<subject>_<behavior>` in snake*case — \*\*no `test*`prefix**, no`Type::method` nesting
+- Test names are `<subject>_<behavior>` in snake*case — \*\*no `test*`prefix**, no`Type::method` nesting
 (`stable_ids_enforce_wire_grammar`, `spans_are_half_open_utf8_intervals`).
 - Table-driven loops over literal arrays instead of parametrised tests:
   `for invalid in [String::new(), "a".repeat(129)] { assert!(...is_err(), "accepted {invalid:?}"); }`
