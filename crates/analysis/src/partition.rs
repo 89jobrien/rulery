@@ -217,7 +217,19 @@ pub fn build_partition(
         assignments: BTreeMap::new(),
     }];
     for (path, domain) in paths.iter().zip(domains) {
-        let mut next = Vec::new();
+        // When a path adds exactly one value to exactly one cell there is nothing to branch over,
+        // so the single cell is extended in place. The general path below clones the cell's whole
+        // assignment map once per candidate value, and that map grows by one entry per path, which
+        // makes a linear product quadratic: 1024 single-value paths cost 524,800 map-entry clones
+        // and about 28 ms to produce one cell. Extending in place makes it n inserts instead.
+        if cells.len() == 1 && domain.len() == 1 {
+            if let (Some(mut cell), Some(value)) = (cells.pop(), domain.first()) {
+                cell.assignments.insert(path.clone(), value.clone());
+                cells.push(cell);
+            }
+            continue;
+        }
+        let mut next = Vec::with_capacity(cells.len() * domain.len());
         for cell in &cells {
             for value in &domain {
                 let mut assignments = cell.assignments.clone();
@@ -227,7 +239,11 @@ pub fn build_partition(
         }
         cells = next;
     }
-    cells.sort_by_key(|cell| canonical_bytes(&cell.assignments));
+    // `sort_by_cached_key` evaluates the key once per cell. `sort_by_key` re-evaluates it on every
+    // comparison, and this key serializes the cell's entire assignment map: at 16,384 cells that is
+    // roughly 229,000 serializations instead of 16,384, which measured about 114 ms of a 114 ms
+    // build. Both produce identical order.
+    cells.sort_by_cached_key(|cell| canonical_bytes(&cell.assignments));
 
     DecisionPartition {
         decision,
