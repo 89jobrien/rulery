@@ -69,6 +69,19 @@ impl UtcInstant {
 
     /// Parses canonical signed Unix nanoseconds.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rulery_contracts::UtcInstant;
+    ///
+    /// // The wire form is signed Unix nanoseconds, not RFC 3339.
+    /// let instant = UtcInstant::parse("1789574400000000000").expect("canonical instant");
+    /// assert_eq!(instant.to_string(), "1789574400000000000");
+    ///
+    /// // RFC 3339 text belongs to `parse_rfc3339`; the two are not interchangeable.
+    /// assert!(UtcInstant::parse("2026-09-16T00:00:00Z").is_err());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns [`TimeValueError`] for non-canonical or out-of-range values.
@@ -83,6 +96,20 @@ impl UtcInstant {
     }
 
     /// Parses a UTC RFC 3339 date-time, as authored for a scenario `at`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rulery_contracts::UtcInstant;
+    ///
+    /// let instant = UtcInstant::parse_rfc3339("2026-09-16T00:00:00Z").expect("rfc 3339 instant");
+    /// assert_eq!(instant.as_nanoseconds(), 1_789_516_800_000_000_000);
+    ///
+    /// // Canonical wire form stays nanoseconds even when authored as RFC 3339.
+    /// assert_eq!(instant.to_string(), "1789516800000000000");
+    /// assert_eq!(instant.to_rfc3339(), "2026-09-16T00:00:00.000000000Z");
+    /// assert!(UtcInstant::parse_rfc3339("2026-09-16").is_err());
+    /// ```
     ///
     /// # Errors
     ///

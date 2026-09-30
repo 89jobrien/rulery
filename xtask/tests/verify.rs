@@ -13,6 +13,7 @@ fn verify_runs_exact_fail_fast_gate_order() {
         VerifyGate::Format,
         VerifyGate::Clippy,
         VerifyGate::Nextest,
+        VerifyGate::Doctest,
         VerifyGate::Rustdoc,
     ];
     for failure in 0..gates.len() {
@@ -115,7 +116,12 @@ fn clippy_gate_lints_every_target() {
         "the clippy gate must lint tests and examples, not only libs and bins: {clippy:?}"
     );
 
-    for gate in [VerifyGate::Format, VerifyGate::Nextest, VerifyGate::Rustdoc] {
+    for gate in [
+        VerifyGate::Format,
+        VerifyGate::Nextest,
+        VerifyGate::Doctest,
+        VerifyGate::Rustdoc,
+    ] {
         assert!(
             xtask::gate_command(gate).is_some(),
             "external gate {gate:?} must name a command"
@@ -141,6 +147,23 @@ fn nextest_gate_builds_every_feature() {
         nextest.args.contains(&"--all-features"),
         "the test gate must build optional features, or a feature-gated test is never compiled \
          or run: {nextest:?}"
+    );
+}
+
+#[test]
+fn doctest_gate_covers_the_workspace_and_runs() {
+    let doctest = xtask::gate_command(VerifyGate::Doctest).expect("doctest command");
+    assert!(
+        doctest.args.contains(&"--workspace"),
+        "the doctest gate must cover every crate: {doctest:?}"
+    );
+    assert!(
+        doctest.args.contains(&"--doc"),
+        "the doctest gate must select doc tests: {doctest:?}"
+    );
+    assert!(
+        doctest.args.contains(&"--all-features"),
+        "a doctest behind a feature must be compiled, not silently skipped: {doctest:?}"
     );
 }
 

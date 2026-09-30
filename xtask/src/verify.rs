@@ -21,6 +21,8 @@ pub enum VerifyGate {
     Clippy,
     /// Workspace nextest suite.
     Nextest,
+    /// Workspace doctest suite.
+    Doctest,
     /// Workspace rustdoc build.
     Rustdoc,
 }
@@ -48,6 +50,7 @@ pub fn verify_with(runner: &impl VerifyRunner) -> Result<(), XtaskError> {
         VerifyGate::Format,
         VerifyGate::Clippy,
         VerifyGate::Nextest,
+        VerifyGate::Doctest,
         VerifyGate::Rustdoc,
     ] {
         runner.run(gate)?;
@@ -89,6 +92,13 @@ pub const fn gate_command(gate: VerifyGate) -> Option<GateCommand> {
         VerifyGate::Nextest => GateCommand {
             program: "cargo",
             args: &["nextest", "run", "--workspace", "--all-features"],
+        },
+        // `--all-features` matches the nextest gate so a doctest hidden behind a feature is
+        // compiled rather than silently skipped, and `--workspace` so one crate cannot pass while
+        // another carries broken examples.
+        VerifyGate::Doctest => GateCommand {
+            program: "cargo",
+            args: &["test", "--workspace", "--all-features", "--doc"],
         },
         VerifyGate::Rustdoc => GateCommand {
             program: "cargo",

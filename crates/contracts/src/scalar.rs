@@ -16,6 +16,19 @@ pub struct DecimalValue {
 impl DecimalValue {
     /// Parses and canonicalizes a non-exponent decimal string.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rulery_contracts::DecimalValue;
+    ///
+    /// // The stored form is canonical, so equal values share one spelling.
+    /// assert_eq!(DecimalValue::parse("1.500").expect("decimal").as_str(), "1.5");
+    /// assert_eq!(DecimalValue::parse("0.0").expect("decimal").as_str(), "0");
+    ///
+    /// // Exponent notation is not a supported spelling.
+    /// assert!(DecimalValue::parse("1e3").is_err());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns [`DecimalValueError`] when the input is not a supported decimal spelling.

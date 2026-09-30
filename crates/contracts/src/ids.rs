@@ -18,6 +18,19 @@ pub struct StableId {
 impl StableId {
     /// Creates an identifier after validating its canonical wire grammar.
     ///
+    /// # Examples
+    ///
+    /// ```
+    /// use rulery_contracts::StableId;
+    ///
+    /// let id = StableId::new("rule.deny-expired-training").expect("canonical identifier");
+    /// assert_eq!(id.as_str(), "rule.deny-expired-training");
+    ///
+    /// // Separators may not sit at a boundary, so a trailing dot is rejected.
+    /// assert!(StableId::new("rule.").is_err());
+    /// assert!(StableId::new("").is_err());
+    /// ```
+    ///
     /// # Errors
     ///
     /// Returns [`StableIdError`] when the value is empty, too long, non-ASCII, or contains an
