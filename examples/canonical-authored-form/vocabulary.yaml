@@ -1,0 +1,27 @@
+roots:
+  ticket:
+    type: ticket
+terms: {}
+types:
+  priority:
+    kind: enum
+    variants:
+      high:
+        deprecated: false
+        display_name: High
+      normal:
+        deprecated: false
+        display_name: Normal
+  ticket:
+    closed: true
+    fields:
+      age-days:
+        presence: required
+        type: integer
+      priority:
+        presence: required
+        type: priority
+      summary:
+        presence: required
+        type: text
+    kind: record

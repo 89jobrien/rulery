@@ -1,0 +1,4 @@
+roots:
+  input:
+    description: Case input under evaluation.
+    type: text

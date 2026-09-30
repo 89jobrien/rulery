@@ -1,0 +1,25 @@
+decisions:
+  - asks: Should this case be allowed?
+    default:
+      kind: deny
+      reasons:
+        - code: no_determining_rule
+          message: No rule determined an outcome.
+    id: default
+    input_roots:
+      - input
+    title: Default decision
+package:
+  display_name: scaffolded-package
+  id: scaffolded-package
+  language_version: 1
+  version: 0.1.0
+semantics:
+  expiry: inclusive
+  invalid_facts:
+    kind: reject_evaluation
+  missing_facts:
+    kind: preserve_unknown
+  precedence:
+    kind: priority_first
+  timezone: UTC
