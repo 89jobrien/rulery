@@ -16,5 +16,15 @@ rulery-vocabulary.workspace = true
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 
+[dev-dependencies]
+# `html_reports` is deliberately off: it pulls `plotters` and a browser `web-sys` tree in for
+# charts nobody reads here, and these benches exist to answer one scaling question, not to be
+# compared across commits.
+criterion = "0.7"
+
+[[bench]]
+name = "partition_scaling"
+harness = false
+
 [lints]
 workspace = true
