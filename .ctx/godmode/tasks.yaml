@@ -1181,13 +1181,16 @@ tasks:
     completed_at: 2026-09-29T22:36:01.369775Z
   - id: 2026-09-28-gap-closeout-t24
     title: Add --all-features to the test gate
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t23
-    notes: ""
+    notes: "Nextest gate now passes --all-features. Workspace compiles and passes with the flag: 139/139. Count is +1 only because the pinning test is new; no test is yet guarded on the feature, which is t25."
     crate_name: xtask
+    commit: e389385
+    completed: 2026-09-29
     run: cargo nextest run -p xtask
     started_at: 2026-09-29T22:36:01.407108Z
+    completed_at: 2026-09-29T22:40:07.903151Z
   - id: 2026-09-28-gap-closeout-t25
     title: Assert the derive produces a working conversion
     status: pending
