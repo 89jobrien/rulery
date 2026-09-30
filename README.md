@@ -223,5 +223,5 @@ unsafe code and warns on missing public documentation.
 
 ## License
 
-Cargo package metadata declares dual licensing under MIT or Apache-2.0. This repository does not
-currently include the corresponding license text files.
+Dual licensed under MIT or Apache-2.0, at your option. The full text of each license is in
+[`LICENSE-MIT`](LICENSE-MIT) and [`LICENSE-APACHE`](LICENSE-APACHE).

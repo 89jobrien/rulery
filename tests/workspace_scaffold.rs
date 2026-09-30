@@ -58,6 +58,68 @@ fn resolved_dependency_closure_has_no_network_capable_crate() {
 }
 
 #[test]
+fn declared_licenses_have_matching_text_files() {
+    let root = Path::new(env!("CARGO_MANIFEST_DIR"));
+    let manifest =
+        std::fs::read_to_string(root.join("Cargo.toml")).expect("root Cargo.toml must be readable");
+
+    let declared = declared_licenses(&manifest);
+    assert!(
+        !declared.is_empty(),
+        "no SPDX license expression found in [workspace.package]; this test would pass vacuously"
+    );
+
+    for identifier in declared {
+        let (file, marker) = license_file(&identifier);
+        let path = root.join(file);
+        assert!(
+            path.is_file(),
+            "{identifier} is declared in Cargo.toml but {} is missing",
+            path.display()
+        );
+        let text = std::fs::read_to_string(&path)
+            .unwrap_or_else(|error| panic!("failed to read {}: {error}", path.display()));
+        assert!(
+            text.contains(marker),
+            "{} does not contain the {identifier} text",
+            path.display()
+        );
+    }
+}
+
+/// Reads the SPDX license expression from `[workspace.package]`.
+///
+/// This is a deliberate narrow line scan rather than a TOML parse, because the workspace has no
+/// TOML dependency and a test is not a reason to add one. It fails loudly rather than silently
+/// passing: a manifest that stops using `license = "..."` leaves `declared` empty, and a manifest
+/// that spells it differently leaves the SPDX identifiers unrecognised.
+fn declared_licenses(manifest: &str) -> Vec<String> {
+    manifest
+        .lines()
+        .filter_map(|line| line.trim().strip_prefix("license = \""))
+        .filter_map(|line| line.strip_suffix('"'))
+        .flat_map(|expression| expression.split(" OR "))
+        .map(|identifier| identifier.trim().to_owned())
+        .filter(|identifier| !identifier.is_empty())
+        .collect()
+}
+
+/// Maps one SPDX identifier to the repository file and a marker its text must contain.
+fn license_file(identifier: &str) -> (&'static str, &'static str) {
+    match identifier {
+        "MIT" => (
+            "LICENSE-MIT",
+            "Permission is hereby granted, free of charge",
+        ),
+        "Apache-2.0" => (
+            "LICENSE-APACHE",
+            "Licensed under the Apache License, Version 2.0",
+        ),
+        other => panic!("no license text file is defined for SPDX identifier `{other}`"),
+    }
+}
+
+#[test]
 fn workspace_contains_approved_crates() {
     let root = Path::new(env!("CARGO_MANIFEST_DIR"));
     let root_manifest =

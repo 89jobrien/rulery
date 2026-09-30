@@ -1216,37 +1216,46 @@ tasks:
     completed_at: 2026-09-30T09:23:42.464591Z
   - id: 2026-09-28-gap-closeout-t27
     title: Assert a record literal typechecks in a condition
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t26
     notes: ""
     crate_name: rulery-compiler
+    completed: 2026-09-30
     run: cargo nextest run -p rulery-compiler record_literals_typecheck_against_record_typed_operands
     started_at: 2026-09-30T09:23:42.472040Z
+    completed_at: 2026-09-30T09:30:23.528841Z
   - id: 2026-09-28-gap-closeout-t28
     title: Add the variant and the literal decode
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t27
     notes: ""
     crate_name: rulery-compiler
+    completed: 2026-09-30
     run: cargo nextest run -p rulery-compiler
+    started_at: 2026-09-30T09:30:23.536885Z
+    completed_at: 2026-09-30T09:30:25.956999Z
   - id: 2026-09-28-gap-closeout-t29
     title: Assert a real package compiles a record-valued condition
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t28
     notes: ""
     crate_name: rulery
+    completed: 2026-09-30
     run: cargo nextest run -p rulery tool_library_explain_is_reproducible_end_to_end
+    started_at: 2026-09-30T09:30:31.233423Z
+    completed_at: 2026-09-30T09:30:31.240216Z
   - id: 2026-09-28-gap-closeout-t30
     title: Assert the license files exist and name the declared licence
-    status: pending
+    status: running
     depends_on:
       - 2026-09-28-gap-closeout-t29
     notes: ""
     crate_name: rulery
     run: cargo nextest run -p rulery license_files_back_the_declared_dual_licence
+    started_at: 2026-09-30T09:30:31.246967Z
   - id: 2026-09-28-gap-closeout-t31
     title: Write both license files
     status: pending
