@@ -122,7 +122,53 @@ pub fn validate_specification(
             "four fixed BLAKE3 vectors changed",
         );
     }
+    check_required_gates(specification, &mut failures);
     Ok(ConformanceReport { failures })
+}
+
+/// Reports one failure per required conformance gate the specification no longer declares.
+fn check_required_gates(specification: &str, failures: &mut Vec<ConformanceFailure>) {
+    for bullet in required_gate_bullets() {
+        if !specification.contains(bullet) {
+            push(
+                failures,
+                "gates",
+                &format!("required conformance gate is missing: {bullet}"),
+            );
+        }
+    }
+}
+
+/// Leading fragments of every bullet in the specification's `Required conformance gates` list.
+///
+/// The check is deliberately textual rather than a satisfaction check. Some of these gates are not
+/// met yet, and the honest response to that is to keep them declared and visible, not to delete the
+/// bullet that names the debt. What this guards is the deletion itself: an unmet gate is a known
+/// gap, a deleted gate is a hidden one.
+const REQUIRED_GATE_BULLETS: &[&str] = &[
+    "workspace formatting and Clippy with warnings denied",
+    "unit, property, nextest, and doctest suites",
+    "architecture checks for the exact dependency allowlist",
+    "compile checks for every normative Rust declaration block",
+    "parse and schema checks for every normative YAML and JSON example",
+    "round trips for all seven envelopes",
+    "all complete truth and predicate tables",
+    "precedence, unresolved-conflict, uncertainty-relevance, DST, and expiry fixtures",
+    "independently recomputed fixed hash vectors",
+    "scenario exact-comparison fixtures",
+    "analyzer soundness, budget, witness replay, coverage, and semantic-diff fixtures",
+    "renderer snapshots, including the canonical tool-library explanation",
+    "a canonical-authored-form fixture and a scaffolded-package fixture",
+    "renamed-dependency macro hygiene tests with default features and `macros` enabled",
+];
+
+/// Returns the leading fragment of every required conformance gate the specification must declare.
+///
+/// Exposed as an accessor so a test can enumerate the same list the gate checks, rather than
+/// restating it and letting the two drift.
+#[must_use]
+pub fn required_gate_bullets() -> &'static [&'static str] {
+    REQUIRED_GATE_BULLETS
 }
 
 fn push(failures: &mut Vec<ConformanceFailure>, check: &'static str, message: &str) {

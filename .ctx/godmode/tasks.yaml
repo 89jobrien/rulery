@@ -1249,21 +1249,26 @@ tasks:
     completed_at: 2026-09-30T09:30:31.240216Z
   - id: 2026-09-28-gap-closeout-t30
     title: Assert the license files exist and name the declared licence
-    status: running
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t29
     notes: ""
     crate_name: rulery
+    completed: 2026-09-30
     run: cargo nextest run -p rulery license_files_back_the_declared_dual_licence
     started_at: 2026-09-30T09:30:31.246967Z
+    completed_at: 2026-09-30T09:32:02.090861Z
   - id: 2026-09-28-gap-closeout-t31
     title: Write both license files
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t30
     notes: ""
     crate_name: rulery
+    completed: 2026-09-30
     run: cargo nextest run -p rulery license_files_back_the_declared_dual_licence
+    started_at: 2026-09-30T09:32:02.098023Z
+    completed_at: 2026-09-30T09:32:02.104099Z
   - id: 2026-09-28-gap-closeout-t32
     title: Assert the gate rejects a specification missing a required bullet
     status: pending

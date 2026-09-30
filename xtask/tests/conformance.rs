@@ -29,11 +29,16 @@ fn conformance_report_collects_every_specification_failure() {
         &FakeRunner { result: Ok(false) },
     )
     .expect("report");
+    let checks = report
+        .failures
+        .iter()
+        .map(|failure| failure.check)
+        .collect::<Vec<_>>();
     assert_eq!(
-        report
-            .failures
+        checks
             .iter()
-            .map(|failure| failure.check)
+            .copied()
+            .filter(|check| *check != "gates")
             .collect::<Vec<_>>(),
         vec![
             "headings",
@@ -44,8 +49,18 @@ fn conformance_report_collects_every_specification_failure() {
             "rustfmt",
             "registry",
             "schemas",
-            "hash-vectors"
+            "hash-vectors",
         ]
+    );
+    assert_eq!(
+        checks.iter().filter(|check| **check == "gates").count(),
+        xtask::required_gate_bullets().len(),
+        "each absent required gate is reported on its own, so a report names every missing bullet"
+    );
+    assert_eq!(
+        checks.last(),
+        Some(&"gates"),
+        "gate failures come last so the ordered report stays stable as bullets are added"
     );
 
     let root = Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -78,6 +93,59 @@ fn conformance_report_collects_every_specification_failure() {
         )
         .is_err()
     );
+}
+
+/// Builds a specification whose `Required conformance gates` section holds exactly `bullets`.
+fn gates_specification(bullets: &[&str]) -> String {
+    let mut text = String::from(
+        "### Required conformance gates\n\nA conforming implementation MUST pass:\n\n",
+    );
+    for bullet in bullets {
+        writeln!(text, "- {bullet}").expect("string write");
+    }
+    text
+}
+
+/// Every failure the gate-bullet check reported.
+fn gate_failures(report: &xtask::ConformanceReport) -> Vec<String> {
+    report
+        .failures
+        .iter()
+        .filter(|failure| failure.check == "gates")
+        .map(|failure| failure.message.clone())
+        .collect()
+}
+
+#[test]
+fn conformance_rejects_a_specification_missing_a_required_gate_bullet() {
+    let runner = FakeRunner { result: Ok(true) };
+    let scratch = Path::new(".ctx/_WORKING_DIR/xtask-conformance");
+    let bullets = xtask::required_gate_bullets();
+    assert!(
+        bullets.len() >= 14,
+        "the specification declares more required gates than this test enumerates"
+    );
+
+    let complete = xtask::validate_specification(&gates_specification(bullets), scratch, &runner)
+        .expect("report");
+    assert_eq!(gate_failures(&complete), Vec::<String>::new());
+
+    for (index, bullet) in bullets.iter().enumerate() {
+        let without = bullets
+            .iter()
+            .enumerate()
+            .filter(|(other, _)| *other != index)
+            .map(|(_, other)| *other)
+            .collect::<Vec<_>>();
+        let report =
+            xtask::validate_specification(&gates_specification(&without), scratch, &runner)
+                .expect("report");
+        assert_eq!(
+            gate_failures(&report),
+            vec![format!("required conformance gate is missing: {bullet}")],
+            "removing bullet {index} must be reported, and only that bullet"
+        );
+    }
 }
 
 struct FakeRunner {

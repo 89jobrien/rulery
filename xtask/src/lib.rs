@@ -17,7 +17,7 @@ pub use architecture::{PackageSnapshot, validate_architecture};
 pub use bootstrap::{Change, ChangeSet, ReconcileMode, plan_bootstrap, reconcile};
 pub use conformance::{
     ConformanceFailure, ConformanceReport, check_macro_hygiene, check_requirements,
-    validate_specification,
+    required_gate_bullets, validate_specification,
 };
 pub use fs::{HostFileSystem, WorkspaceFileSystem};
 pub use model::{
