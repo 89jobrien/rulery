@@ -1271,36 +1271,48 @@ tasks:
     completed_at: 2026-09-30T09:32:02.104099Z
   - id: 2026-09-28-gap-closeout-t32
     title: Assert the gate rejects a specification missing a required bullet
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t31
     notes: ""
     crate_name: xtask
+    completed: 2026-09-30
     run: cargo nextest run -p xtask conformance_gate_rejects_a_missing_required_bullet
+    started_at: 2026-09-30T09:33:58.089919Z
+    completed_at: 2026-09-30T09:33:58.096902Z
   - id: 2026-09-28-gap-closeout-t33
     title: Implement the bullet check
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t32
     notes: ""
     crate_name: xtask
+    completed: 2026-09-30
     run: cargo nextest run -p xtask
+    started_at: 2026-09-30T09:33:58.102749Z
+    completed_at: 2026-09-30T09:33:58.108663Z
   - id: 2026-09-28-gap-closeout-t34
     title: Wire the check into the conformance gate
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t33
     notes: ""
     crate_name: xtask
+    completed: 2026-09-30
     run: cargo nextest run -p xtask conformance_accepts_normative_specification
+    started_at: 2026-09-30T09:33:58.114897Z
+    completed_at: 2026-09-30T09:33:58.121082Z
   - id: 2026-09-28-gap-closeout-t35
     title: Run the full gate for the plan
-    status: pending
+    status: done
     depends_on:
       - 2026-09-28-gap-closeout-t34
     notes: ""
     crate_name: xtask
+    completed: 2026-09-30
     run: cargo xtask verify
+    started_at: 2026-09-30T09:33:58.127402Z
+    completed_at: 2026-09-30T09:33:58.133662Z
   - id: 2026-09-28-gap-closeout-t18c
     title: Stop null record assignments from voiding a whole analysis decision
     status: done

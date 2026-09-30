@@ -1,6 +1,6 @@
 project: rulery
 id: rulery
-updated: 2026-09-29
+updated: 2026-09-30
 items:
 - id: uncommitted-work
   name: uncommitted-work
@@ -15,16 +15,16 @@ items:
   - .ctx/HANDOFF.rulery.rulery.yaml
   - .ctx/godmode/tasks.yaml
 log:
-- date: '20260929.201254'
-  summary: done=107 running=0 pending=18 blocked=0
+- date: '20260930.160456'
+  summary: done=125 running=0 pending=0 blocked=0
   commits:
-  - f1ad3a0df92d45e94c62fb11414674cdea3d1fe9
-  - dd900347a5feedf299a1d87bc497041bd10f77ea
-  - f9ec9e901656b3300b877dbf4495520c7e39696c
-  - 2d0d010bf11398d995e501d09739491af2439ba2
-  - e9910778d29f9aa47b2cea8f9fbb604af49f9c50
-  - 6597e3dc6ec0c720a92cfee8d39533fcdd204db7
-  - 5224e26d740f8b499016e15fcd9131135cb42dc1
-  - b3bd9e418cbf8e39aa9cf1c52867c6b45c5b5e26
-  - bcda3d88440c32bfef809c49c5b0af0773eea2de
-  - 1ac933354018cc37012098a1bd0a6ea72fcfccf8
+  - b7f1cb1fe8416f805db607e73ac833ec8f4a2a4a
+  - 0d3df9e91e184c59a194669490ecb4c7603031cd
+  - 0e8cc03992fa977c13545a707ca1eeded1b5ec71
+  - 91cc2a656f9ed898f70ac5dd16d95b1cdc954e93
+  - 29effb75af17e26d7a170715df9b61b7798401d2
+  - ae244acfefca3ca0fbceba646c94884a86901328
+  - 6aace3537afa5f3f630d1a253da0c084859b574b
+  - a5802246288f2e5f671a21889e1b0f1c71bcc17e
+  - d0582d67c82cd590d1ce844e0513ee2841029e98
+  - 6e7d13f41db8f404996ce5a747c89bef7ed8aa27
