@@ -86,6 +86,12 @@ Release remains unconfirmed: the Cargo Rail file scope and the initial `0.1.0` /
   markdown, then re-adds the result. It exits 0 and prints a green check, so byte-exact artifacts
   corrupt silently. Read it before committing any generated file.
 - Another agent has been active in this checkout at times, producing cargo file-lock contention.
+- The memory bank lives at `.ctx/godmode/memory-bank/`, **not** the `.ctx/memory-bank/` that the
+  memory-banking skill documents as canonical. `godmode memory-banking status`, `inject`, and
+  `remind` all read the former, while `init` writes to a _third_ path, `.ctx/memory-banking/`.
+  Installed version is 0.7.0. Migrating to the documented path would silently stop the SessionStart
+  and Stop hooks from injecting anything, so the bank stays where the tool actually reads it. The
+  fix belongs in godmode, not in this repo.
 
 ## Decisions
 
