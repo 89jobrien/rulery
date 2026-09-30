@@ -15,6 +15,15 @@ pub enum Truth {
 }
 
 impl Truth {
+    /// Every value, in declaration order.
+    ///
+    /// Exhaustive iteration and test enumeration read this rather than restating the variant list,
+    /// so a new variant has exactly one place to be added and every consumer follows. Nothing can
+    /// force that edit in stable Rust, but the companion assertions here fail loudly when a variant
+    /// reaches `ALL` without reaching the absorption orders, rather than a property test quietly
+    /// ceasing to generate it.
+    pub const ALL: [Self; 4] = [Self::True, Self::False, Self::Unknown, Self::Invalid];
+
     /// Applies the normative four-valued conjunction table.
     #[must_use]
     pub const fn and(self, other: Self) -> Self {
@@ -93,19 +102,38 @@ mod tests {
     }
 
     fn strategy() -> impl Strategy<Value = Truth> {
-        prop_oneof![
-            Just(Truth::True),
-            Just(Truth::False),
-            Just(Truth::Unknown),
-            Just(Truth::Invalid),
-        ]
+        prop::sample::select(Truth::ALL.to_vec())
+    }
+
+    /// Both absorption orders must stay permutations of the full variant set.
+    ///
+    /// This is the guard against the silent gap a hand-written order invites: add a variant to
+    /// `Truth` and forget the orders, and `rank` panics on a value no property test ever
+    /// generates. Asserting coverage here turns that into a failure with a clear cause.
+    #[test]
+    fn the_absorption_orders_cover_every_value() {
+        assert_eq!(
+            Truth::ALL,
+            [Truth::True, Truth::False, Truth::Unknown, Truth::Invalid],
+            "the exhaustive tables below are indexed by `ALL`, so its order is part of the contract"
+        );
+        for order in [AND_ORDER, OR_ORDER] {
+            assert_eq!(
+                order.len(),
+                Truth::ALL.len(),
+                "{order:?} must cover every value"
+            );
+            for value in Truth::ALL {
+                assert!(order.contains(&value), "{order:?} omits {value:?}");
+            }
+        }
     }
 
     #[test]
     fn truth_tables_match_all_36_cells() {
         use Truth::{False, Invalid, True, Unknown};
 
-        let values = [True, False, Unknown, Invalid];
+        let values = Truth::ALL;
         let and_table = [
             [True, False, Unknown, Invalid],
             [False, False, False, False],

@@ -105,6 +105,20 @@ pub enum HashDomain {
 }
 
 impl HashDomain {
+    /// Every domain, in declaration order.
+    ///
+    /// Exhaustive iteration and test enumeration read this rather than restating the variant list,
+    /// so a new domain has exactly one place to be added and every consumer follows. Nothing can
+    /// force that edit in stable Rust, but a domain that reaches `ALL` without a distinct label
+    /// would collide in `every_domain_produces_a_distinct_identity` rather than pass unnoticed.
+    pub const ALL: [Self; 4] = [
+        Self::CompiledPackageV1,
+        Self::CaseFactsV1,
+        Self::DecisionTraceV1,
+        Self::EvaluationV1,
+    ];
+
+    /// Returns the domain separation label, unique per [`HashDomain`] variant.
     fn as_bytes(self) -> &'static [u8] {
         match self {
             Self::CompiledPackageV1 => b"rulery.compiled-package.v1",

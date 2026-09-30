@@ -6,13 +6,22 @@ use proptest::prelude::*;
 
 use rulery_contracts::{ContentHash, HashDomain, hash_parts};
 
-/// Every domain, so separation is checked across the whole set rather than one pair.
-const DOMAINS: [HashDomain; 4] = [
-    HashDomain::CompiledPackageV1,
-    HashDomain::CaseFactsV1,
-    HashDomain::DecisionTraceV1,
-    HashDomain::EvaluationV1,
-];
+/// Every domain must hash differently over the same parts, for every variant.
+#[test]
+fn every_domain_produces_a_distinct_identity() {
+    let mut identities = HashDomain::ALL
+        .into_iter()
+        .map(|domain| hash_parts(domain, [b"{}".as_slice()]))
+        .collect::<Vec<_>>();
+    let count = identities.len();
+    identities.sort_unstable();
+    identities.dedup();
+    assert_eq!(
+        identities.len(),
+        count,
+        "two domains collided over identical parts, so separation is not holding"
+    );
+}
 
 #[test]
 fn canonical_hash_vectors_match_specification() {
@@ -57,12 +66,7 @@ fn canonical_hash_vectors_match_specification() {
 }
 
 fn domain() -> impl Strategy<Value = HashDomain> {
-    prop_oneof![
-        Just(HashDomain::CompiledPackageV1),
-        Just(HashDomain::CaseFactsV1),
-        Just(HashDomain::DecisionTraceV1),
-        Just(HashDomain::EvaluationV1),
-    ]
+    prop::sample::select(HashDomain::ALL.to_vec())
 }
 
 /// Short byte payloads, which is the size the framing contract actually has to disambiguate.
@@ -94,14 +98,14 @@ proptest! {
     #[test]
     fn domains_are_separated(
         parts in prop::collection::vec(payload(), 0..4),
-        first in 0usize..4,
-        second in 0usize..4,
+        first in 0usize..HashDomain::ALL.len(),
+        second in 0usize..HashDomain::ALL.len(),
     ) {
         let slices = parts.iter().map(Vec::as_slice).collect::<Vec<_>>();
-        if DOMAINS[first] != DOMAINS[second] {
+        if HashDomain::ALL[first] != HashDomain::ALL[second] {
             prop_assert_ne!(
-                hash_parts(DOMAINS[first], slices.iter().copied()),
-                hash_parts(DOMAINS[second], slices.iter().copied()),
+                hash_parts(HashDomain::ALL[first], slices.iter().copied()),
+                hash_parts(HashDomain::ALL[second], slices.iter().copied()),
             );
         }
     }
