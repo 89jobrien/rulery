@@ -160,6 +160,7 @@ const REQUIRED_GATE_BULLETS: &[&str] = &[
     "renderer snapshots, including the canonical tool-library explanation",
     "a canonical-authored-form fixture and a scaffolded-package fixture",
     "renamed-dependency macro hygiene tests with default features and `macros` enabled",
+    "an out-of-tree renamed-dependency embedding fixture that is run, not only compiled, with default features and `macros` enabled",
 ];
 
 /// Returns the leading fragment of every required conformance gate the specification must declare.
@@ -310,7 +311,7 @@ pub fn check_macro_hygiene(root: &Path, runner: &impl ProcessRunner) -> Result<(
 
 /// Requirement identifiers the v0.1 specification must declare.
 const REQUIREMENT_IDS: &[&str] = &[
-    "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", "V11", "V12",
+    "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", "V11", "V12", "V13",
 ];
 
 /// Static-problem identifiers nested under requirement `V10`.

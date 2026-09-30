@@ -8,6 +8,7 @@ use thiserror::Error;
 mod architecture;
 mod bootstrap;
 mod conformance;
+mod embedding;
 mod fs;
 mod model;
 mod process;
@@ -19,6 +20,7 @@ pub use conformance::{
     ConformanceFailure, ConformanceReport, check_macro_hygiene, check_requirements,
     required_gate_bullets, validate_specification,
 };
+pub use embedding::check_embedding;
 pub use fs::{HostFileSystem, WorkspaceFileSystem};
 pub use model::{
     CrateSpec, DependencyRule, TargetKind, WorkspaceModel, model_dependencies, model_manifest,
@@ -43,6 +45,8 @@ pub enum Command {
     Bootstrap(BootstrapArgs),
     /// Validate the normative specification and embedded fixtures.
     Conformance,
+    /// Build and run the out-of-tree consumer embedding fixture.
+    Embedding,
     /// Validate workspace membership and dependency boundaries.
     Architecture,
     /// Run all repository checks in fail-fast order.
@@ -117,6 +121,9 @@ pub enum XtaskError {
     /// The workspace scaffold differs from the declarative model.
     #[error("workspace bootstrap check failed: {0}")]
     Bootstrap(String),
+    /// An out-of-tree consumer failed to satisfy the embedding contract.
+    #[error("embedding contract failed: {0}")]
+    Embedding(String),
 }
 
 /// Dispatches one repository workflow.
@@ -149,6 +156,7 @@ pub fn execute(cli: &Cli) -> Result<(), XtaskError> {
             Ok(())
         }
         Command::Conformance => conformance::check(workspace_root()?),
+        Command::Embedding => embedding::run(workspace_root()?),
         Command::Verify => verify::run(workspace_root()?),
     }
 }

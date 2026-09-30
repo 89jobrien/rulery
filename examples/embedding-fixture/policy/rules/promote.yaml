@@ -1,0 +1,92 @@
+decision: promote
+rules:
+  - id: deny-missing-change-ticket
+    title: A release without a change ticket cannot promote
+    priority: 1000
+    when:
+      fact: release.change-ticket
+      operator: is_absent
+    effect:
+      kind: deny
+      reasons:
+        - code: missing-change-ticket
+          message: No change ticket accompanies this release.
+      actions: []
+  - id: deny-frozen-branch
+    title: A frozen branch cannot promote
+    priority: 900
+    when:
+      fact: release.source-branch
+      operator: equal
+      value: frozen-2024
+    effect:
+      kind: deny
+      reasons:
+        - code: frozen-branch
+          message: The source branch is frozen and accepts no promotions.
+      actions: []
+  - id: escalate-unknown-source
+    title: An unidentified source branch needs a release manager
+    priority: 850
+    when:
+      fact: release.source-branch
+      operator: is_absent
+    effect:
+      kind: escalate
+      destination: release-manager
+      reasons:
+        - code: unknown-source-branch
+          message: The release names no source branch, so a release manager must decide.
+      actions: []
+  - id: request-rollback-plan
+    title: A rollback plan is required before promotion
+    priority: 800
+    when:
+      fact: release.rollback-plan
+      operator: is_absent
+    effect:
+      kind: request_information
+      required_facts: [release.rollback-plan]
+      reasons:
+        - code: missing-rollback-plan
+          message: The release declares no rollback plan.
+      actions: []
+  - id: deny-understaffed-production
+    title: Production needs two reviewers
+    priority: 700
+    when:
+      all:
+        - fact: release.target-environment
+          operator: equal
+          value: production
+        - fact: release.reviewers
+          operator: less_than
+          value: 2
+    effect:
+      kind: deny
+      reasons:
+        - code: understaffed-production
+          message: Production promotion requires at least two reviewers.
+      actions: []
+  - id: approve-promotion
+    title: Every gate is satisfied
+    priority: 100
+    when:
+      all:
+        - fact: release.change-ticket
+          operator: is_present
+        - fact: release.source-branch
+          operator: is_present
+        - fact: release.rollback-plan
+          operator: is_present
+        - fact: release.reviewers
+          operator: greater_than_or_equal
+          value: 1
+    effect:
+      kind: approve
+      reasons:
+        - code: promotion-authorized
+          message: Every promotion gate is satisfied.
+      actions:
+        - action: open-promotion
+          arguments: {}

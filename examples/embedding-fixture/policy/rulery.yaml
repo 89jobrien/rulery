@@ -1,0 +1,31 @@
+package:
+  id: embedding-promotion
+  display_name: Embedding promotion policy
+  version: 0.1.0
+  language_version: 1
+  description: A consumer-authored policy that exercises the embedding contract end to end.
+  authors:
+    - name: embedding-fixture
+  tags: [embedding, promotion]
+semantics:
+  timezone: UTC
+  expiry: inclusive
+  missing_facts:
+    kind: request_information
+  invalid_facts:
+    kind: reject_evaluation
+  precedence:
+    kind: safety_first
+imports: []
+decisions:
+  - id: promote
+    title: Release promotion eligibility
+    asks: May this release be promoted to the target environment?
+    input_roots: [release]
+    default:
+      kind: escalate
+      destination: release-manager
+      reasons:
+        - code: no-authorizing-rule
+          message: No rule authorized this promotion.
+      actions: []

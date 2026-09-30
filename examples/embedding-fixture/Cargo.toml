@@ -1,0 +1,24 @@
+[package]
+name = "embedding-fixture"
+version = "0.0.0"
+edition = "2024"
+rust-version = "1.85"
+publish = false
+description = "Proves an out-of-tree consumer can compile and evaluate its own rule package."
+
+# An empty [workspace] table keeps this package out of the parent workspace, for the same reason
+# examples/macro-hygiene does: it must be a genuine downstream consumer rather than a workspace
+# member that can reach internal modules by accident. Combined with the renamed dependency below,
+# nothing in this fixture can compile against anything except the `rulery` facade's public
+# re-exports, which is exactly the surface a published crate promises.
+[workspace]
+
+[features]
+# Mirrors the facade's own feature set so the embedding gate can prove the evaluator path works both
+# without and with the optional procedural macros present.
+macros = ["rlry/macros"]
+
+[dependencies]
+# The dependency is deliberately not named `rulery`.
+rlry = { package = "rulery", path = "../.." }
+serde_json = "1.0"

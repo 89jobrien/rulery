@@ -1,0 +1,1 @@
+{"schema":"rulery.rulebook-lock/v1","payload":{"root":{"package":"embedding-promotion","version":"0.1.0","source":"root","content_hash":"blake3:9f676b0185482205fe7f3ca0913d24390d6979021cfd316428d790ac2e28398f"},"language_version":1,"imports":[]}}

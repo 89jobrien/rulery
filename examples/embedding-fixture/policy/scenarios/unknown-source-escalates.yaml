@@ -1,0 +1,18 @@
+id: unknown-source-escalates
+title: A release naming no source branch escalates rather than being denied
+decision: promote
+at: "2026-09-16T16:00:00.000000000Z"
+given:
+  release:
+    target-environment: staging
+    change-ticket: MBX-1
+    rollback-plan: revert-1
+    reviewers: 1
+expect:
+  outcome: escalate
+  determining_rules:
+    - package: embedding-promotion
+      rule: escalate-unknown-source
+  required_facts: []
+  reason_codes: [unknown-source-branch]
+tags: [embedding, escalation]

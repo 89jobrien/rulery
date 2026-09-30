@@ -1,0 +1,5 @@
+actions:
+  open-promotion:
+    display_name: Open promotion
+    description: Starts the promotion workflow for an approved release.
+    parameters: {}

@@ -9,6 +9,7 @@ fn verify_runs_exact_fail_fast_gate_order() {
     let gates = [
         VerifyGate::BootstrapCheck,
         VerifyGate::Conformance,
+        VerifyGate::Embedding,
         VerifyGate::Architecture,
         VerifyGate::Format,
         VerifyGate::Clippy,

@@ -1,0 +1,9 @@
+{
+  "release": {
+    "target-environment": "production",
+    "source-branch": "main",
+    "change-ticket": "MBX-1",
+    "rollback-plan": "revert-1",
+    "reviewers": 2
+  }
+}

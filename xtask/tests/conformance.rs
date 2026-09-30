@@ -159,6 +159,14 @@ impl ProcessRunner for FakeRunner {
     fn cargo_check(&self, _: &Path, _: &str) -> Result<ProcessOutcome, String> {
         Ok(ProcessOutcome::Success)
     }
+
+    fn cargo_run(&self, _: &Path, _: &str) -> Result<ProcessOutcome, String> {
+        Ok(ProcessOutcome::Success)
+    }
+
+    fn cargo_fmt_check(&self, _: &Path) -> Result<bool, String> {
+        Ok(true)
+    }
 }
 
 /// One `cargo check` request captured by [`RecordingRunner`].
@@ -206,6 +214,14 @@ impl ProcessRunner for RecordingRunner {
             .get(index)
             .cloned()
             .unwrap_or(Ok(ProcessOutcome::Success))
+    }
+
+    fn cargo_run(&self, _: &Path, _: &str) -> Result<ProcessOutcome, String> {
+        Ok(ProcessOutcome::Success)
+    }
+
+    fn cargo_fmt_check(&self, _: &Path) -> Result<bool, String> {
+        Ok(true)
     }
 }
 
@@ -262,7 +278,7 @@ fn macro_hygiene_reports_the_feature_set_that_failed_to_compile() {
 }
 
 const REQUIREMENT_IDS: &[&str] = &[
-    "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", "V11", "V12",
+    "V01", "V02", "V03", "V04", "V05", "V06", "V07", "V08", "V09", "V10", "V11", "V12", "V13",
 ];
 
 const STATIC_CHECK_IDS: &[&str] = &[

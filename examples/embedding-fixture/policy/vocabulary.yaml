@@ -1,0 +1,24 @@
+types:
+  environment:
+    kind: enum
+    variants:
+      staging: { display_name: Staging, deprecated: false }
+      production: { display_name: Production, deprecated: false }
+  release:
+    kind: record
+    closed: true
+    fields:
+      target-environment: { type: environment, presence: required }
+      source-branch: { type: text, presence: optional }
+      change-ticket: { type: text, presence: optional }
+      rollback-plan: { type: text, presence: optional }
+      reviewers: { type: integer, presence: required }
+roots:
+  release: { type: release }
+terms:
+  promotion-authorized:
+    display_name: Promotion authorized
+    definition: A release may promote when every gate is satisfied.
+    applies_to: [release.change-ticket, release.rollback-plan]
+    examples: [A release carrying a ticket and a rollback plan is promotable.]
+    counterexamples: [A release with no rollback plan is not yet promotable.]

@@ -4,7 +4,7 @@ use std::path::Path;
 
 use xshell::{Shell, cmd};
 
-use crate::{XtaskError, architecture, bootstrap, conformance};
+use crate::{XtaskError, architecture, bootstrap, conformance, embedding};
 
 /// Ordered verification gate.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
@@ -13,6 +13,8 @@ pub enum VerifyGate {
     BootstrapCheck,
     /// Specification conformance.
     Conformance,
+    /// Consumer embedding contract.
+    Embedding,
     /// Metadata architecture validation.
     Architecture,
     /// rustfmt check.
@@ -46,6 +48,7 @@ pub fn verify_with(runner: &impl VerifyRunner) -> Result<(), XtaskError> {
     for gate in [
         VerifyGate::BootstrapCheck,
         VerifyGate::Conformance,
+        VerifyGate::Embedding,
         VerifyGate::Architecture,
         VerifyGate::Format,
         VerifyGate::Clippy,
@@ -104,7 +107,10 @@ pub const fn gate_command(gate: VerifyGate) -> Option<GateCommand> {
             program: "cargo",
             args: &["doc", "--workspace", "--no-deps"],
         },
-        VerifyGate::BootstrapCheck | VerifyGate::Conformance | VerifyGate::Architecture => {
+        VerifyGate::BootstrapCheck
+        | VerifyGate::Conformance
+        | VerifyGate::Embedding
+        | VerifyGate::Architecture => {
             return None;
         }
     };
@@ -120,6 +126,9 @@ pub(crate) fn run(root: &Path) -> Result<(), XtaskError> {
             match gate {
                 VerifyGate::BootstrapCheck => bootstrap::check(self.root),
                 VerifyGate::Conformance => conformance::check(self.root),
+                VerifyGate::Embedding => {
+                    embedding::check_embedding(self.root, &crate::HostProcessRunner)
+                }
                 VerifyGate::Architecture => architecture::check(self.root),
                 _ => {
                     let Some(GateCommand { program, args }) = gate_command(gate) else {

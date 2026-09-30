@@ -3343,7 +3343,18 @@ A conforming implementation MUST pass:
 - renderer snapshots, including the canonical tool-library explanation;
 - a canonical-authored-form fixture and a scaffolded-package fixture, both checked in under
   `examples/`; and
-- renamed-dependency macro hygiene tests with default features and `macros` enabled.
+- renamed-dependency macro hygiene tests with default features and `macros` enabled; and
+- an out-of-tree renamed-dependency embedding fixture that is run, not only compiled, with default features and `macros` enabled.
+
+The embedding fixture is the conformance obligation that no in-tree test can discharge. It MUST be
+a separate workspace that names the facade as a dependency other than `rulery`, so it cannot reach
+an internal module even by accident, and it MUST be executed rather than merely compiled. It MUST
+author, assemble, compile, and evaluate its own package through the public re-exports alone, and it
+MUST assert that host data converts to typed case facts, that an undeclared host field is rejected,
+that all four outcome kinds are reachable, that priority rather than source order selects the winning
+rule, that an absent optional fact escalates or requests information rather than denying, that an
+unauthorized case reaches the authored default outcome, and that one package, instant, and fact set
+always produce one trace hash under both lock modes.
 
 Trace invariants require that determining rules are selected true rule traces, superseded rules
 are unselected rule traces, all reported missing and invalid facts occur in operand traces,
@@ -3386,25 +3397,35 @@ Rulery v0.1 MUST:
 10. Detect a first set of static problems, enumerated in the static-check table below.
 11. Provide stable JSON and SARIF-ready diagnostics.
 12. Work entirely offline.
+13. Satisfy the out-of-tree consumer embedding contract described under `Required conformance gates`.
 
 Each requirement names the test that demonstrates it. The conformance gate rejects this
 specification unless every identifier below is present, every named test exists in the workspace,
 and every status is `satisfied`.
 
-| ID  | Requirement                                          | Verification test                                          | Status    |
-| --- | ---------------------------------------------------- | ---------------------------------------------------------- | --------- |
-| V01 | Load a rulebook package from structured source files | `filesystem_store_selects_exact_authored_layout`           | satisfied |
-| V02 | Resolve names against a declared vocabulary          | `vocabulary_resolution_is_typed_and_deterministic`         | satisfied |
-| V03 | Type-check conditions and values                     | `typechecker_enforces_operator_matrix`                     | satisfied |
-| V04 | Normalize rules into a typed IR                      | `compilation_is_byte_deterministic`                        | satisfied |
-| V05 | Evaluate a decision against case facts               | `evaluate_records_decisive_rule_and_missing_evidence`      | satisfied |
-| V06 | Preserve four-valued condition results               | `truth_tables_match_all_36_cells`                          | satisfied |
-| V07 | Produce non-binary outcomes                          | `outcomes_require_reasons_and_kind_specific_data`          | satisfied |
-| V08 | Emit a deterministic, complete trace                 | `trace_modes_share_complete_logical_hash`                  | satisfied |
-| V09 | Run authored scenarios as specifications             | `run_scenarios_reports_passing_and_failing_expectations`   | satisfied |
-| V10 | Detect a first set of static problems                | see static-check table                                     | satisfied |
-| V11 | Provide stable JSON and SARIF diagnostics            | `all_v01_wire_contracts_round_trip_strictly`               | satisfied |
-| V12 | Work entirely offline                                | `resolved_dependency_closure_has_no_network_capable_crate` | satisfied |
+| ID  | Requirement                                          | Verification test                                           | Status    |
+| --- | ---------------------------------------------------- | ----------------------------------------------------------- | --------- |
+| V01 | Load a rulebook package from structured source files | `filesystem_store_selects_exact_authored_layout`            | satisfied |
+| V02 | Resolve names against a declared vocabulary          | `vocabulary_resolution_is_typed_and_deterministic`          | satisfied |
+| V03 | Type-check conditions and values                     | `typechecker_enforces_operator_matrix`                      | satisfied |
+| V04 | Normalize rules into a typed IR                      | `compilation_is_byte_deterministic`                         | satisfied |
+| V05 | Evaluate a decision against case facts               | `evaluate_records_decisive_rule_and_missing_evidence`       | satisfied |
+| V06 | Preserve four-valued condition results               | `truth_tables_match_all_36_cells`                           | satisfied |
+| V07 | Produce non-binary outcomes                          | `outcomes_require_reasons_and_kind_specific_data`           | satisfied |
+| V08 | Emit a deterministic, complete trace                 | `trace_modes_share_complete_logical_hash`                   | satisfied |
+| V09 | Run authored scenarios as specifications             | `run_scenarios_reports_passing_and_failing_expectations`    | satisfied |
+| V10 | Detect a first set of static problems                | see static-check table                                      | satisfied |
+| V11 | Provide stable JSON and SARIF diagnostics            | `all_v01_wire_contracts_round_trip_strictly`                | satisfied |
+| V12 | Work entirely offline                                | `resolved_dependency_closure_has_no_network_capable_crate`  | satisfied |
+| V13 | Satisfy the out-of-tree consumer embedding contract  | `embedding_fixture_is_run_with_default_features_and_macros` | satisfied |
+
+V13 is satisfied by execution, not by compilation. `examples/embedding-fixture` is a separate
+workspace whose dependency on the facade is renamed, and `cargo xtask embedding` builds and runs it
+under default features and with `macros` enabled. The fixture authors its own package, so a gate that
+only compiled it would prove nothing about the general evaluation path: the normative tool-library
+fixture is deliberately bound to a single canonical instant and cannot stand in for a consumer
+evaluating its own package. A conforming implementation MUST report the failing check by name when
+the fixture exits non-zero, so a broken contract identifies itself rather than merely failing.
 
 A static check is satisfied only when a production caller can reach it from a compiled package. A
 passing unit test over a hand-constructed input does not satisfy a static check.

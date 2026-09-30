@@ -1,0 +1,19 @@
+id: missing-rollback-plan-requests-information
+title: A release with no rollback plan asks for one
+decision: promote
+at: "2026-09-16T16:00:00.000000000Z"
+given:
+  release:
+    target-environment: staging
+    source-branch: main
+    change-ticket: MBX-1
+    reviewers: 1
+expect:
+  outcome: request_information
+  determining_rules:
+    - package: embedding-promotion
+      rule: request-rollback-plan
+  required_facts:
+    - release.rollback-plan
+  reason_codes: [missing-rollback-plan]
+tags: [embedding]

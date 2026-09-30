@@ -1,10 +1,16 @@
 [tasks."release:gate"]
-description = "Run release Cargo quality gates"
-run = [
-  "cargo fmt --all",
-  "cargo clippy --workspace -- -D warnings",
-  "cargo nextest run --workspace",
-]
+# Delegates to `cargo xtask verify` rather than restating its commands. This task previously ran its
+# own fmt, clippy, and nextest invocations, which were all weaker than the ones the verify gate
+# already uses: no `--check` on fmt, no `--all-targets` on clippy, no `--all-features` on nextest,
+# and none of bootstrap, conformance, architecture, embedding, doctest, or rustdoc. Two command lists
+# covering the same job is how they drift apart unobserved, so the single gate is the only list.
+#
+# One behavior change worth naming: fmt now checks instead of rewriting. A release preflight used to
+# silently format the working tree, which meant a release PR could sweep unrelated uncommitted edits
+# into the release commit. Failing loudly and letting the operator commit formatting deliberately is
+# the safer contract.
+description = "Run the authoritative verification gate (fmt, clippy, nextest, doctest, rustdoc, bootstrap, conformance, embedding, architecture)"
+run = ["cargo xtask verify"]
 
 [tasks."release:check"]
 description = "Run post-bootstrap extended checks for all publishable crates"

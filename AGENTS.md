@@ -23,12 +23,13 @@ cargo doc --workspace --no-deps             # gate: docs
 ```
 
 The authoritative gate is `cargo xtask verify` (`.cargo` alias for `run -p xtask --`). It runs
-fail-fast in this exact order (`xtask/src/verify.rs:44-52`): bootstrap check, conformance,
+fail-fast in this exact order (`xtask/src/verify.rs:44-55`): bootstrap check, conformance, embedding,
 architecture, fmt, clippy, nextest, rustdoc. Individual gates:
 
 ```sh
 cargo xtask architecture    # workspace membership + dependency boundaries
 cargo xtask conformance     # docs/specification.md contract
+cargo xtask embedding       # out-of-tree consumer fixture, built and run
 cargo xtask bootstrap --check      # reconcile vs declarative model, no writes
 cargo xtask bootstrap --dry-run    # print proposed scaffold changes
 ```
@@ -49,6 +50,17 @@ Use `-p <package>` liberally; a bare `cargo nextest run` is slow in a 15-member 
 
 `mise.toml` and `.config/rail.toml` define a lockstep release — all publishable crates move as one
 `version_groups` entry. `mise run release:gate` then `release:check`; mutations require `main`.
+
+`release:gate` delegates to `cargo xtask verify` rather than restating its commands, and
+`release:prepare`, `release:finalize`, and `release:now` all depend on it through
+`release:preflight`. **Do not add a second list of cargo invocations to `mise.toml`.** Two command
+lists covering the same job are how the release path and the working-tree gate drift apart
+unobserved — the same failure `Command::lock_mode` is documented for above. Add a gate to
+`xtask/src/verify.rs` and the release path inherits it.
+
+Note that `release:gate` therefore runs `cargo fmt --all --check`, not `cargo fmt --all`. A release
+preflight must not rewrite the working tree, or a release PR can sweep unrelated uncommitted edits
+into the release commit.
 
 ## Architecture is data, not convention
 
@@ -189,6 +201,13 @@ no mocking crate in the dependency tree.
 - Fixtures are checked in under `examples/tool-library/`, located with
   `env!("CARGO_MANIFEST_DIR")`. **Editing those files or their lock requires regenerating the
   frozen integrity hash** or the conformance gate fails.
+- **`examples/embedding-fixture/` and `examples/macro-hygiene/` are separate workspaces** with a
+  renamed dependency, so they are invisible to the root `cargo fmt --all`, `cargo nextest`, and
+  `cargo clippy` gates. `xtask embedding` and `xtask conformance` own them instead: the first
+  runs the fixture, the second compiles it. The embedding fixture is **run, not only compiled** —
+  a consumer contract that merely resolved would miss a decision that evaluates to the wrong
+  answer. Each assertion in `examples/embedding-fixture/src/main.rs` is a named function, because
+  requirement `V13` names one in its traceability row.
 - Test-only state via `Cell`/`RefCell` fakes implementing port traits, plus `#[cfg(test)]` builder
   toggles on production types (`with_fail_before_rename`, `crates/store/src/filesystem.rs:100-105`).
 - Test `expect` messages are 1–3 lowercase words, no punctuation (`.expect("valid code")`).

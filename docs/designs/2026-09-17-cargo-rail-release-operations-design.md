@@ -110,16 +110,16 @@ no production Rust API changes require unit or integration tests.
 No Rust traits, types, functions, or public crate APIs are added or changed. The public operational
 surface consists of these mise tasks:
 
-| Task                     | Contract                                                                                                      |
-| ------------------------ | ------------------------------------------------------------------------------------------------------------- |
-| `release:gate`           | Run `cargo fmt --all`, `cargo clippy --workspace -- -D warnings`, then `cargo nextest run --workspace`        |
-| `release:check`          | Strictly validate rail config and run extended readiness checks for all publishable crates                    |
-| `release:plan [bump]`    | Preview the all-crate release; accept `patch`, `minor`, or `major`, defaulting to `patch`                     |
-| `release:prepare [bump]` | From `main`, run gates and readiness checks, then create and push a cargo-rail release PR                     |
-| `release:finalize`       | From `main` after merge, rerun gates and readiness checks, then tag, push, publish, and create forge releases |
-| `release:now [bump]`     | From `main`, run gates and readiness checks, then perform the immediate full release                          |
-| `release:resume <state>` | Resume the exact cargo-rail durable state file without starting a second release                              |
-| `release:abort <state>`  | Interactively restore an active release that has not reached remote side effects                              |
+| Task                     | Contract                                                                                                                                  |
+| ------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| `release:gate`           | Run `cargo xtask verify`, the authoritative gate: fmt, clippy, nextest, doctest, rustdoc, bootstrap, conformance, embedding, architecture |
+| `release:check`          | Strictly validate rail config and run extended readiness checks for all publishable crates                                                |
+| `release:plan [bump]`    | Preview the all-crate release; accept `patch`, `minor`, or `major`, defaulting to `patch`                                                 |
+| `release:prepare [bump]` | From `main`, run gates and readiness checks, then create and push a cargo-rail release PR                                                 |
+| `release:finalize`       | From `main` after merge, rerun gates and readiness checks, then tag, push, publish, and create forge releases                             |
+| `release:now [bump]`     | From `main`, run gates and readiness checks, then perform the immediate full release                                                      |
+| `release:resume <state>` | Resume the exact cargo-rail durable state file without starting a second release                                                          |
+| `release:abort <state>`  | Interactively restore an active release that has not reached remote side effects                                                          |
 
 Mise `usage` declarations validate bump choices and required state paths. The plan task preserves
 cargo-rail's semantic exit codes: both "no release changes" and "valid pending release plan" are

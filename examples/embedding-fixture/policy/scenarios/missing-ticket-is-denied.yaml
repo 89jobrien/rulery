@@ -1,0 +1,18 @@
+id: missing-ticket-is-denied
+title: A release without a change ticket is denied
+decision: promote
+at: "2026-09-16T16:00:00.000000000Z"
+given:
+  release:
+    target-environment: production
+    source-branch: main
+    rollback-plan: revert-1
+    reviewers: 2
+expect:
+  outcome: deny
+  determining_rules:
+    - package: embedding-promotion
+      rule: deny-missing-change-ticket
+  required_facts: []
+  reason_codes: [missing-change-ticket]
+tags: [embedding]
