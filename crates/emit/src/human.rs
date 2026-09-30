@@ -159,9 +159,10 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn human_explain_matches_canonical_tool_library_text() {
-        let explanation = HumanExplanation {
+    /// The canonical tool-library explanation, which the specification names as a required
+    /// renderer snapshot.
+    fn canonical_explanation() -> HumanExplanation {
+        HumanExplanation {
             outcome: OutcomeKind::Deny,
             package: PackageId::new("community-tool-library").expect("package"),
             version: Version::new("0.1.0").expect("version"),
@@ -181,16 +182,55 @@ mod tests {
             required_facts: Vec::new(),
             invalid_facts: Vec::new(),
             superseded_rules: Vec::new(),
-        };
-        let expected = "Decision: DENY\nRulebook: community-tool-library@0.1.0\nDecision ID: checkout\nEvaluated at: 2026-09-16T16:00:00.000000000Z\nPolicy date: 2026-09-16 (America/New_York)\n\nReason:\n  [expired-training] Power-tool training has expired.\n\nDetermining rule:\n  community-tool-library::deny-expired-training\n\nConditions:\n  true  member.training.valid-until is before today (2026-09-16)\n  true  tool.category equals power-tool\n\nRequired facts: none\nInvalid facts: none\nSuperseded rules: none\n\nEvidence:\n  canonical package, facts, and trace hashes are present in JSON output\n  timezone database identity is present in JSON output\n";
-        assert_eq!(HumanRenderer.explain(&explanation), expected);
+        }
+    }
 
+    #[test]
+    fn human_explain_matches_canonical_tool_library_text() {
+        insta::assert_snapshot!(HumanRenderer.explain(&canonical_explanation()));
+    }
+
+    /// The explanation is a wire artifact, so it must end in exactly one newline and never
+    /// normalize away a section that a reader depends on.
+    #[test]
+    fn human_explain_has_one_trailing_newline_and_every_section() {
+        let rendered = HumanRenderer.explain(&canonical_explanation());
+        assert!(
+            rendered.ends_with("timezone database identity is present in JSON output\n"),
+            "the explanation must close with its evidence section and a single newline: {rendered:?}"
+        );
+        assert!(
+            !rendered.ends_with("\n\n"),
+            "the explanation must not gain a trailing blank line"
+        );
+        for section in [
+            "Decision: ",
+            "Rulebook: ",
+            "Decision ID: ",
+            "Evaluated at: ",
+            "Policy date: ",
+            "Reason:",
+            "Determining rule:",
+            "Conditions:",
+            "Required facts:",
+            "Invalid facts:",
+            "Superseded rules:",
+            "Evidence:",
+        ] {
+            assert!(
+                rendered.contains(section),
+                "the explanation is missing its `{section}` section"
+            );
+        }
+    }
+
+    #[test]
+    fn markdown_truth_table_names_every_value_it_is_given() {
         let markdown = crate::MarkdownRenderer.render_truths(&[
             ("missing", rulery_engine::Truth::Unknown),
             ("malformed", rulery_engine::Truth::Invalid),
         ]);
-        assert!(markdown.contains("Unknown"));
-        assert!(markdown.contains("Invalid"));
-        assert!(!markdown.contains("failed"));
+        insta::assert_snapshot!(markdown);
+        assert!(!markdown.contains("failed"), "{markdown}");
     }
 }

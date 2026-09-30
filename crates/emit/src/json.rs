@@ -133,4 +133,48 @@ mod tests {
             Err(JsonRenderError::NonObjectArtifact)
         ));
     }
+
+    /// A decision-trace envelope is the machine-readable face of the canonical tool-library
+    /// outcome, so its exact bytes are a wire contract worth pinning.
+    ///
+    /// The renderer's whole job is canonical JSON: sorted keys, no incidental whitespace, and
+    /// `None` fields present as `null` rather than omitted, because the envelope declares
+    /// `deny_unknown_fields` on the consuming side. A change to any of that is a schema change
+    /// disguised as a refactor, which is exactly what a snapshot is for.
+    #[test]
+    fn decision_trace_envelope_renders_canonical_bytes() {
+        let envelope = TestEnvelope {
+            schema: "rulery.decision-trace/v1",
+            payload: TestPayload {
+                hash: "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                outcome: Some("deny"),
+                conflict: None,
+                instant: "2026-09-16T16:00:00.000000000Z",
+                decimal: "12.340",
+            },
+        };
+        let rendered = JsonRenderer
+            .render(&envelope)
+            .expect("decision trace renders");
+        insta::assert_snapshot!(String::from_utf8(rendered).expect("utf8"));
+    }
+
+    /// The scenario array is a top-level JSON array, not an object, so it must not acquire one.
+    #[test]
+    fn scenario_results_render_as_a_bare_array() {
+        let scenarios = [TestEnvelope {
+            schema: "rulery.scenario-result/v1",
+            payload: TestPayload {
+                hash: "blake3:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+                outcome: Some("approve"),
+                conflict: None,
+                instant: "2026-09-16T16:00:00.000000000Z",
+                decimal: "1.0",
+            },
+        }];
+        let rendered = JsonRenderer
+            .render_scenario_results(&scenarios)
+            .expect("explicit scenario array");
+        insta::assert_snapshot!(String::from_utf8(rendered).expect("utf8"));
+    }
 }

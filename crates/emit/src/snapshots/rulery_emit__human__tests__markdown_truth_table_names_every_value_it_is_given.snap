@@ -1,0 +1,5 @@
+---
+source: crates/emit/src/human.rs
+---
+- `malformed`: Invalid
+- `missing`: Unknown
