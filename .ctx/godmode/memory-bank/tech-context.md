@@ -4,11 +4,11 @@
 
 | Property | Value                                                | Source                              |
 | -------- | ---------------------------------------------------- | ----------------------------------- |
-| Language | Rust, **edition 2024**                               | `Cargo.toml:6`                      |
-| MSRV     | **1.85**                                             | `Cargo.toml:7`                      |
+| Language | Rust, **edition 2024**                               | `Cargo.toml:7`                      |
+| MSRV     | **1.98**, the toolchain the gate runs on             | `Cargo.toml:11`                     |
 | Resolver | 3                                                    | `Cargo.toml:3`                      |
-| Version  | `0.1.0`, lockstep across all publishable crates      | `Cargo.toml:5`, `.config/rail.toml` |
-| License  | `MIT OR Apache-2.0`                                  | `Cargo.toml:8`                      |
+| Version  | `0.1.0`, lockstep across all publishable crates      | `Cargo.toml:6`, `.config/rail.toml` |
+| License  | `MIT OR Apache-2.0`                                  | `Cargo.toml:12`                     |
 | Remote   | `github` → `https://github.com/89jobrien/rulery.git` | `git remote -v`                     |
 
 ## Workspace members
