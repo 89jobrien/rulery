@@ -453,6 +453,17 @@ enum PathType {
     Record,
 }
 
+/// Resolves one fact path to the shape its declared type gives it.
+///
+/// Relies on an invariant this crate does not itself establish: **at most one declared root can
+/// prefix any given path**. That holds because `resolve_vocabulary` rejects a root nested under
+/// another, and two prefixes of the same path are always prefix-ordered with respect to each other,
+/// so the `find` below can never have two candidates to choose between. Taking the first match is
+/// therefore not a precedence rule — it is the only match.
+///
+/// If that check is ever relaxed, this becomes silently order-dependent: a shorter root sorts first
+/// in the `BTreeMap` and would resolve every shared path, leaving the nested root's declaration
+/// inert. Preferring the longest match would then be the fix, and it would be a no-op today.
 fn resolve_path_type(path: &FactPath, vocabulary: &ResolvedVocabulary) -> Option<PathType> {
     let (root_path, root) = vocabulary
         .roots
