@@ -29,6 +29,14 @@ pub enum ResolveError {
     /// Operational term path does not exist under declared roots.
     #[error("operational term path `{0}` is not declared")]
     UnknownTermPath(String),
+    /// One root path is a prefix of another, so the shorter root always wins.
+    #[error("root `{shadowing}` shadows root `{shadowed}`: no root may be a prefix of another")]
+    ShadowedRoot {
+        /// The shorter root, which wins path resolution for every shared path.
+        shadowing: FactPath,
+        /// The longer root, whose declaration never takes effect.
+        shadowed: FactPath,
+    },
 }
 
 /// Resolves vocabulary declarations into deterministic sorted maps.
@@ -39,8 +47,21 @@ pub enum ResolveError {
 /// term-path constraints.
 pub fn resolve_vocabulary(input: VocabularyInput) -> Result<ResolvedVocabulary, ResolveError> {
     let mut roots = BTreeMap::new();
-    let mut root_prefixes = Vec::new();
+    let mut root_prefixes: Vec<FactPath> = Vec::new();
     for root in input.roots {
+        // Reject a root nested under another before anything consumes it. Path resolution takes the
+        // first declared root that prefixes a path, and a BTreeMap orders the shorter path first, so
+        // the nested root would never apply. Rejecting here attributes the mistake to the vocabulary
+        // that contains it, instead of letting it surface much later as an analysis that is
+        // inconclusive for reasons the author cannot see.
+        for existing in &root_prefixes {
+            if root.path.segments().starts_with(existing.segments()) {
+                return Err(ResolveError::ShadowedRoot {
+                    shadowing: existing.clone(),
+                    shadowed: root.path.clone(),
+                });
+            }
+        }
         root_prefixes.push(root.path.clone());
         roots.insert(root.path.clone(), root);
     }
@@ -159,6 +180,59 @@ mod tests {
     };
 
     use super::*;
+
+    #[test]
+    fn a_root_may_not_shadow_another_root() {
+        // `member` and `member.name` are distinct map keys, so nothing catches them by
+        // construction. Left alone they reach the analyzer as a path that resolves against the
+        // *shorter* root, so the declaration silently stops meaning what it says.
+        let input = VocabularyInput {
+            roots: vec![
+                ResolvedRoot {
+                    path: FactPath::from_str("member").expect("path"),
+                    type_id: TypeId::new("text").expect("type"),
+                },
+                ResolvedRoot {
+                    path: FactPath::from_str("member.name").expect("path"),
+                    type_id: TypeId::new("text").expect("type"),
+                },
+            ],
+            ..VocabularyInput::default()
+        };
+        assert_eq!(
+            resolve_vocabulary(input),
+            Err(ResolveError::ShadowedRoot {
+                shadowing: FactPath::from_str("member").expect("path"),
+                shadowed: FactPath::from_str("member.name").expect("path"),
+            })
+        );
+    }
+
+    #[test]
+    fn sibling_roots_are_not_shadowing() {
+        // Sharing a first segment is not itself shadowing. Two paths of equal length can share one
+        // segment without either being a prefix of the other, and those roots are both meaningful:
+        // a sibling root exposes one nested path without declaring its parent.
+        for paths in [
+            vec!["account", "ticket"],
+            vec!["member.name", "member.status"],
+        ] {
+            let input = VocabularyInput {
+                roots: paths
+                    .iter()
+                    .map(|path| ResolvedRoot {
+                        path: FactPath::from_str(path).expect("path"),
+                        type_id: TypeId::new("text").expect("type"),
+                    })
+                    .collect(),
+                ..VocabularyInput::default()
+            };
+            assert!(
+                resolve_vocabulary(input).is_ok(),
+                "{paths:?} must resolve: neither path is a prefix of the other"
+            );
+        }
+    }
 
     #[test]
     fn vocabulary_resolution_is_typed_and_deterministic() {

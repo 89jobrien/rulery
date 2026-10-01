@@ -920,7 +920,10 @@ reject `destination`; escalation strategies require it.
 
 Named types are only enum, record, and list. Primitive constraints are not authored in v0.1.
 `min_items <= max_items` when both exist. Closed records reject undeclared supplied fields.
-Derived fields cannot be supplied as case facts.
+Derived fields cannot be supplied as case facts. No root path is a prefix of another: a shorter root
+resolves every shared path, so a root nested under another is unreachable and is rejected at
+resolution. Sibling roots under a common first segment are permitted, because neither is a prefix of
+the other.
 
 #### Actions, rules, conditions, and operands
 
