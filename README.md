@@ -55,7 +55,7 @@ The root crate re-exports the component crates and provides two composition laye
 
 ## Build From Source
 
-Rulery requires Rust 1.85 or newer and uses the Rust 2024 edition.
+Rulery requires Rust 1.98 or newer and uses the Rust 2024 edition.
 
 ```sh
 git clone https://github.com/89jobrien/rulery.git

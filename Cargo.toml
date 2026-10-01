@@ -5,7 +5,10 @@ resolver = "3"
 [workspace.package]
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.85"
+# Tracks the toolchain the workspace is developed and gated on. `cargo rail release check --extended`
+# verifies this floor with a real toolchain, so declaring anything lower turns the check into a
+# fiction: it called the workspace MSRV-clean at 1.85 while `crates/analysis` used let-chains.
+rust-version = "1.98"
 license = "MIT OR Apache-2.0"
 repository = "https://github.com/89jobrien/rulery"
 

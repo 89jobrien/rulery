@@ -369,16 +369,16 @@ fn build_imports(
                         .map_err(|_| err(map, key, text, "alias", "import alias is invalid"))
                 })
                 .transpose()?;
-            if let Some(value) = &alias {
-                if !aliases.insert(value.as_str().to_owned()) {
-                    return Err(err(
-                        map,
-                        key,
-                        text,
-                        "alias",
-                        "import aliases must be unique",
-                    ));
-                }
+            if let Some(value) = &alias
+                && !aliases.insert(value.as_str().to_owned())
+            {
+                return Err(err(
+                    map,
+                    key,
+                    text,
+                    "alias",
+                    "import aliases must be unique",
+                ));
             }
             Ok(SourceImport {
                 package: PackageId::new(i.package)
@@ -855,37 +855,37 @@ fn operand(
     text: &str,
     value: &serde_yaml::Value,
 ) -> Result<SourceOperand, SourceParseError> {
-    if let Some(m) = value.as_mapping() {
-        if m.len() == 1 {
-            for (k, v) in m {
-                match k.as_str() {
-                    Some("fact") => {
-                        return FactPath::from_str(v.as_str().ok_or_else(|| {
-                            err(map, key, text, "fact", "fact operand must be text")
-                        })?)
-                        .map(SourceOperand::Fact)
-                        .map_err(|_| err(map, key, text, "fact", "fact operand is invalid"));
-                    }
-                    Some("reserved") => {
-                        let v = v.as_str().ok_or_else(|| {
-                            err(map, key, text, "reserved", "reserved operand must be text")
-                        })?;
-                        if !matches!(v, "today" | "now") {
-                            return Err(err(
-                                map,
-                                key,
-                                text,
-                                "reserved",
-                                "reserved operand is invalid",
-                            ));
-                        }
-                        return Ok(SourceOperand::Reserved(v.to_owned()));
-                    }
-                    Some("literal") => {
-                        return authored(map, key, text, "literal", v).map(SourceOperand::Literal);
-                    }
-                    _ => {}
+    if let Some(m) = value.as_mapping()
+        && m.len() == 1
+    {
+        for (k, v) in m {
+            match k.as_str() {
+                Some("fact") => {
+                    return FactPath::from_str(v.as_str().ok_or_else(|| {
+                        err(map, key, text, "fact", "fact operand must be text")
+                    })?)
+                    .map(SourceOperand::Fact)
+                    .map_err(|_| err(map, key, text, "fact", "fact operand is invalid"));
                 }
+                Some("reserved") => {
+                    let v = v.as_str().ok_or_else(|| {
+                        err(map, key, text, "reserved", "reserved operand must be text")
+                    })?;
+                    if !matches!(v, "today" | "now") {
+                        return Err(err(
+                            map,
+                            key,
+                            text,
+                            "reserved",
+                            "reserved operand is invalid",
+                        ));
+                    }
+                    return Ok(SourceOperand::Reserved(v.to_owned()));
+                }
+                Some("literal") => {
+                    return authored(map, key, text, "literal", v).map(SourceOperand::Literal);
+                }
+                _ => {}
             }
         }
     }

@@ -5,7 +5,7 @@ YAML rule packages into deterministic IR, evaluates with explicit four-valued tr
 (`true`/`false`/`unknown`/`invalid`), records reproducible traces, runs scenarios, performs static
 analysis, and renders JSON/Markdown/SARIF/decision-table artifacts.
 
-Cargo workspace, **Rust 2024 edition, MSRV 1.85**, 15 members (root `rulery` facade + 13
+Cargo workspace, **Rust 2024 edition, MSRV 1.98**, 15 members (root `rulery` facade + 13
 `crates/*` + `xtask`). No `.cursor/rules`, `.cursorrules`, or `.github/copilot-instructions.md`
 exist — this file is the agent contract.
 
