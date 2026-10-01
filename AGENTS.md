@@ -240,3 +240,22 @@ no mocking crate in the dependency tree.
   a second implementation is what let the public accessor and the shipped behavior drift apart
   unobserved.
 - Conventional commits: `feat(scope):`, `fix(scope):`, `docs:`, `build:`, `chore:`.
+
+## Git discipline
+
+- **Work on a branch. `main` only moves by explicit merge.** A commit is only a proposal until it
+  is merged deliberately. Do not commit to `main`, and do not switch to `main` to "just commit
+  something small" — that is the whole failure mode this section exists to prevent.
+- **Stage explicit paths. Never `git add -A`.** When another agent may be working in this
+  checkout, `-A` will sweep its in-flight work into your commit. Name the files you changed, and
+  read `git diff --cached --stat` before committing. This is the single highest-value habit here:
+  an agent once staged a 13-file package it had not written and only caught it because it read the
+  staged diff.
+- **Read `git diff --cached` before every commit.** Two agents on one branch each see a tree they
+  cannot fully account for. The staged diff is the only thing that is definitely yours.
+- If a commit you did not make appears, or `git status` shows work you did not author, stop and
+  reconcile before adding to it. Do not assume it is yours because it is uncommitted.
+- Two agents working `main` concurrently has produced real confusion twice in one day: work appeared
+  mid-review and was committed underneath the reviewer, and a complete feature was pushed before it
+  had been agreed to. For genuinely parallel work, use `git worktree add ../rulery-<name> -b
+<name>/<task> main` so each agent has an isolated tree, and merge when each finishes.
