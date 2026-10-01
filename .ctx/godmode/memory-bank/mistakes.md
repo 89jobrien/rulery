@@ -1,5 +1,5 @@
 ---
-version: 2
+version: 3
 last_updated: 2026-09-30
 next_review: 2026-10-07
 ---
@@ -8,20 +8,88 @@ next_review: 2026-10-07
 
 ## Process Errors
 
+### Asserting a cause before running the thing
+
+- **Occurrences**: 3
+- **Dates**: 2026-09-30
+- **Affected**: `personal-mcp` BAML build diagnosis (stated a path mismatch twice before generating);
+  partition benchmark (hypothesised `specs.clone()` contamination); truth-algebra counterexample
+  (hand-derived a witness that agreed when it did not)
+- **Prevention**: Run the command, read the output, then name the cause. If the fix does not address
+  the symptom, the diagnosis is wrong — say so immediately rather than patching again. Two of these
+  three cost multiple turns; the third was caught only because a control experiment existed.
+- **Notes**: The common shape is a plausible mechanism asserted from config files rather than
+  observation. In every case the real cause was found within one command of trying it. A control —
+  a second run with the suspected component removed — is what separates a measurement from a guess.
+
+### Recommending deletion from partial evidence
+
+- **Occurrences**: 1, near-miss with severe consequence
+- **Dates**: 2026-09-30
+- **Affected**: `model-ingress-redaction` worktree audit in `~/.notfiles`
+- **Prevention**: Before recommending any prune, delete, or "disposable" judgement, check for
+  siblings and read the nearest `design.md`, `plan.md`, or `tasks.yaml`. A worktree or branch named
+  for a feature is evidence the feature exists somewhere, not that it does not.
+- **Notes**: I judged the notfiles worktree "disposable formatter output" from its 38-file diff
+  without checking that its parent directory held three sibling repos and a four-repo security
+  design. The user corrected it. Both `personal-mcp` and `devloop` held untracked source files that
+  existed nowhere else — unprotected against exactly that recommendation.
+
+### `git commit -- <pathspec>` reads the working tree, not the index
+
+- **Occurrences**: 1
+- **Dates**: 2026-09-30
+- **Affected**: `~/.notfiles` commit `3ee2674`, which swept another agent's uncommitted 1Password
+  edits into a commit described as being about git discipline
+- **Prevention**: To commit only what you staged, use `git commit` with no pathspec. A pathspec
+  commits the current working-tree content of those paths and ignores the index, so it takes
+  whatever uncommitted edits happen to live in the same files.
+- **Notes**: Ironic and instructive: I had just identified this exact hazard while reviewing my own
+  earlier `git commit -- <path>` usage, then chose the pathspec form _because_ I had identified it.
+  Explicit-path staging and explicit-path committing are different operations with different
+  semantics, and only the first is constrained by the index.
+
+### Ten files already staged by another agent
+
+- **Occurrences**: 1
+- **Dates**: 2026-09-30
+- **Affected**: `~/.notfiles` — `git add` on two paths added to an index already holding a coursers
+  package migration and four hook deletions
+- **Prevention**: Run `git diff --cached --stat` _before_ staging to see what the index already
+  holds, and again after. `git add` adds to a queue; it does not make the queue yours.
+- **Notes**: A `git commit` on that index would have shipped 12 files including work I had not
+  written or reviewed. Caught only because the stat was read before committing.
+
 ### POSIX shell syntax used in Nushell command context
 
-- **Occurrences**: 22 (3 on 2026-09-21, ~19 on 2026-09-30)
+- **Occurrences**: 34 (3 on 2026-09-21, ~19 on 2026-09-30, ~12 on 2026-09-30 closeout)
 - **Dates**: 2026-09-21, 2026-09-30
 - **Affected**: Every `Bash` tool call in this repo; report-directory creation; scratch-file
-  comparisons; loop-based snapshot acceptance
+  comparisons; loop-based snapshot acceptance; Nushell helper scripts written to audit worktrees
 - **Prevention**: Write the Nushell-correct form before sending, since these fail at parse time and
   cost a whole turn each. The reliable wrapper is `do { cmd } | complete`, then `get exit_code` or
   `get stderr`. Confirmed-failing forms: `2>&1`, `2>/dev/null`, `&&`, `||`, `mkdir -p`, `cp -R`,
   `ls -1`, `ls -la` with trailing args, `for x in a b; do`, `cat - file > out`, and
-  `date +%F` used as a second positional.
+  `date +%Y-%m-%d` used as a second positional. Two further forms specific to writing Nushell
+  scripts: a literal `(` or `)` inside `$"..."` is read as interpolation, and `$(expr)` nested in a
+  string breaks. Precompute into `let` bindings first. `>` is not redirection — it is passed to the
+  command as a literal filename, so `cargo test > file` becomes `cargo test > file` as two inputs.
 - **Notes**: Every occurrence is a parse error with no side effect, so retrying is always safe. The
   frequency is the problem: this was relearned at least four separate times in one session after
   already having learned it. Treat the first `2>&1` of a session as a signal to re-read this entry.
+
+### Build-script stubs that cannot satisfy the code that uses them
+
+- **Occurrences**: 1
+- **Dates**: 2026-09-30
+- **Affected**: `personal-mcp` `build.rs` — comment claimed "allow compilation to succeed" while the
+  stub spec declared `paths: {}`, which cannot generate the `analyze_log_event` method `baml.rs` calls
+- **Prevention**: Do not write a fallback stub that cannot satisfy the crate's own references. Either
+  check the input into version control so there is no missing branch, or fail with a clear message.
+  A stub that produces a non-compiling client is worse than one that stops the build.
+- **Notes**: Scanned 1,268 published `build.rs` files in the local registry: zero implement a
+  stub-fallback for generated code, and 145 ship their codegen input (`.proto`) inside the package.
+  The convention is to version the input so the absence case never arises.
 
 ### Heredoc inside command substitution corrupts commit messages
 

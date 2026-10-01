@@ -1,25 +1,53 @@
 # Active Context
 
-Last updated 2026-09-30, after the gap-closeout programme landed on `main`.
+Last updated 2026-09-30, after the session closeout.
 
 ## Current focus
 
-No active work. The ten-gap programme and the four specification
-`Required conformance gates` bullets that were unmet at its start are both
-closed. The next session should pick up an open question below rather than
-continue anything in flight.
+No active work in `rulery`. The ten-gap programme and the four specification
+`Required conformance gates` bullets are closed and pushed.
+
+The one genuinely unfinished body of work is **`model-ingress-redaction`**, a
+four-repo secret-redaction feature whose graph lives at
+`/Users/joe/dev/.ctx/_WORKING_DIR/model-ingress-redaction/tasks.yaml`. Three of
+six tasks are committed; the remaining three are all OpenCode plugin work.
 
 ## Current state
 
-- `main` is `7f29a71`, identical to `github/main`, working tree clean. `feat/gap-closeout` still
-  exists locally and is now identical to `main`; safe to delete.
-- Godmode graph: 125 done, 0 blocked, 0 pending, 0 running (`.ctx/godmode/tasks.yaml`).
-- `cargo xtask verify` passes all **eight** gates. `cargo nextest run --workspace --all-features`
-  is 184 tests, 184 passing. `cargo test --workspace --all-features --doc` is 4 doctests.
-  `cargo clippy --workspace --all-targets -- -D warnings` is clean.
-- The v0.1 requirement gate (`xtask::check_requirements`) exits 0, and
-  `xtask conformance` now additionally fails if the specification's required-gate list loses a
-  bullet. Deleting a requirement is a gate failure rather than a silent edit.
+- `rulery` is checked out on **`fix/msrv-1.98`**, one commit ahead of `main`
+  (`e4ef330`, not written by me). `main` is at `7f29a71` and identical to
+  `github/main`. Decide whether that branch merges first or in parallel.
+- Godmode graph: 125 done, 0 blocked, 0 pending, 0 running.
+- `cargo xtask verify` passes all **eight** gates; 184 tests, 4 doctests, clippy clean.
+- `model-ingress-redaction` task graph: 3 done (`obfsck-policy`,
+  `personal-mcp-response`, `devloop-mcp-response`), 1 active
+  (`opencode-lifecycle`), 2 pending (`opencode-fail-closed`, `lifecycle-canary`).
+  `personal-mcp` is on `~/dev/personal-mcp` at `807ef7e`; `devloop` at `994e96d`.
+
+## Cross-repo state touched this session
+
+| Repo                  | Location                                            | State                                                               |
+| --------------------- | --------------------------------------------------- | ------------------------------------------------------------------- |
+| `rulery`              | `~/dev/rulery`                                      | on `fix/msrv-1.98`, +1 unpushed (not mine)                          |
+| `personal-mcp`        | `~/dev/personal-mcp`                                | `feat/model-ingress-redaction`, clean, needs BAML client generated  |
+| `devloop`             | `.ctx/_WORKING_DIR/model-ingress-redaction/devloop` | committed; 70 markdown files still uncommitted                      |
+| `notfiles`            | `~/.notfiles`                                       | on `feat/secure-tailscale-key-sync`, heavy unrelated worktree churn |
+| `godmode` memory bank | `.ctx/godmode/memory-bank/`                         | 3 paths; the tooling's own path bug is documented below             |
+
+## Environment
+
+- Shell is Nushell. The single largest source of wasted turns; see `mistakes.md`, now at 34 recorded
+  occurrences. Treat the first `2>&1` of a session as a signal to re-read that entry.
+- The pre-commit hook at `~/.config/git/hooks/pre-commit` runs `prettier --write` over staged YAML and
+  markdown, then re-adds the result. It exits 0 and prints a green check, so byte-exact artifacts
+  corrupt silently. Read it before committing any generated file; see `.prettierignore` in `rulery`.
+- `whatidid` harvests `~/.claude/projects/**/*.jsonl`. Sessions run in opencode are invisible to it —
+  verify there is a same-day transcript before invoking it, or summarise from git log instead.
+- `personal-mcp` needs `bunx --yes @boundaryml/baml@0.219.0 generate --from baml_src` before it
+  compiles; `scripts/baml-log-lab.sh` resolves an unpinned `bunx`, which resolves 0.226.2 and fails
+  against the 0.219.0 generator target.
+- Another agent works in these checkouts. Twice this session a worktree or branch appeared under me
+  mid-review.
 
 ## Completed recently
 
@@ -46,6 +74,12 @@ The 2026-09-30 session, 33 commits, +7,927/−1,506 across 75 files:
 - Renamed-dependency macro hygiene fixture, wired into `xtask conformance` as a real gate.
 - `LICENSE-MIT` and `LICENSE-APACHE` added, with a test that derives its expectation from
   `[workspace.package]`.
+- Rejected a vocabulary root nested under another at resolution time (`ResolveError::ShadowedRoot`).
+  The "prefer the most specific root match" alternative was proved a no-op: two roots can only both
+  prefix a path if one prefixes the other, which the new check forbids.
+- Global agent config: removed the standing `git add -A` mandate from the notfiles-managed
+  `CLAUDE.md`, and made `daily-orchestration`'s fix-agent commit its own recorded paths rather than
+  anything a global `git status` shows.
 
 ## Known deviations
 
@@ -70,28 +104,23 @@ Still open:
   `serde_json::Value`, whose maps are `BTreeMap`), `render_scenario_results` uses struct declaration
   order. Both are deterministic so the contract holds, but the two machine formats do not share one
   convention. Documented by snapshot rather than changed, since unifying them moves wire bytes.
+- Outside this repo: `personal-mcp`'s build depends on a gitignored generated client plus a `build.rs`
+  stub that cannot satisfy `baml.rs`. Neither fixed — the correct fix is checking the generated client
+  in, and that is a build-architecture decision for its owner.
+- `godmode` 0.7.0 uses three different memory-bank paths (`status`/`inject`/`remind` read
+  `.ctx/godmode/memory-bank/`, `init` writes `.ctx/memory-banking/`), while its skill document calls
+  `.ctx/memory-bank/` canonical. The bank stays where the tool reads it; the fix belongs in godmode.
 
 ## Blockers
 
-None. `init` and `fmt` are no longer blocked: both are specified, implemented, and now have
-checked-in fixtures.
+None in `rulery`. `init` and `fmt` are no longer blocked: both are specified, implemented, and now
+have checked-in fixtures.
 
 Release remains unconfirmed: the Cargo Rail file scope and the initial `0.1.0` / `v0.1.0` tag.
 
-## Environment
-
-- Shell is Nushell. This is the single largest source of wasted turns — see the mistake ledger. Write
-  the correct form first; every POSIX-ism is a parse error that costs a turn.
-- The pre-commit hook at `~/.config/git/hooks/pre-commit` runs `prettier --write` over staged YAML and
-  markdown, then re-adds the result. It exits 0 and prints a green check, so byte-exact artifacts
-  corrupt silently. Read it before committing any generated file.
-- Another agent has been active in this checkout at times, producing cargo file-lock contention.
-- The memory bank lives at `.ctx/godmode/memory-bank/`, **not** the `.ctx/memory-bank/` that the
-  memory-banking skill documents as canonical. `godmode memory-banking status`, `inject`, and
-  `remind` all read the former, while `init` writes to a _third_ path, `.ctx/memory-banking/`.
-  Installed version is 0.7.0. Migrating to the documented path would silently stop the SessionStart
-  and Stop hooks from injecting anything, so the bank stays where the tool actually reads it. The
-  fix belongs in godmode, not in this repo.
+`model-ingress-redaction` has no hard blocker, but three tasks depend on a decision about whether the
+OpenCode plugin is the right enforcement point at all — the design excludes it from crates.io and
+names plugin removal as a standing bypass.
 
 ## Decisions
 
@@ -109,6 +138,12 @@ Release remains unconfirmed: the Cargo Rail file scope and the initial `0.1.0` /
 - `rstest` declined: `xtask`'s `collect_test_names` reads literal `fn <name>(` source lines because
   the specification's traceability tables name tests by source identifier, so macro-generated test
   names cannot be referenced. The repo also mandates table-driven loops over parametrised tests.
+- A root nested under another root is rejected at vocabulary resolution rather than resolved by
+  precedence. Once rejected, "prefer the longest matching root" is provably a no-op, so it is
+  documented as a dependency rather than implemented.
+- Global git discipline: work on a branch, merge explicitly, stage named paths, read the staged
+  diff before every commit. Escalate to worktrees only when two agents genuinely run concurrently.
+  Applied globally rather than per-repo because the failure it prevents is not repo-specific.
 
 ## Open questions
 
@@ -116,6 +151,12 @@ Release remains unconfirmed: the Cargo Rail file scope and the initial `0.1.0` /
   change, so it needs a deliberate decision.
 - Confirm the initial release target as workspace version/tag `0.1.0` / `v0.1.0`, and whether to
   include or split the Cargo Rail release-planning files.
+- Should `model-ingress-redaction` enforce at the OpenCode plugin, given the design already names
+  plugin removal as a bypass? Personal MCP and DevLoop MCP redaction is done and independent.
+- Should `personal-mcp` check in its generated BAML client? Doing so removes the missing-input branch
+  entirely; the alternative is deleting the broken stub and letting the build fail loudly.
+- `rulery` is on `fix/msrv-1.98` with an unpushed commit that is not mine. Merge order matters if
+  session-closeout changes also land on a branch.
 - `compact_str` for `FactSegment` / `StableId` internals was offered and not taken. It would cut
   allocation cost across the clone-heavy surfaces with no API-visible change, since only `as_str()`
   and `segments()` are exposed.

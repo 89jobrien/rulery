@@ -20,6 +20,18 @@
   `MIT OR Apache-2.0`, with a test that derives its expectation from `[workspace.package]`.
 - **2026-09-30: removed two partition performance defects** found by a new criterion benchmark —
   89× on the pathological case, and the residual cost is `n log n` inherent to the output type.
+- **2026-09-30: rejected a vocabulary root nested under another** at resolution time. The
+  alternative "prefer the longest matching root" was then proved a no-op, because two roots can only
+  both prefix a path if one prefixes the other — which the new check forbids.
+- **2026-09-30: removed `git add -A` as a standing global mandate** from the notfiles-managed
+  `CLAUDE.md`, and changed `daily-orchestration`'s fix-agent to commit only the paths it recorded
+  rather than whatever a global `git status` reports. Both edits are live through symlinks but
+  uncommitted, on a branch owned by another agent.
+- **2026-09-30: recovered `model-ingress-redaction`** — a four-repo secret-redaction feature whose
+  implementation existed only as untracked source in two worktrees. `personal-mcp` `00caa12` (merged
+  onto `develop`, 260 tests) and `devloop` `994e96d` (536 tests) are now committed. Required fixing
+  personal-mcp's `build.rs` stub, which claimed to keep the crate compiling but could not satisfy
+  `baml.rs`, and an unpinned `bunx` that resolves a BAML CLI too new for the pinned generator target.
 
 ## Verification
 
@@ -36,7 +48,10 @@
 
 ## In progress
 
-- Nothing. The tree is clean and `main` is identical to `github/main`.
+- Nothing in `rulery`. The checkout is on `fix/msrv-1.98` with one unpushed commit that is not mine.
+- `model-ingress-redaction`: three of six tasks committed; `opencode-lifecycle` is active and
+  `opencode-fail-closed` and `lifecycle-canary` are pending. All three are OpenCode plugin work.
+- `devloop` has 70 uncommitted markdown files in its feature worktree — formatter output, no code.
 
 ## Not started
 
@@ -45,3 +60,5 @@
 - GitHub Actions validation. There is still no `.github/` directory; `cargo xtask verify` is the gate.
 - `cargo-semver-checks`. No value until there is a published version to diff against; revisit after
   the first crates.io release.
+- Checking `personal-mcp`'s generated BAML client into version control, so its build has no
+  missing-input branch at all.
